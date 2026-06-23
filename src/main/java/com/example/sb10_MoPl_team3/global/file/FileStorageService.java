@@ -11,6 +11,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetUrlRequest;
 
 @Service
+@ConditionalOnProperty(prefix = "aws.s3", name = {"bucket", "region"})
 public class FileStorageService {
 
   private final S3Client s3Client;
