@@ -20,7 +20,7 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 60)
     private String password;
 
     @Column(name = "profile_image_url")
@@ -34,10 +34,11 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 20)
     private UserStatus status;
 
-    public User(String email, String name, String password, UserRole role) {
+    public User(String email, String name, String password,String profileImageUrl, UserRole role) {
         this.email = email;
         this.name = name;
         this.password = password;
+        this.profileImageUrl = profileImageUrl;
         this.role = role;
         this.status = UserStatus.ACTIVE;
     }
