@@ -16,6 +16,3 @@ aws:
   s3:
     bucket: test-bucket
     region: us-east-1
-    credentials:
-      access-key: test-key
-      secret-key: test-secret
