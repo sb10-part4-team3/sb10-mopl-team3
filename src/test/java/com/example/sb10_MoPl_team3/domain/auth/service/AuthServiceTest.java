@@ -2,17 +2,14 @@ package com.example.sb10_MoPl_team3.domain.auth.service;
 
 import com.example.sb10_MoPl_team3.domain.auth.dto.request.SignInRequest;
 import com.example.sb10_MoPl_team3.domain.auth.dto.response.JwtDto;
-import com.example.sb10_MoPl_team3.domain.user.dto.request.UserCreateRequest;
+import com.example.sb10_MoPl_team3.domain.auth.exception.InvalidCredentialException;
 import com.example.sb10_MoPl_team3.domain.user.entity.User;
 import com.example.sb10_MoPl_team3.domain.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.domain.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.domain.user.repository.UserRepository;
-import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
-import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -42,56 +39,6 @@ class AuthServiceTest {
 
     @InjectMocks
     private AuthService authService;
-
-    @Test
-    @DisplayName("회원가입 성공 시 비밀번호를 암호화하고 기본 권한 USER와 활성 상태로 저장한다")
-    void signUp_success() {
-        // given
-        UserCreateRequest request = new UserCreateRequest("홍길동", "user@test.com", "password1!");
-
-        given(userRepository.existsByEmail(request.email())).willReturn(false);
-        given(passwordEncoder.encode(request.password())).willReturn("encoded-password");
-        given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
-
-        // when
-        var response = authService.signUp(request);
-
-        // then
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        then(userRepository).should().save(userCaptor.capture());
-
-        User savedUser = userCaptor.getValue();
-
-        assertThat(savedUser.getEmail()).isEqualTo("user@test.com");
-        assertThat(savedUser.getName()).isEqualTo("홍길동");
-        assertThat(savedUser.getPassword()).isEqualTo("encoded-password");
-        assertThat(savedUser.getPassword()).isNotEqualTo("password1!");
-        assertThat(savedUser.getRole()).isEqualTo(UserRole.USER);
-        assertThat(savedUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
-
-        assertThat(response.email()).isEqualTo("user@test.com");
-        assertThat(response.name()).isEqualTo("홍길동");
-        assertThat(response.role()).isEqualTo(UserRole.USER);
-        assertThat(response.locked()).isFalse();
-    }
-
-    @Test
-    @DisplayName("이미 가입된 이메일이면 회원가입에 실패한다")
-    void signUp_duplicateEmail() {
-        // given
-        UserCreateRequest request = new UserCreateRequest("홍길동", "user@test.com", "password1!");
-
-        given(userRepository.existsByEmail(request.email())).willReturn(true);
-
-        // when & then
-        assertThatThrownBy(() -> authService.signUp(request))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.DUPLICATE_EMAIL);
-
-        then(passwordEncoder).should(never()).encode(any());
-        then(userRepository).should(never()).save(any());
-    }
 
     @Test
     @DisplayName("이메일과 비밀번호가 일치하면 로그인에 성공하고 액세스 토큰을 반환한다")
@@ -125,9 +72,7 @@ class AuthServiceTest {
 
         // when & then
         assertThatThrownBy(() -> authService.signIn(request))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.INVALID_CREDENTIAL);
+                .isInstanceOf(InvalidCredentialException.class);
 
         then(passwordEncoder).should(never()).matches(any(), any());
         then(tokenService).should(never()).issueAccessToken(any());
@@ -145,9 +90,7 @@ class AuthServiceTest {
 
         // when & then
         assertThatThrownBy(() -> authService.signIn(request))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.INVALID_CREDENTIAL);
+                .isInstanceOf(InvalidCredentialException.class);
 
         then(tokenService).should(never()).issueAccessToken(any());
     }
@@ -164,9 +107,7 @@ class AuthServiceTest {
 
         // when & then
         assertThatThrownBy(() -> authService.signIn(request))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.INVALID_CREDENTIAL);
+                .isInstanceOf(InvalidCredentialException.class);
 
         then(passwordEncoder).should(never()).matches(any(), any());
         then(tokenService).should(never()).issueAccessToken(any());
@@ -184,9 +125,7 @@ class AuthServiceTest {
 
         // when & then
         assertThatThrownBy(() -> authService.signIn(request))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.INVALID_CREDENTIAL);
+                .isInstanceOf(InvalidCredentialException.class);
 
         then(passwordEncoder).should(never()).matches(any(), any());
         then(tokenService).should(never()).issueAccessToken(any());
