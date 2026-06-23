@@ -1,8 +1,7 @@
-package com.example.sb10_MoPl_team3.domain.auth.controller;
+package com.example.sb10_MoPl_team3.auth.controller;
 
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
 import com.example.sb10_MoPl_team3.auth.service.AuthService;
-import com.example.sb10_MoPl_team3.user.controller.AuthController;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.global.config.SecurityConfig;

@@ -1,6 +1,5 @@
 package com.example.sb10_MoPl_team3.user.controller;
 
-import com.example.sb10_MoPl_team3.auth.controller.UserController;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.service.UserService;

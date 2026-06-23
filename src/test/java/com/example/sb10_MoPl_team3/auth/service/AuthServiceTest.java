@@ -1,4 +1,4 @@
-package com.example.sb10_MoPl_team3.domain.auth.service;
+package com.example.sb10_MoPl_team3.auth.service;
 
 import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
