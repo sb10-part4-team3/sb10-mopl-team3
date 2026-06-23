@@ -17,6 +17,12 @@ jobs:
     # Codecov 액션 v4/v5는 이 환경변수를 자동으로 감지합니다.
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+
 
     steps:
       - name: Checkout
