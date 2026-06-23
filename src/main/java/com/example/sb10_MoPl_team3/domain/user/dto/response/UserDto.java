@@ -5,13 +5,13 @@ import com.example.sb10_MoPl_team3.domain.user.enums.UserRole;
 import java.time.Instant;
 import java.util.UUID;
 
-public record UserResponse(
+public record UserDto(
         UUID id,
+        Instant createdAt,
         String email,
         String name,
         String profileImageUrl,
         UserRole role,
-        boolean locked,
-        Instant createdAt
+        boolean locked
 ) {
 }
