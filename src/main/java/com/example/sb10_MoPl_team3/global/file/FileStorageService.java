@@ -1,15 +1,19 @@
 package com.example.sb10_MoPl_team3.global.file;
 
+import java.net.URI;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetUrlRequest;
 
+@Slf4j
 @Service
 @ConditionalOnProperty(prefix = "aws.s3", name = {"bucket", "region"})
 public class FileStorageService {
@@ -63,6 +67,27 @@ public class FileStorageService {
 
     } catch (Exception e) {
       throw new RuntimeException("파일 업로드에 실패했습니다.", e);
+    }
+  }
+
+  /**
+   * 업로드된 파일을 보상 삭제한다.
+   * S3 업로드 이후 DB 트랜잭션이 실패해 롤백된 경우, 이미 올라간 파일이 고아 파일로
+   * 남지 않도록 호출하는 용도. 정리(삭제) 자체가 실패해도 호출부의 흐름을
+   * 막지 않기 위해 예외를 던지지 않고 로그만 남긴다(필요 시 별도 배치로 수동 정리).
+   */
+  public void deleteByUrl(String fileUrl) {
+    if (fileUrl == null || fileUrl.isBlank()) {
+      return;
+    }
+    try {
+      String key = URI.create(fileUrl).getPath();
+      if (key.startsWith("/")) {
+        key = key.substring(1);
+      }
+      s3Client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
+    } catch (Exception e) {
+      log.warn("S3 보상 삭제 실패. 수동 정리가 필요합니다. url={}", fileUrl, e);
     }
   }
 
