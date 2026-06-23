@@ -75,6 +75,12 @@ public class FileStorageService {
    * S3 업로드 이후 DB 트랜잭션이 실패해 롤백된 경우, 이미 올라간 파일이 고아 파일로
    * 남지 않도록 호출하는 용도. 정리(삭제) 자체가 실패해도 호출부의 흐름을
    * 막지 않기 위해 예외를 던지지 않고 로그만 남긴다(필요 시 별도 배치로 수동 정리).
+   *
+   * <p>주의: S3Client가 가상 호스팅 스타일(virtual-hosted-style) URL
+   * (https://{bucket}.s3.{region}.amazonaws.com/{key})을 생성한다는 가정에 의존한다.
+   * 향후 S3Config에서 pathStyleAccessEnabled(true)를 설정하거나 커스텀 엔드포인트를
+   * 사용하면 URL 형식이 https://s3.{region}.amazonaws.com/{bucket}/{key} 로 바뀌어
+   * 이 키 추출 로직이 깨진다. S3Client 설정을 변경할 경우 이 메서드도 함께 검토해야 한다.
    */
   public void deleteByUrl(String fileUrl) {
     if (fileUrl == null || fileUrl.isBlank()) {
