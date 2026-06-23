@@ -38,6 +38,8 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 	runtimeOnly 'com.h2database:h2'
+    implementation platform('software.amazon.awssdk:bom:2.46.15')
+    implementation 'software.amazon.awssdk:s3'
 }
 
 tasks.named('test') {
