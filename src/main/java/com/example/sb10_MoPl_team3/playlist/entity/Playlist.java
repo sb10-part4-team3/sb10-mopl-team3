@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.playlist.entity;
 
+import com.example.sb10_MoPl_team3.domain.user.entity.User;
 import com.example.sb10_MoPl_team3.global.base.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Builder;

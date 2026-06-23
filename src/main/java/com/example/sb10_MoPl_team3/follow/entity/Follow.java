@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.follow.entity;
 
+import com.example.sb10_MoPl_team3.domain.user.entity.User;
 import com.example.sb10_MoPl_team3.global.base.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Builder;
@@ -35,7 +36,7 @@ public class Follow extends BaseEntity {
     // 생성자
     @Builder
     public Follow(User followee, User follower) {
-        this.followeeId = followee;
-        this.followerId = follower;
+        this.followee = followee;
+        this.follower = follower;
     }
 }
