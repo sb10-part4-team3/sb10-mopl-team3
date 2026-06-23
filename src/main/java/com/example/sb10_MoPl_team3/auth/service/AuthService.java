@@ -22,7 +22,7 @@ public class AuthService {
     private final TokenService tokenService;
 
     public JwtDto signIn(SignInRequest request) {
-        User user = userRepository.findByEmail(request.username())
+        User user = userRepository.findByEmail(request.email())
                 .orElseThrow(InvalidCredentialException::new);
 
         if (user.getStatus() == UserStatus.LOCKED || user.getStatus() == UserStatus.WITHDRAWN)

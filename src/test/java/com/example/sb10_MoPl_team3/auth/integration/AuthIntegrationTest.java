@@ -115,6 +115,20 @@ class AuthIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    @DisplayName("CSRF 토큰 없이 로그인을 요청하면 403을 반환한다")
+    void signIn_withoutCsrf() throws Exception {
+        mockMvc.perform(post("/api/auth/sign-in")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "user@test.com",
+                              "password": "password1!"
+                            }
+                            """))
+                .andExpect(status().isForbidden());
+    }
+
     private ResultActions signUp(String name, String email, String password) throws Exception {
         return mockMvc.perform(post("/api/users")
                 .with(csrf())
@@ -128,15 +142,15 @@ class AuthIntegrationTest {
                         """.formatted(name, email, password)));
     }
 
-    private ResultActions signIn(String username, String password) throws Exception {
+    private ResultActions signIn(String email, String password) throws Exception {
         return mockMvc.perform(post("/api/auth/sign-in")
                 .with(csrf())
                 .contentType(APPLICATION_JSON)
                 .content("""
                         {
-                          "username": "%s",
+                          "email": "%s",
                           "password": "%s"
                         }
-                        """.formatted(username, password)));
+                        """.formatted(email, password)));
     }
 }

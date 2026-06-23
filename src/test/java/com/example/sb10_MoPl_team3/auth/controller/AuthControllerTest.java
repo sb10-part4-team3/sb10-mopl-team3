@@ -54,7 +54,7 @@ class AuthControllerTest {
                         .with(csrf())
                         .content("""
                                 {
-                                  "username": "user@test.com",
+                                  "email": "user@test.com",
                                   "password": "password1!"
                                 }
                                 """))
@@ -77,7 +77,7 @@ class AuthControllerTest {
                         .with(csrf())
                         .content("""
                                 {
-                                  "username": "",
+                                  "email": "",
                                   "password": ""
                                 }
                                 """))

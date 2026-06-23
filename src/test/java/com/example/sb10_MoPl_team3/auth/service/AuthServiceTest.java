@@ -49,7 +49,7 @@ class AuthServiceTest {
         SignInRequest request = new SignInRequest("user@test.com", "password1!");
         User user = new User("user@test.com", "홍길동", "encoded-password", null, UserRole.USER);
 
-        given(userRepository.findByEmail(request.username())).willReturn(Optional.of(user));
+        given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
         given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(true);
         given(tokenService.issueAccessToken(user)).willReturn("access-token");
 
@@ -70,7 +70,7 @@ class AuthServiceTest {
         // given
         SignInRequest request = new SignInRequest("none@test.com", "password1!");
 
-        given(userRepository.findByEmail(request.username())).willReturn(Optional.empty());
+        given(userRepository.findByEmail(request.email())).willReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> authService.signIn(request))
@@ -87,7 +87,7 @@ class AuthServiceTest {
         SignInRequest request = new SignInRequest("user@test.com", "wrong-password");
         User user = new User("user@test.com", "홍길동", "encoded-password", null, UserRole.USER);
 
-        given(userRepository.findByEmail(request.username())).willReturn(Optional.of(user));
+        given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
         given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(false);
 
         // when & then
@@ -105,7 +105,7 @@ class AuthServiceTest {
         User user = new User("user@test.com", "홍길동", "encoded-password", null, UserRole.USER);
         ReflectionTestUtils.setField(user, "status", UserStatus.LOCKED);
 
-        given(userRepository.findByEmail(request.username())).willReturn(Optional.of(user));
+        given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
 
         // when & then
         assertThatThrownBy(() -> authService.signIn(request))
@@ -123,7 +123,7 @@ class AuthServiceTest {
         User user = new User("user@test.com", "홍길동", "encoded-password", null, UserRole.USER);
         ReflectionTestUtils.setField(user, "status", UserStatus.WITHDRAWN);
 
-        given(userRepository.findByEmail(request.username())).willReturn(Optional.of(user));
+        given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
 
         // when & then
         assertThatThrownBy(() -> authService.signIn(request))
