@@ -19,6 +19,9 @@ import java.util.UUID;
                         name = "uk_follower_followee",
                         columnNames = {"follower_id", "followee_id"}
                 )
+        },
+        indexes = {
+                @Index(name = "idx_follows_followee_id", columnList = "followee_id"),
         }
 )
 public class Follow extends BaseEntity {

@@ -16,7 +16,8 @@ import java.time.Instant;
 @Table(name = "playlists")
 public class Playlist extends BaseEntity {
     // 소유자
-    @Column(nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
     // 제목
@@ -32,16 +33,26 @@ public class Playlist extends BaseEntity {
     @Column(nullable = false)
     private PlaylistStatus status;
 
+    // 구독자 수
+    @Column(nullable = false)
+    private Integer subscriberCount;
+
+    // 구독 여부
+    @Column(nullable = false)
+    private Boolean subscribedByMe;
+
     // 삭제일시
     private Instant deletedAt;
 
     // 생성자
     @Builder
-    public void Playlist(User owner, String title, String description, PlaylistStatus status) {
+    public Playlist(User owner, String title, String description, PlaylistStatus status) {
         this.owner = owner;
         this.title = title;
         this.description = description;
         this.status = status;
+        this.subscriberCount = 0;
+        this.subscribedByMe = false;
     }
 
 
