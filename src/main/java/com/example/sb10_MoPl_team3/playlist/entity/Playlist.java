@@ -43,6 +43,7 @@ public class Playlist extends BaseEntity {
     // 생성자
     @Builder
     public Playlist(User owner, String title, String description, PlaylistStatus status) {
+
         this.owner = owner;
         this.title = title;
         this.description = description;

@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.playlist.dto;
 
+import com.example.sb10_MoPl_team3.content.dto.ContentDto;
 import com.example.sb10_MoPl_team3.domain.user.dto.response.UserSummaryResponse;
 
 import java.time.Instant;
@@ -15,6 +16,6 @@ public record PlaylistDto(
         Instant updatedAt,
         Long subscriberCount,
         boolean subscribedByMe,
-        List<Object> contents
+        List<ContentDto> contents
 ) {
 }
