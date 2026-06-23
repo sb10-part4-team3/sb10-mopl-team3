@@ -2,11 +2,13 @@ package com.example.sb10_MoPl_team3.global.file;
 
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetUrlRequest;
 
 @Service
 public class FileStorageService {
@@ -24,7 +26,7 @@ public class FileStorageService {
   }
 
   public String upload(MultipartFile file) {
-    if (file.isEmpty()) {
+    if (file == null || file.isEmpty()) {
       throw new IllegalArgumentException("업로드할 파일이 없습니다.");
     }
 
@@ -38,6 +40,9 @@ public class FileStorageService {
       String extension = originalFilename != null && originalFilename.contains(".")
           ? originalFilename.substring(originalFilename.lastIndexOf("."))
           : "";
+      if (!extension.matches("\\.[A-Za-z0-9]{1,10}")) {
+        extension = "";
+      }
 
       String key = UUID.randomUUID() + extension;
       // 2. S3에 보낼 요청 객체 생성 (어느 버킷의 어떤 key에 저장할지)
@@ -54,7 +59,9 @@ public class FileStorageService {
       s3Client.putObject(request, body);
 
       // 5. 업로드된 객체에 접근할 수 있는 URL 조립해서 반환
-      return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, key);
+      return s3Client.utilities()
+          .getUrl(GetUrlRequest.builder().bucket(bucket).key(key).build())
+          .toExternalForm();
 
     } catch (Exception e) {
       throw new RuntimeException("파일 업로드에 실패했습니다.", e);
