@@ -1,4 +1,4 @@
-package com.example.sb10_MoPl_team3.follow.dto;
+package com.example.sb10_MoPl_team3.domain.follow.dto;
 
 import java.util.UUID;
 

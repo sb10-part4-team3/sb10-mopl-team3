@@ -1,4 +1,4 @@
-package com.example.sb10_MoPl_team3.playlist.dto;
+package com.example.sb10_MoPl_team3.domain.playlist.dto;
 
 import java.time.Instant;
 import java.util.List;

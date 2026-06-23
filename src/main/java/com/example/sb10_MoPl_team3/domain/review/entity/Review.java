@@ -1,14 +1,14 @@
-package com.example.sb10_MoPl_team3.review.entity;
+package com.example.sb10_MoPl_team3.domain.review.entity;
 
 
 import com.example.sb10_MoPl_team3.global.base.BaseEntity;
+import com.example.sb10_MoPl_team3.domain.review.enums.ReviewStatus;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Getter
 @Entity

@@ -1,14 +1,14 @@
-package com.example.sb10_MoPl_team3.playlist.entity;
+package com.example.sb10_MoPl_team3.domain.playlist.entity;
 
 import com.example.sb10_MoPl_team3.domain.user.entity.User;
 import com.example.sb10_MoPl_team3.global.base.BaseEntity;
+import com.example.sb10_MoPl_team3.domain.playlist.enums.PlaylistStatus;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Getter
 @Entity

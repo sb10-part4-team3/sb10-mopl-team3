@@ -1,4 +1,4 @@
-package com.example.sb10_MoPl_team3.review.dto;
+package com.example.sb10_MoPl_team3.domain.review.dto;
 
 import java.util.UUID;
 
