@@ -28,8 +28,4 @@ public class S3Config {
 			.region(Region.of(region)).credentialsProvider(DefaultCredentialsProvider.create())
 			.build();
 	}
-
-	public String getBucket() {
-		return bucket;
-	}
 }

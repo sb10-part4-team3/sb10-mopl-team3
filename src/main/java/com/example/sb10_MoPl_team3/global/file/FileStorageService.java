@@ -19,9 +19,6 @@ public class FileStorageService {
   @Value("${aws.s3.bucket}")
   private String bucket;
 
-  @Value("${aws.s3.region}")
-  private String region;
-
   public FileStorageService(S3Client s3Client) {
     this.s3Client = s3Client;
   }
