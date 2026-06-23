@@ -55,6 +55,18 @@ public class Notification {
     private Instant readAt;
 
     public Notification(User receiver, String title, String content, NotificationLevel level) {
+        if (receiver == null) {
+            throw new IllegalArgumentException("receiver는 필수입니다.");
+        }
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("title은 필수입니다.");
+        }
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("content는 필수입니다.");
+        }
+        if (level == null) {
+            throw new IllegalArgumentException("level은 필수입니다.");
+        }
         this.receiver = receiver;
         this.title = title;
         this.content = content;
