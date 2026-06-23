@@ -1,6 +1,6 @@
-package com.example.sb10_MoPl_team3.domain.review.repository;
+package com.example.sb10_MoPl_team3.review.repository;
 
-import com.example.sb10_MoPl_team3.domain.review.entity.Review;
+import com.example.sb10_MoPl_team3.review.entity.Review;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

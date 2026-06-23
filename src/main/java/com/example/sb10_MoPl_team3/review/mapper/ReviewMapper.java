@@ -1,7 +1,7 @@
-package com.example.sb10_MoPl_team3.domain.review.mapper;
+package com.example.sb10_MoPl_team3.review.mapper;
 
-import com.example.sb10_MoPl_team3.domain.review.dto.ReviewDto;
-import com.example.sb10_MoPl_team3.domain.review.entity.Review;
+import com.example.sb10_MoPl_team3.review.dto.ReviewDto;
+import com.example.sb10_MoPl_team3.review.entity.Review;
 import com.example.sb10_MoPl_team3.domain.user.dto.response.UserSummaryResponse;
 import com.example.sb10_MoPl_team3.domain.user.entity.User;
 import com.example.sb10_MoPl_team3.domain.user.mapper.UserMapper;

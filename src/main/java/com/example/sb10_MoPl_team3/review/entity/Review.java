@@ -1,9 +1,10 @@
-package com.example.sb10_MoPl_team3.domain.review.entity;
+package com.example.sb10_MoPl_team3.review.entity;
 
 
+import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.domain.user.entity.User;
 import com.example.sb10_MoPl_team3.global.base.BaseEntity;
-import com.example.sb10_MoPl_team3.domain.review.enums.ReviewStatus;
+import com.example.sb10_MoPl_team3.review.enums.ReviewStatus;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
@@ -18,8 +19,9 @@ import java.time.Instant;
 public class Review extends BaseEntity {
 
     // 콘텐츠
-//    @Column(nullable = false)
-//    private Content content;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "content_id", nullable = false)
+    private Content content;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id", nullable = false)
@@ -43,9 +45,8 @@ public class Review extends BaseEntity {
 
     // 생성자
     @Builder
-    // Content content 추가 필요
-    public Review(User author, String text, Double rating, ReviewStatus status) {
-//        this.content = content;
+    public Review(Content content, User author, String text, Double rating, ReviewStatus status) {
+        this.content = content;
         this.author = author;
         this.text = text;
         this.rating = rating;

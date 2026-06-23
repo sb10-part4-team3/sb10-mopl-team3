@@ -1,4 +1,4 @@
-package com.example.sb10_MoPl_team3.domain.follow.entity;
+package com.example.sb10_MoPl_team3.follow.entity;
 
 import com.example.sb10_MoPl_team3.domain.user.entity.User;
 import com.example.sb10_MoPl_team3.global.base.BaseEntity;
