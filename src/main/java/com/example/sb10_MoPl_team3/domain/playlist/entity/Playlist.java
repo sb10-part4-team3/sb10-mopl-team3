@@ -37,10 +37,6 @@ public class Playlist extends BaseEntity {
     @Column(nullable = false)
     private Integer subscriberCount;
 
-    // 구독 여부
-    @Column(nullable = false)
-    private Boolean subscribedByMe;
-
     // 삭제일시
     private Instant deletedAt;
 
@@ -52,7 +48,6 @@ public class Playlist extends BaseEntity {
         this.description = description;
         this.status = status;
         this.subscriberCount = 0;
-        this.subscribedByMe = false;
     }
 
 
