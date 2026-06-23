@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -20,6 +19,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -34,7 +34,6 @@ class UserControllerTest {
     private UserService userService;
 
     @Test
-    @WithMockUser
     @DisplayName("회원가입 요청이 유효하면 사용자를 생성하고 201을 반환한다")
     void createUser_success() throws Exception {
         UserDto response = new UserDto(
@@ -51,6 +50,7 @@ class UserControllerTest {
 
         mockMvc.perform(post("/api/users")
                         .contentType(APPLICATION_JSON)
+                        .with(csrf())
                         .content("""
                                 {
                                   "name": "홍길동",
@@ -69,11 +69,11 @@ class UserControllerTest {
     }
 
     @Test
-    @WithMockUser
     @DisplayName("회원가입 요청 값이 유효하지 않으면 400을 반환한다")
     void createUser_invalid() throws Exception {
         mockMvc.perform(post("/api/users")
                         .contentType(APPLICATION_JSON)
+                        .with(csrf())
                         .content("""
                                 {
                                   "name": "",

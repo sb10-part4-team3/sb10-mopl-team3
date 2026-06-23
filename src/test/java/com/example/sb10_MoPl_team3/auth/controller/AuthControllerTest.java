@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -21,6 +20,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -35,7 +35,6 @@ class AuthControllerTest {
     private AuthService authService;
 
     @Test
-    @WithMockUser
     @DisplayName("로그인 요청이 유효하면 사용자 정보와 액세스 토큰을 반환한다")
     void signIn_success() throws Exception {
         UserDto userDto = new UserDto(
@@ -52,6 +51,7 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/sign-in")
                         .contentType(APPLICATION_JSON)
+                        .with(csrf())
                         .content("""
                                 {
                                   "username": "user@test.com",
@@ -70,11 +70,11 @@ class AuthControllerTest {
     }
 
     @Test
-    @WithMockUser
     @DisplayName("로그인 요청 값이 유효하지 않으면 400을 반환한다")
     void signIn_invalid() throws Exception {
         mockMvc.perform(post("/api/auth/sign-in")
                         .contentType(APPLICATION_JSON)
+                        .with(csrf())
                         .content("""
                                 {
                                   "username": "",
