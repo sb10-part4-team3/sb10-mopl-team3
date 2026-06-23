@@ -11,3 +11,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+aws:
+  s3:
+    bucket: test-bucket
+    region: us-east-1
