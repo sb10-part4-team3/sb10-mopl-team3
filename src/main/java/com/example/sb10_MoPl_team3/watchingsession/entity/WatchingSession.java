@@ -17,6 +17,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 @Getter
@@ -48,8 +49,8 @@ public class WatchingSession {
     private Instant createdAt;
 
     public WatchingSession(User watcher, Content content) {
-        this.watcher = watcher;
-        this.content = content;
+        this.watcher = Objects.requireNonNull(watcher, "watcher는 필수입니다.");
+        this.content = Objects.requireNonNull(content, "content는 필수입니다.");
     }
 
     @PrePersist
