@@ -1,13 +1,11 @@
 package com.example.sb10_MoPl_team3.follow.entity;
 
-import com.example.sb10_MoPl_team3.domain.user.entity.User;
+import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.global.base.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.util.UUID;
 
 @Getter
 @Entity

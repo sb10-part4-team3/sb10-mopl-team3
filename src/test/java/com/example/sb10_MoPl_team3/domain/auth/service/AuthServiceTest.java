@@ -1,12 +1,14 @@
 package com.example.sb10_MoPl_team3.domain.auth.service;
 
-import com.example.sb10_MoPl_team3.domain.auth.dto.request.SignInRequest;
-import com.example.sb10_MoPl_team3.domain.auth.dto.response.JwtDto;
-import com.example.sb10_MoPl_team3.domain.auth.exception.InvalidCredentialException;
-import com.example.sb10_MoPl_team3.domain.user.entity.User;
-import com.example.sb10_MoPl_team3.domain.user.enums.UserRole;
-import com.example.sb10_MoPl_team3.domain.user.enums.UserStatus;
-import com.example.sb10_MoPl_team3.domain.user.repository.UserRepository;
+import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
+import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
+import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
+import com.example.sb10_MoPl_team3.auth.service.AuthService;
+import com.example.sb10_MoPl_team3.auth.service.TokenService;
+import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
+import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

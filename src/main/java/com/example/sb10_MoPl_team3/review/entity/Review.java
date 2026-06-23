@@ -2,7 +2,7 @@ package com.example.sb10_MoPl_team3.review.entity;
 
 
 import com.example.sb10_MoPl_team3.content.entity.Content;
-import com.example.sb10_MoPl_team3.domain.user.entity.User;
+import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.global.base.BaseEntity;
 import com.example.sb10_MoPl_team3.review.enums.ReviewStatus;
 import jakarta.persistence.*;

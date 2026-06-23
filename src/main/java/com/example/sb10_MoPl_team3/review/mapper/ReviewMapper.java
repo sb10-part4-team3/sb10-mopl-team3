@@ -3,8 +3,8 @@ package com.example.sb10_MoPl_team3.review.mapper;
 import com.example.sb10_MoPl_team3.review.dto.ReviewDto;
 import com.example.sb10_MoPl_team3.review.entity.Review;
 import com.example.sb10_MoPl_team3.domain.user.dto.response.UserSummaryResponse;
-import com.example.sb10_MoPl_team3.domain.user.entity.User;
-import com.example.sb10_MoPl_team3.domain.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
