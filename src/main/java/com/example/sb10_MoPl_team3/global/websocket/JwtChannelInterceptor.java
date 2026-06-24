@@ -23,8 +23,8 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
         );
 
         if (accessor != null && StompCommand.CONNECT == accessor.getCommand()) {
-            String accessToken = extractAccessToken(accessor);
-            // TODO: JWT 검증 컴포넌트가 확정되면 accessToken 검증 및 인증 정보 바인딩을 추가한다.
+            extractAccessToken(accessor);
+            // TODO: JWT 검증 컴포넌트가 확정되면 추출한 토큰 검증 및 인증 정보 바인딩을 추가한다.
         }
 
         return message;
