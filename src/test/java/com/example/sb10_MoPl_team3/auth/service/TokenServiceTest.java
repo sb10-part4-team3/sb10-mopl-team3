@@ -55,6 +55,7 @@ class TokenServiceTest {
         assertThat(claims.userId()).isEqualTo(userId);
         assertThat(claims.role()).isEqualTo(UserRole.USER);
         assertThat(claims.type()).isEqualTo(JwtTokenType.ACCESS);
+        assertThat(claims.sessionId()).isNull();
         assertThat(claims.issuedAt()).isEqualTo(fixedInstant);
         assertThat(claims.expiresAt()).isEqualTo(fixedInstant.plus(Duration.ofHours(1)));
     }
