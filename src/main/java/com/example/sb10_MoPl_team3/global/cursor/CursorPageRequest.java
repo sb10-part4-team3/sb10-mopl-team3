@@ -1,5 +1,7 @@
 package com.example.sb10_MoPl_team3.global.cursor;
 
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import java.util.UUID;
 
 public record CursorPageRequest(
@@ -22,6 +24,8 @@ public record CursorPageRequest(
         }
         if (sortDirection == null || sortDirection.isBlank()) {
             sortDirection = DEFAULT_SORT_DIRECTION;
+        } else if (!sortDirection.equalsIgnoreCase("ASC") && !sortDirection.equalsIgnoreCase("DESC")) {
+            throw new BusinessException(ErrorCode.INVALID_SORT_DIRECTION);
         }
     }
 
