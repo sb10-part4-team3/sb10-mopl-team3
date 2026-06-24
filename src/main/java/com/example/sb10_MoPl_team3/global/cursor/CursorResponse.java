@@ -25,7 +25,11 @@ public record CursorResponse<T>(
         String sortDirection,
         Function<T, String> cursorExtractor,
         Function<T, UUID> idExtractor
-    ) {
+    ) { if(requestSize <= 0){
+        throw new IllegalArgumentException("requestSize는 0보다 같거나 작을 수 없습니다.");
+    }
+
+
         boolean hasNext = fetched.size() > requestSize;
         List<T> data = hasNext ? fetched.subList(0, requestSize) : fetched;
 

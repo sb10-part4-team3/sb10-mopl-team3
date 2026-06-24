@@ -20,7 +20,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@Table(name="content_stats")
+@Table(name = "content_stats")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
@@ -48,10 +48,13 @@ public class ContentStats {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
-  @Builder
-  private ContentStats(Content content,BigDecimal averageRating, int reviewCount, int viewerCount){
+  private ContentStats(Content content, BigDecimal averageRating, int reviewCount,
+      int viewerCount) {
+    if (content == null) {
+      throw new IllegalArgumentException("content는 필수입니다");
+    }
     this.content = content;
-    this.averageRating = averageRating;
+    this.averageRating = averageRating != null ? averageRating : BigDecimal.ZERO;
     this.reviewCount = reviewCount;
     this.viewerCount = viewerCount;
   }
