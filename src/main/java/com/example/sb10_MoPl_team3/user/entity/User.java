@@ -1,7 +1,7 @@
-package com.example.sb10_MoPl_team3.domain.user.entity;
+package com.example.sb10_MoPl_team3.user.entity;
 
-import com.example.sb10_MoPl_team3.domain.user.enums.UserRole;
-import com.example.sb10_MoPl_team3.domain.user.enums.UserStatus;
+import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.global.base.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
