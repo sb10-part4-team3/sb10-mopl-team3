@@ -11,6 +11,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,7 +22,9 @@ import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 class JwtChannelInterceptorTest {
@@ -42,7 +45,7 @@ class JwtChannelInterceptorTest {
     }
 
     @Test
-    @DisplayName("CONNECT 요청의 JWT가 유효하면 SecurityContext와 STOMP user에 인증 정보를 바인딩한다")
+    @DisplayName("CONNECT 요청의 JWT가 유효하면 STOMP user에 인증 정보를 바인딩하고 전송 완료 후 SecurityContext를 비운다")
     void preSend_connectWithValidAccessToken() {
         UUID userId = UUID.randomUUID();
         String token = jwtProvider.generateAccessToken(userId, UserRole.USER, UUID.randomUUID());
@@ -57,6 +60,11 @@ class JwtChannelInterceptorTest {
         assertThat(authentication.getAuthorities())
                 .extracting("authority")
                 .containsExactly("ROLE_USER");
+        assertThat(accessor.getUser()).isEqualTo(authentication);
+
+        interceptor.afterSendCompletion(message, channel, true, null);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         assertThat(accessor.getUser()).isEqualTo(authentication);
     }
 
@@ -135,6 +143,32 @@ class JwtChannelInterceptorTest {
         assertAuthenticationFailure(message, accessor);
     }
 
+    @Test
+    @DisplayName("전송 완료 메시지가 STOMP 메시지가 아니면 SecurityContext를 유지한다")
+    void afterSendCompletion_withoutStompAccessor() {
+        Authentication authentication = existingAuthentication();
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        Message<byte[]> message = MessageBuilder.withPayload(new byte[0]).build();
+
+        interceptor.afterSendCompletion(message, channel, true, null);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isEqualTo(authentication);
+    }
+
+    @Test
+    @DisplayName("전송 완료 메시지가 CONNECT가 아니면 SecurityContext를 유지한다")
+    void afterSendCompletion_notConnectCommand() {
+        Authentication authentication = existingAuthentication();
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SEND);
+        accessor.setLeaveMutable(true);
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+        interceptor.afterSendCompletion(message, channel, true, null);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isEqualTo(authentication);
+    }
+
     private StompHeaderAccessor connectAccessor(String authorization) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
         accessor.setNativeHeader("Authorization", authorization);
@@ -143,10 +177,20 @@ class JwtChannelInterceptorTest {
     }
 
     private void assertAuthenticationFailure(Message<byte[]> message, StompHeaderAccessor accessor) {
+        SecurityContextHolder.getContext().setAuthentication(existingAuthentication());
+
         assertThatThrownBy(() -> interceptor.preSend(message, channel))
                 .isInstanceOf(MessagingException.class)
                 .hasMessage("웹소켓 인증에 실패했습니다.");
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         assertThat(accessor.getUser()).isNull();
+    }
+
+    private Authentication existingAuthentication() {
+        return new UsernamePasswordAuthenticationToken(
+                UUID.randomUUID(),
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
     }
 }

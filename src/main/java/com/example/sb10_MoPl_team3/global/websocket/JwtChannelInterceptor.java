@@ -41,6 +41,23 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
         return message;
     }
 
+    @Override
+    public void afterSendCompletion(
+            Message<?> message,
+            MessageChannel channel,
+            boolean sent,
+            Exception ex
+    ) {
+        StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(
+                message,
+                StompHeaderAccessor.class
+        );
+
+        if (accessor != null && StompCommand.CONNECT == accessor.getCommand()) {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
     private void authenticate(StompHeaderAccessor accessor) {
         try {
             JwtClaims claims = jwtProvider.parseAccessToken(extractAccessToken(accessor));
@@ -53,7 +70,7 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             accessor.setUser(authentication);
-            log.debug("웹소켓 인증 성공: userId={}, role={}", claims.userId(), claims.role());
+            log.debug("웹소켓 인증 성공: role={}", claims.role());
         } catch (RuntimeException e) {
             SecurityContextHolder.clearContext();
             log.warn("웹소켓 인증 실패: reason={}", e.getClass().getSimpleName());
