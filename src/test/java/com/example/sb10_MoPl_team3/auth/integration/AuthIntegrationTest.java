@@ -1,9 +1,14 @@
 package com.example.sb10_MoPl_team3.auth.integration;
 
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtTokenType;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +42,12 @@ class AuthIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private JwtProvider jwtProvider;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Test
     @DisplayName("회원가입 요청이 유효하면 사용자를 저장하고 비밀번호를 암호화한다")
@@ -69,17 +81,28 @@ class AuthIntegrationTest {
     }
 
     @Test
-    @DisplayName("회원가입한 계정은 이메일과 비밀번호로 로그인할 수 있다")
+    @DisplayName("회원가입한 계정은 이메일과 비밀번호로 로그인할 수 있고 Access Token을 발급받는다")
     void signIn_success() throws Exception {
         signUp("Test User", "login@test.com", "password1!")
                 .andExpect(status().isCreated());
 
-        signIn("login@test.com", "password1!")
+        MvcResult result = signIn("login@test.com", "password1!")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.userDto.email").value("login@test.com"))
                 .andExpect(jsonPath("$.userDto.role").value("USER"))
-                .andExpect(jsonPath("$.userDto.locked").value(false));
+                .andExpect(jsonPath("$.userDto.locked").value(false))
+                .andReturn();
+
+        JsonNode jsonNode = objectMapper.readTree(result.getResponse().getContentAsString());
+        String accessToken = jsonNode.get("accessToken").asText();
+
+        JwtClaims claims = jwtProvider.parseAccessToken(accessToken);
+        User savedUser = userRepository.findByEmail("login@test.com").orElseThrow();
+
+        assertThat(claims.userId()).isEqualTo(savedUser.getId());
+        assertThat(claims.role()).isEqualTo(UserRole.USER);
+        assertThat(claims.type()).isEqualTo(JwtTokenType.ACCESS);
     }
 
     @Test
