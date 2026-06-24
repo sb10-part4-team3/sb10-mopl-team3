@@ -4,6 +4,7 @@ import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
 import com.example.sb10_MoPl_team3.review.dto.request.ReviewFindAllRequest;
 import com.example.sb10_MoPl_team3.review.dto.response.CursorResponseReviewDto;
 import com.example.sb10_MoPl_team3.review.dto.response.ReviewDto;
@@ -46,23 +47,12 @@ public class ReviewServiceImpl implements ReviewService{
 
     @Override
     public ReviewDto create(ReviewCreateRequest request) {
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+        UUID requestUserId = getAuthenticatedUserId();
 
-        /*
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof JwtClaims jwtClaims)) {
-            throw new BusinessException(ErrorCode.INVALID_CREDENTIAL);
-        }
-
-
-        User author = userRepository.findById(jwtClaims.userId())
+        User author = userRepository.findById(requestUserId)
                 .orElseThrow(() ->
+                        // UserNotFoundException 추가되면 변경
                         new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-         */
-
 
         Content content = contentRepository.findById(request.contentId())
                 // CONTENT_NOT_FOUND 추가 예정
@@ -70,7 +60,7 @@ public class ReviewServiceImpl implements ReviewService{
 
         Review newReview = Review.builder()
                 .content(content)
-//                .author(author)
+                .author(author)
                 .text(request.text())
                 .rating(request.rating())
                 .status(ReviewStatus.ACTIVE)
@@ -82,28 +72,14 @@ public class ReviewServiceImpl implements ReviewService{
     // 리뷰 수정
     @Override
     public ReviewDto update(UUID reviewId, ReviewUpdateRequest request) {
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
-
-        /*
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof JwtClaims jwtClaims)) {
-            throw new BusinessException(ErrorCode.INVALID_CREDENTIAL);
-        }
-
-         */
+        UUID requestUserId = getAuthenticatedUserId();
 
         Review targetReview = reviewRepository.findById(reviewId)
-                // REVIEW_NOT_FOUND 추가 후 전용 예외로 변경
                 .orElseThrow(() -> new ReviewNotFoundException(reviewId));
 
-        /*
-        if (!targetReview.getAuthor().getId().equals(jwtClaims.userId())) {
+        if (!targetReview.getAuthor().getId().equals(requestUserId)) {
             throw new ReviewAuthorMismatchException(ErrorCode.ACCESS_DENIED);
         }
-
-         */
 
         targetReview.update(request.text(), request.rating());
 
@@ -303,10 +279,10 @@ public class ReviewServiceImpl implements ReviewService{
     // 리뷰 논리 삭제
     @Override
     public void delete(UUID reviewId) {
-        User user = getUserOrThrow(requestUserId);
-
+        UUID requestUserId = getAuthenticatedUserId();
         Review targetReview = getReviewOrThrow(reviewId);
 
+        validateReviewStatus(targetReview);
         validateAuthor(targetReview, requestUserId);
 
         targetReview.delete();
@@ -315,9 +291,10 @@ public class ReviewServiceImpl implements ReviewService{
     // 리뷰 물리 삭제
     @Override
     public void hardDelete(UUID reviewId) {
-        Review targetReview = reviewRepository.findById(reviewId)
-                .orElseThrow();
+        UUID requestUserId = getAuthenticatedUserId();
+        Review targetReview = getReviewOrThrow(reviewId);
 
+        validateReviewStatus(targetReview);
         validateAuthor(targetReview, requestUserId);
 
         reviewRepository.delete(targetReview);
@@ -325,17 +302,24 @@ public class ReviewServiceImpl implements ReviewService{
 
     // 권한 확인
     private void validateAuthor(Review review, UUID userId) {
-        if (review.getAuthor().getId().equals(userId)) {
+        if (!review.getAuthor().getId().equals(userId)) {
             throw new ReviewAuthorMismatchException(userId, review.getId());
         }
     }
 
 
+    // 인증 사용자 조회
+    private UUID getAuthenticatedUserId() {
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
 
-    // 유저 조회 후 반환
-    private User getUserOrThrow(UUID userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof JwtClaims jwtClaims)) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIAL);
+        }
+
+        return jwtClaims.userId();
     }
 
     // 리뷰 조회 후 반환
@@ -343,7 +327,6 @@ public class ReviewServiceImpl implements ReviewService{
         return reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ReviewNotFoundException(reviewId));
     }
-
 
     // 유효성 검증(리뷰 상태 검증)
     private void validateReviewStatus(Review review) {
