@@ -12,9 +12,17 @@ import java.util.function.Function;
 public record Cursor<T>(T sortValue, UUID id) {
 
     public static <T> Cursor<T> from(CursorPageRequest request, Function<String, T> sortValueParser) {
-        if (!request.hasCursor()) {
-            return null;
+        boolean hasCursor = request.hasCursor();
+        boolean hasIdAfter = request.idAfter() != null;
+
+        if (!hasCursor && !hasIdAfter) {
+            return null; // 둘 다 없으면 첫 페이지 요청
         }
+        if (hasCursor != hasIdAfter) {
+            // 하나만 있는 비정상 상태
+            throw new BusinessException(ErrorCode.INVALID_CURSOR);
+        }
+
         try {
             return new Cursor<>(sortValueParser.apply(request.cursor()), request.idAfter());
         } catch (Exception e) {
