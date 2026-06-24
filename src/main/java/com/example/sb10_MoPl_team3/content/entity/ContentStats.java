@@ -53,6 +53,7 @@ public class ContentStats {
     if (content == null) {
       throw new IllegalArgumentException("content는 필수입니다");
     }
+    this.content = content;
     this.averageRating = averageRating != null ? averageRating : BigDecimal.ZERO;
     this.reviewCount = reviewCount;
     this.viewerCount = viewerCount;
