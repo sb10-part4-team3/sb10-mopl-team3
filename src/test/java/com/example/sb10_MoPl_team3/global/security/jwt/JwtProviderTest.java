@@ -1,6 +1,8 @@
 package com.example.sb10_MoPl_team3.global.security.jwt;
 
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -11,6 +13,7 @@ import java.time.ZoneOffset;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtProviderTest {
 
@@ -45,5 +48,40 @@ class JwtProviderTest {
         assertThat(claims.sessionId()).isEqualTo(sessionId);
         assertThat(claims.issuedAt()).isEqualTo(fixedInstant);
         assertThat(claims.expiresAt()).isEqualTo(fixedInstant.plus(Duration.ofHours(1)));
+    }
+
+    @Test
+    @DisplayName("만료된 Access Token을 파싱하면 예외가 발생한다")
+    void parseAccessToken_expired() {
+        JwtProperties expiredProperties = new JwtProperties(
+                "test-secret-key-for-jwt-provider-test-must-be-long-enough",
+                Duration.ofSeconds(1),
+                "mopl-test"
+        );
+
+        JwtProvider expiredJwtProvider = new JwtProvider(expiredProperties, fixedClock);
+
+        String token = expiredJwtProvider.generateAccessToken(
+                UUID.randomUUID(),
+                UserRole.USER,
+                UUID.randomUUID()
+        );
+
+        Clock afterExpirationClock = Clock.fixed(
+                fixedInstant.plusSeconds(2),
+                ZoneOffset.UTC
+        );
+
+        JwtProvider afterExpirationJwtProvider = new JwtProvider(expiredProperties, afterExpirationClock);
+
+        assertThatThrownBy(() -> afterExpirationJwtProvider.parseAccessToken(token))
+                .isInstanceOf(ExpiredJwtException.class);
+    }
+
+    @Test
+    @DisplayName("잘못된 Access Token을 파싱하면 예외가 발생한다")
+    void parseAccessToken_invalid() {
+        assertThatThrownBy(() -> jwtProvider.parseAccessToken("invalid-token"))
+                .isInstanceOf(JwtException.class);
     }
 }
