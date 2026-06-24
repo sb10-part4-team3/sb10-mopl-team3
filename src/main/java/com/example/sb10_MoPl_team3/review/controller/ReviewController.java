@@ -20,6 +20,7 @@ import java.util.UUID;
 public class ReviewController {
     private final ReviewService reviewService;
 
+    // 리뷰 생성
     @PostMapping
     public ResponseEntity<ReviewDto> createReview(
             @Valid @RequestBody ReviewCreateRequest request
@@ -28,6 +29,7 @@ public class ReviewController {
         return ResponseEntity.status(HttpStatus.CREATED).body(reviewDto);
     }
 
+    // 리뷰 수정
     @PatchMapping(value = "/{reviewId}")
     public ResponseEntity<ReviewDto> updateReview(
             @PathVariable("reviewId") UUID reviewId,
@@ -37,6 +39,7 @@ public class ReviewController {
         return ResponseEntity.status(HttpStatus.OK).body(reviewDto);
     }
 
+    // 리뷰 목록 조회
     @GetMapping
     public ResponseEntity<CursorResponseReviewDto<ReviewDto>> findAllReviews(
         @Valid @RequestBody ReviewFindAllRequest request
@@ -45,6 +48,7 @@ public class ReviewController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    // 리뷰 삭제
     @DeleteMapping(value = "/{reviewId}")
     public ResponseEntity<Void> deleteReview(
             @PathVariable("reviewId") UUID reviewId
