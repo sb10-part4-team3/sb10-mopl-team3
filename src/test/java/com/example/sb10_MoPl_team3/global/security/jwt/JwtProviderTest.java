@@ -17,11 +17,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtProviderTest {
 
+    private static final String TEST_JWT_SECRET =
+            "dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtcHJvdmlkZXItdGVzdC1tdXN0LWJlLWxvbmc=";
+
     private final Instant fixedInstant = Instant.parse("2026-06-24T00:00:00Z");
     private final Clock fixedClock = Clock.fixed(fixedInstant, ZoneOffset.UTC);
 
     private final JwtProperties jwtProperties = new JwtProperties(
-            "test-secret-key-for-jwt-provider-test-must-be-long-enough",
+            TEST_JWT_SECRET,
             Duration.ofHours(1),
             "mopl-test"
     );
@@ -54,7 +57,7 @@ class JwtProviderTest {
     @DisplayName("만료된 Access Token을 파싱하면 예외가 발생한다")
     void parseAccessToken_expired() {
         JwtProperties expiredProperties = new JwtProperties(
-                "test-secret-key-for-jwt-provider-test-must-be-long-enough",
+                TEST_JWT_SECRET,
                 Duration.ofSeconds(1),
                 "mopl-test"
         );

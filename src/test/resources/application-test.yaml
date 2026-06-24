@@ -18,6 +18,6 @@ aws:
     region: us-east-1
 
 jwt:
-  secret: test-secret-key-for-jwt-provider-test-must-be-long-enough
+  secret: dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtcHJvdmlkZXItdGVzdC1tdXN0LWJlLWxvbmc=
   access-token-expiration: 1h
   issuer: mopl-test

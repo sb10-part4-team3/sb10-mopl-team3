@@ -20,11 +20,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TokenServiceTest {
 
+    private static final String TEST_JWT_SECRET =
+            "dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtcHJvdmlkZXItdGVzdC1tdXN0LWJlLWxvbmc=";
+
     private final Instant fixedInstant = Instant.parse("2026-06-24T00:00:00Z");
     private final Clock fixedClock = Clock.fixed(fixedInstant, ZoneOffset.UTC);
 
     private final JwtProperties jwtProperties = new JwtProperties(
-            "test-secret-key-for-jwt-provider-test-must-be-long-enough",
+            TEST_JWT_SECRET,
             Duration.ofHours(1),
             "mopl-test"
     );
