@@ -16,3 +16,8 @@ aws:
   s3:
     bucket: test-bucket
     region: us-east-1
+
+jwt:
+  secret: test-secret-key-for-jwt-provider-test-must-be-long-enough
+  access-token-expiration: 1h
+  issuer: mopl-test
