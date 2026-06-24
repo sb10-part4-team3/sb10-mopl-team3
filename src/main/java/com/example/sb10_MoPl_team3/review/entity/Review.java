@@ -61,4 +61,9 @@ public class Review extends BaseEntity {
             this.rating = rating;
     }
 
+    // 리뷰 논리 삭제
+    public void delete() {
+        this.status = ReviewStatus.DELETED;
+    }
+
 }
