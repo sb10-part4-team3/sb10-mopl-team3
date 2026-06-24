@@ -1,6 +1,5 @@
 package com.example.sb10_MoPl_team3.global.security.jwt;
 
-
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 
 import java.time.Instant;
