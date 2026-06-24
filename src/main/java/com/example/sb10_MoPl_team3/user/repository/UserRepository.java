@@ -1,6 +1,6 @@
-package com.example.sb10_MoPl_team3.domain.user.repository;
+package com.example.sb10_MoPl_team3.user.repository;
 
-import com.example.sb10_MoPl_team3.domain.user.entity.User;
+import com.example.sb10_MoPl_team3.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

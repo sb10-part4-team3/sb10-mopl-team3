@@ -1,6 +1,6 @@
 package com.example.sb10_MoPl_team3.notification.entity;
 
-import com.example.sb10_MoPl_team3.domain.user.entity.User;
+import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

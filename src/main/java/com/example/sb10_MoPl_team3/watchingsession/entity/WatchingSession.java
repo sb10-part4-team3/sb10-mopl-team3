@@ -1,7 +1,7 @@
 package com.example.sb10_MoPl_team3.watchingsession.entity;
 
 import com.example.sb10_MoPl_team3.content.entity.Content;
-import com.example.sb10_MoPl_team3.domain.user.entity.User;
+import com.example.sb10_MoPl_team3.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

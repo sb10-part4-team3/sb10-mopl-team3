@@ -1,0 +1,17 @@
+package com.example.sb10_MoPl_team3.user.dto.response;
+
+import com.example.sb10_MoPl_team3.user.enums.UserRole;
+
+import java.time.Instant;
+import java.util.UUID;
+
+public record UserDto(
+        UUID id,
+        Instant createdAt,
+        String email,
+        String name,
+        String profileImageUrl,
+        UserRole role,
+        boolean locked
+) {
+}
