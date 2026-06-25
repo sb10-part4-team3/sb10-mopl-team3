@@ -11,6 +11,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
@@ -94,6 +96,61 @@ class JwtAuthenticationFilterTest {
                 .extracting("authority")
                 .containsExactly("ROLE_USER");
 
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("SSE 구독 요청은 accessToken 쿼리 파라미터로 인증할 수 있다")
+    void sseSubscribeWithAccessTokenQueryParameter() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        String token = "valid-sse-access-token";
+
+        JwtClaims claims = new JwtClaims(
+                userId,
+                UserRole.USER,
+                JwtTokenType.ACCESS,
+                sessionId,
+                Instant.parse("2026-06-24T00:00:00Z"),
+                Instant.parse("2026-06-24T01:00:00Z")
+        );
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setServletPath("/api/sse");
+        request.addHeader(HttpHeaders.ACCEPT, MediaType.TEXT_EVENT_STREAM_VALUE);
+        request.addParameter("accessToken", token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtProvider.parseAccessToken(token)).thenReturn(claims);
+
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        assertThat(authentication).isNotNull();
+        assertThat(authentication.getPrincipal()).isInstanceOf(AuthUser.class);
+
+        AuthUser authUser = (AuthUser) authentication.getPrincipal();
+
+        assertThat(authUser.userId()).isEqualTo(userId);
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("SSE 구독 요청이 아니면 accessToken 쿼리 파라미터를 인증에 사용하지 않는다")
+    void accessTokenQueryParameterIsIgnoredOutsideSseSubscribe() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setServletPath("/api/test/protected/me");
+        request.addParameter("accessToken", "query-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+
+        verify(jwtProvider, never()).parseAccessToken("query-token");
         verify(filterChain).doFilter(request, response);
     }
 
