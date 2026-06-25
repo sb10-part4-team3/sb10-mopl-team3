@@ -18,7 +18,7 @@ public class ContentTagRepositoryImpl implements ContentTagRepositoryCustom {
     return queryFactory
         .select(tag.name)
         .from(contentTag)
-        .join(tag).on(contentTag.tag.id.eq(tag.id))
+        .join(contentTag.tag,tag)
         .where(contentTag.id.contentId.eq(contentId))
         .fetch();
   }
