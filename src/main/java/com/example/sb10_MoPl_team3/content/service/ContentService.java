@@ -6,5 +6,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface ContentService {
   ContentDto create(ContentCreateRequest request, MultipartFile thumbnail);
+  ContentDto read()
 
 }
