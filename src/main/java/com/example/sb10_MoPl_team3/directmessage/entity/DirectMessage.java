@@ -59,10 +59,11 @@ public class DirectMessage extends BaseEntity {
     }
 
     public void markAsRead(Instant readAt) {
+        Instant confirmedReadAt = Objects.requireNonNull(readAt, "readAt은 필수입니다.");
         if (read) {
             return;
         }
         this.read = true;
-        this.readAt = Objects.requireNonNull(readAt, "readAt은 필수입니다.");
+        this.readAt = confirmedReadAt;
     }
 }
