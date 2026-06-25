@@ -1,4 +1,4 @@
-package com.example.sb10_MoPl_team3.playlist.dto;
+package com.example.sb10_MoPl_team3.playlist.dto.response;
 
 import com.example.sb10_MoPl_team3.content.dto.ContentSummary;
 import com.example.sb10_MoPl_team3.user.dto.response.UserSummary;

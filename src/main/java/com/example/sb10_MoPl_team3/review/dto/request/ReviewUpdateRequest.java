@@ -1,12 +1,12 @@
 package com.example.sb10_MoPl_team3.review.dto.request;
 
-import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotBlank;
 
 public record ReviewUpdateRequest(
-        @Nullable
+        @NotBlank
         String text,
 
-        @Nullable
+        @NotBlank
         Double rating
 ) {
 }

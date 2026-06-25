@@ -55,7 +55,7 @@ public class Review extends BaseEntity {
 
     // 리뷰 수정
     public void update(String text, Double rating) {
-        if (text != null)
+        if (text != null && !text.isBlank())
             this.text = text;
         if (rating != null)
             this.rating = rating;
@@ -64,6 +64,7 @@ public class Review extends BaseEntity {
     // 리뷰 논리 삭제
     public void delete() {
         this.status = ReviewStatus.DELETED;
+        this.deletedAt = Instant.now();
     }
 
 }
