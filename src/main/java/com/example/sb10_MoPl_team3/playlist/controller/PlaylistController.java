@@ -31,7 +31,7 @@ public class PlaylistController {
     @PatchMapping(value = "/{playlistId}")
     public ResponseEntity<PlaylistDto> updatePlaylist(
             @PathVariable UUID playlistId,
-            @RequestBody PlaylistUpdateRequest request
+            @Valid @RequestBody PlaylistUpdateRequest request
             ) {
         PlaylistDto response = playlistService.update(playlistId, request);
         return ResponseEntity.status(HttpStatus.OK).body(response);

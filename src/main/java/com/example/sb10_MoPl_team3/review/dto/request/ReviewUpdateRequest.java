@@ -1,12 +1,13 @@
 package com.example.sb10_MoPl_team3.review.dto.request;
 
-import jakarta.annotation.Nullable;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 
 public record ReviewUpdateRequest(
-        @Nullable
+        @JsonSetter(nulls = Nulls.FAIL)
         String text,
 
-        @Nullable
+        @JsonSetter(nulls = Nulls.FAIL)
         Double rating
 ) {
 }

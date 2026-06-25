@@ -1,12 +1,13 @@
 package com.example.sb10_MoPl_team3.playlist.dto.request;
 
-import jakarta.annotation.Nullable;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 
 public record PlaylistUpdateRequest(
-        @Nullable
+        @JsonSetter(nulls = Nulls.FAIL)
         String title,
 
-        @Nullable
+        @JsonSetter(nulls = Nulls.FAIL)
         String description
 ) {
 }
