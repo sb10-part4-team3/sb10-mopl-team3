@@ -305,7 +305,6 @@ public class ReviewServiceImpl implements ReviewService{
         }
     }
 
-
     // 인증 사용자 조회
     private UUID getAuthenticatedUserId() {
         return SecurityUtils.getCurrentUserId();
