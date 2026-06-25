@@ -55,9 +55,9 @@ public class Playlist extends BaseEntity {
 
     // 플레이리스트 수정
     public void update(String title, String description) {
-        if (title != null)
+        if (title != null && !title.isBlank())
             this.title = title;
-        if (description != null)
+        if (description != null && !description.isBlank())
             this.description = description;
     }
 
