@@ -4,7 +4,7 @@ import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
-import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
+import com.example.sb10_MoPl_team3.global.security.SecurityUtils;
 import com.example.sb10_MoPl_team3.review.dto.request.ReviewFindAllRequest;
 import com.example.sb10_MoPl_team3.review.dto.response.CursorResponseReviewDto;
 import com.example.sb10_MoPl_team3.review.dto.response.ReviewDto;
@@ -24,8 +24,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -310,16 +308,7 @@ public class ReviewServiceImpl implements ReviewService{
 
     // 인증 사용자 조회
     private UUID getAuthenticatedUserId() {
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof JwtClaims jwtClaims)) {
-            throw new BusinessException(ErrorCode.INVALID_CREDENTIAL);
-        }
-
-        return jwtClaims.userId();
+        return SecurityUtils.getCurrentUserId();
     }
 
     // 리뷰 조회 후 반환
