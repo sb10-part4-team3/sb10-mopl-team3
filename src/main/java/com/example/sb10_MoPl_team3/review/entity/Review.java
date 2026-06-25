@@ -64,6 +64,7 @@ public class Review extends BaseEntity {
     // 리뷰 논리 삭제
     public void delete() {
         this.status = ReviewStatus.DELETED;
+        this.deletedAt = Instant.now();
     }
 
 }

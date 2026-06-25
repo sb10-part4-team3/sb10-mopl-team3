@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
@@ -63,5 +64,6 @@ public class Playlist extends BaseEntity {
     // 플레이리스트 논리 삭제
     public void delete() {
         this.status = PlaylistStatus.DELETED;
+        this.deletedAt = Instant.now();
     }
 }

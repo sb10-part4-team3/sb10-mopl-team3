@@ -17,6 +17,7 @@ import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -47,6 +48,7 @@ public class PlaylistServiceImpl implements PlaylistService{
     }
 
     // 플레이리스트 수정
+    @Transactional
     @Override
     public PlaylistDto update(UUID playlistId, PlaylistUpdateRequest request) {
         // 요청 조회
@@ -73,6 +75,7 @@ public class PlaylistServiceImpl implements PlaylistService{
     }
 
     // 플레이리스트 논리 삭제
+    @Transactional
     @Override
     public void delete(UUID playlistId) {
         UUID requestUserId = getAuthenticatedUserId();
