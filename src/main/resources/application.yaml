@@ -18,6 +18,12 @@ spring:
       hibernate:
         format_sql: true
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+
 aws:
   s3:
     bucket: ${AWS_S3_BUCKET}
