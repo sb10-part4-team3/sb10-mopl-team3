@@ -7,6 +7,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.Table;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -33,8 +34,13 @@ public class ContentTag {
   private Tag tag;
 
   public ContentTag(Content content, Tag tag) {
-    this.content = content;
-    this.tag = tag;
+
+    this.content = Objects.requireNonNull(content, "content must not be null");
+    this.tag = Objects.requireNonNull(tag, "tag must not be null");
+    if (content.getId() == null || tag.getId() == null) {
+      throw new IllegalArgumentException(
+          "content/tag must be persisted before ContentTag creation");
+    }
     this.id = new ContentTagId(content.getId(), tag.getId());
   }
 }
