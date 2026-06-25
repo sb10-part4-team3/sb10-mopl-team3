@@ -74,6 +74,7 @@ public class ContentServiceImpl implements ContentService {
   @Override
   public ContentDto getContent(UUID contentId) {
     Content content = contentRepository.findById(contentId)
+        .filter(c -> c.getDeletedAt() == null)
         .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
 
     ContentStats stats = contentStatsRepository.findById(contentId).orElse(null);
