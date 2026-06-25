@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.auth.controller;
 
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
 import com.example.sb10_MoPl_team3.auth.service.AuthService;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.global.config.SecurityConfig;
@@ -33,6 +34,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private JwtProvider jwtProvider;
 
     @Test
     @DisplayName("로그인 요청이 유효하면 사용자 정보와 액세스 토큰을 반환한다")

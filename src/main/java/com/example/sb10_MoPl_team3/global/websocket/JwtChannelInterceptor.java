@@ -1,8 +1,8 @@
 package com.example.sb10_MoPl_team3.global.websocket;
 
+import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.Message;
@@ -11,7 +11,6 @@ import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
@@ -61,16 +60,18 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
     private void authenticate(StompHeaderAccessor accessor) {
         try {
             JwtClaims claims = jwtProvider.parseAccessToken(extractAccessToken(accessor));
+            AuthUser authUser = AuthUser.from(claims);
+
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
-                            claims.userId(),
+                            authUser,
                             null,
-                            List.of(new SimpleGrantedAuthority("ROLE_" + claims.role().name()))
+                            authUser.authorities()
                     );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             accessor.setUser(authentication);
-            log.debug("웹소켓 인증 성공: role={}", claims.role());
+            log.debug("웹소켓 인증 성공: role={}", authUser.role());
         } catch (RuntimeException e) {
             SecurityContextHolder.clearContext();
             log.warn("웹소켓 인증 실패: reason={}", e.getClass().getSimpleName());

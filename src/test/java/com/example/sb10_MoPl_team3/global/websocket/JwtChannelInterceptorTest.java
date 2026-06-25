@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
+import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
@@ -56,7 +57,11 @@ class JwtChannelInterceptorTest {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         assertThat(authentication).isNotNull();
-        assertThat(authentication.getPrincipal()).isEqualTo(userId);
+        assertThat(authentication.getPrincipal()).isInstanceOf(AuthUser.class);
+
+        AuthUser authUser = (AuthUser) authentication.getPrincipal();
+        assertThat(authUser.userId()).isEqualTo(userId);
+        assertThat(authUser.role()).isEqualTo(UserRole.USER);
         assertThat(authentication.getAuthorities())
                 .extracting("authority")
                 .containsExactly("ROLE_USER");

@@ -4,7 +4,7 @@ import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
-import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
+import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.review.dto.request.ReviewFindAllRequest;
 import com.example.sb10_MoPl_team3.review.dto.response.CursorResponseReviewDto;
 import com.example.sb10_MoPl_team3.review.dto.response.ReviewDto;
@@ -315,11 +315,11 @@ public class ReviewServiceImpl implements ReviewService{
 
         if (authentication == null
                 || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof JwtClaims jwtClaims)) {
+                || !(authentication.getPrincipal() instanceof AuthUser authUser)) {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIAL);
         }
 
-        return jwtClaims.userId();
+        return authUser.userId();
     }
 
     // 리뷰 조회 후 반환
