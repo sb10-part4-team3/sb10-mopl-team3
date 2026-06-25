@@ -4,15 +4,16 @@ import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.UUID;
 
@@ -21,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @Import(MethodSecurityTest.TestMethodSecurityService.class)
+@ActiveProfiles("test")
 class MethodSecurityTest {
 
     @Autowired
@@ -54,7 +56,7 @@ class MethodSecurityTest {
     @DisplayName("인증 정보가 없으면 관리자 메서드 호출 시 예외가 발생한다")
     void anonymousCannotAccessAdminMethod() {
         assertThatThrownBy(() -> testMethodSecurityService.adminOnly())
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(AuthenticationCredentialsNotFoundException.class);
     }
 
     private void setAuthentication(UserRole role) {
@@ -71,10 +73,10 @@ class MethodSecurityTest {
     }
 
     @Service
-    static class TestMethodSecurityService {
+    public static class TestMethodSecurityService {
 
         @PreAuthorize("hasRole('ADMIN')")
-        String adminOnly() {
+        public String adminOnly() {
             return "ok";
         }
     }
