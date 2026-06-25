@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.user.controller;
 
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.service.UserService;
@@ -32,6 +33,9 @@ class UserControllerTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private JwtProvider jwtProvider;
 
     @Test
     @DisplayName("회원가입 요청이 유효하면 사용자를 생성하고 201을 반환한다")
