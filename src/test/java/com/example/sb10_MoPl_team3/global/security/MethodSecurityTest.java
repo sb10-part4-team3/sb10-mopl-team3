@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Import(MethodSecurityTest.TestMethodSecurityService.class)
 @ActiveProfiles("test")
 class MethodSecurityTest {
-
+    // @PreAuthorize 로 인가 조건 검증이 동작하는지 검증하는 테스트 클래스
     @Autowired
     private TestMethodSecurityService testMethodSecurityService;
 
@@ -59,15 +59,39 @@ class MethodSecurityTest {
                 .isInstanceOf(AuthenticationCredentialsNotFoundException.class);
     }
 
+    @Test
+    @DisplayName("현재 인증 사용자와 대상 userId가 같으면 본인 전용 메서드를 호출할 수 있다")
+    void selfCanAccessSelfMethod() {
+        UUID userId = UUID.randomUUID();
+        setAuthentication(userId, UserRole.USER);
+
+        String result = testMethodSecurityService.selfOnly(userId);
+
+        assertThat(result).isEqualTo("ok");
+    }
+
+    @Test
+    @DisplayName("현재 인증 사용자와 대상 userId가 다르면 본인 전용 메서드 호출 시 예외가 발생한다")
+    void otherUserCannotAccessSelfMethod() {
+        setAuthentication(UUID.randomUUID(), UserRole.USER);
+
+        assertThatThrownBy(() -> testMethodSecurityService.selfOnly(UUID.randomUUID()))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
     private void setAuthentication(UserRole role) {
-        AuthUser authUser = new AuthUser(UUID.randomUUID(), role, null);
+        setAuthentication(UUID.randomUUID(), role);
+    }
+
+    private void setAuthentication(UUID userId, UserRole role) {
+        AuthUser authUser = new AuthUser(userId, role, null);
 
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                         authUser,
                         null,
                         authUser.authorities()
-                );
+        );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
@@ -77,6 +101,11 @@ class MethodSecurityTest {
 
         @PreAuthorize("hasRole('ADMIN')")
         public String adminOnly() {
+            return "ok";
+        }
+
+        @PreAuthorize("@userAuthorizationService.isSelf(#userId)")
+        public String selfOnly(UUID userId) {
             return "ok";
         }
     }

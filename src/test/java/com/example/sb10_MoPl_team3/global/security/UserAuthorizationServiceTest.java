@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.global.security;
 
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.global.security.exception.AccessDeniedBusinessException;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,7 +63,7 @@ class UserAuthorizationServiceTest {
         setAuthentication(UUID.randomUUID());
 
         assertThatThrownBy(() -> userAuthorizationService.validateSelf(UUID.randomUUID()))
-                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                .isInstanceOfSatisfying(AccessDeniedBusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ACCESS_DENIED)
                 );
     }
