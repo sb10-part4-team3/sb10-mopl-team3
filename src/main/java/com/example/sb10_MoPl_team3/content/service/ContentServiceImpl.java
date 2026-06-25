@@ -3,7 +3,13 @@ package com.example.sb10_MoPl_team3.content.service;
 import com.example.sb10_MoPl_team3.content.dto.ContentCreateRequest;
 import com.example.sb10_MoPl_team3.content.dto.ContentDto;
 import com.example.sb10_MoPl_team3.content.entity.Content;
+import com.example.sb10_MoPl_team3.content.entity.ContentStats;
+import com.example.sb10_MoPl_team3.content.mapper.ContentMapper;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
+import com.example.sb10_MoPl_team3.content.repository.ContentStatsRepository;
+import com.example.sb10_MoPl_team3.content.repository.ContentTagRepository;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.file.FileStorageService;
 import java.util.List;
 import java.util.UUID;
@@ -25,14 +31,20 @@ public class ContentServiceImpl implements ContentService {
   // 트랜잭션 경계를 직접 제어하기 위해 TransactionTemplate을 사용해
   // "DB 저장"만 짧게 트랜잭션으로 감싼다.
   private final TransactionTemplate transactionTemplate;
+  private final ContentStatsRepository contentStatsRepository;
+  private final ContentTagRepository contentTagRepository;
 
   public ContentServiceImpl(
       ContentRepository contentRepository,
       FileStorageService fileStorageService,
-      PlatformTransactionManager transactionManager) {
+      PlatformTransactionManager transactionManager,
+      ContentStatsRepository contentStatsRepository,
+      ContentTagRepository contentTagRepository) {
     this.contentRepository = contentRepository;
     this.fileStorageService = fileStorageService;
     this.transactionTemplate = new TransactionTemplate(transactionManager);
+    this.contentStatsRepository = contentStatsRepository;
+    this.contentTagRepository = contentTagRepository;
   }
 
   @Override
@@ -57,6 +69,17 @@ public class ContentServiceImpl implements ContentService {
       }
       throw e;
     }
+  }
+
+  @Override
+  public ContentDto getContent(UUID contentId) {
+    Content content = contentRepository.findById(contentId)
+        .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
+
+    ContentStats stats = contentStatsRepository.findById(contentId).orElse(null);
+    List<String> tags = contentTagRepository.findTagNamesByContentId(contentId);
+
+    return ContentMapper.toDto(content, stats, tags);
   }
 
   private ContentDto saveContent(ContentCreateRequest request, String thumbnailUrl) {
