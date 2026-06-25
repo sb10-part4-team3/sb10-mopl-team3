@@ -111,7 +111,7 @@ class SecurityUtilsTest {
     @DisplayName("본인 여부 검증 대상 userId가 null이면 예외가 발생한다")
     void isCurrentUser_nullUserId() {
         assertThatThrownBy(() -> SecurityUtils.isCurrentUser(null))
-                .isInstanceOf(NullPointerException.class);
+                .isInstanceOf(BusinessException.class);
     }
 
     private void setAuthentication(AuthUser authUser) {

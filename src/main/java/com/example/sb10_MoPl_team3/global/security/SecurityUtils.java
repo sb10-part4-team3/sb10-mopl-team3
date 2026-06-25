@@ -6,7 +6,6 @@ import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.util.Objects;
 import java.util.UUID;
 
 public final class SecurityUtils {
@@ -39,7 +38,9 @@ public final class SecurityUtils {
 
     // 본인 여부 확인
     public static boolean isCurrentUser(UUID userId) {
-        Objects.requireNonNull(userId, "userId must not be null");
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
 
         return getCurrentUserId().equals(userId);
     }
