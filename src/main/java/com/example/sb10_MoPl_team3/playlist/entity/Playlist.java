@@ -59,4 +59,9 @@ public class Playlist extends BaseEntity {
         if (description != null)
             this.description = description;
     }
+
+    // 플레이리스트 논리 삭제
+    public void delete() {
+        this.status = PlaylistStatus.DELETED;
+    }
 }
