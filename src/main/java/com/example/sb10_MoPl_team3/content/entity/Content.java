@@ -2,6 +2,8 @@ package com.example.sb10_MoPl_team3.content.entity;
 
 import com.example.sb10_MoPl_team3.content.ContentType;
 
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import java.time.Instant;
 import lombok.Builder;
 
@@ -74,10 +76,12 @@ public class Content extends BaseEntity {
   }
 
   public void update (String title, String description){
-    if (title == null || title.isBlank()) {
-      throw new IllegalArgumentException("title은 필수입니다");
+    if (title != null) {
+      if (title.isBlank()) {
+        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+      }
+      this.title = title;
     }
-    this.title = title;
     this.description = description;
   }
 

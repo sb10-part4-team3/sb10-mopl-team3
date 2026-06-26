@@ -77,6 +77,7 @@ public class ContentServiceImpl implements ContentService {
   }
 
   @Override
+  @Transactional(readOnly = true)
   public ContentDto getContent(UUID contentId) {
     Content content = contentRepository.findById(contentId)
         .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
