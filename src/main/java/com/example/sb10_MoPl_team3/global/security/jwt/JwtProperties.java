@@ -35,5 +35,9 @@ public record JwtProperties(
         if (refreshTokenExpiration.isZero() || refreshTokenExpiration.isNegative()) {
             throw new IllegalArgumentException("refreshTokenExpiration must be positive");
         }
+
+        if (refreshTokenExpiration.compareTo(Duration.ofSeconds(1)) < 0) {
+            throw new IllegalArgumentException("refreshTokenExpiration must be at least 1 second");
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.auth.integration;
 
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.auth.service.TokenService;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtTokenType;
@@ -71,6 +72,9 @@ class AuthIntegrationTest {
     @Autowired
     private AuthSessionRepository authSessionRepository;
 
+    @Autowired
+    private TokenService tokenService;
+
     @AfterEach
     void cleanRedis() {
         authSessionRepository.deleteAll();
@@ -125,6 +129,7 @@ class AuthIntegrationTest {
         JsonNode jsonNode = objectMapper.readTree(result.getResponse().getContentAsString());
         String accessToken = jsonNode.get("accessToken").asText();
         String refreshToken = jsonNode.get("refreshToken").asText();
+        String expectedRefreshTokenHash = tokenService.hashRefreshToken(refreshToken);
 
         JwtClaims claims = jwtProvider.parseAccessToken(accessToken);
         User savedUser = userRepository.findByEmail("login@test.com").orElseThrow();
@@ -136,8 +141,9 @@ class AuthIntegrationTest {
         assertThat(claims.sessionId()).isNotNull();
 
         assertThat(savedSession.getUserId()).isEqualTo(savedUser.getId());
-        assertThat(savedSession.getRefreshTokenHash()).isNotBlank();
-        assertThat(savedSession.getRefreshTokenHash()).isNotEqualTo(refreshToken);
+        assertThat(savedSession.getRefreshTokenHash()).isEqualTo(expectedRefreshTokenHash);
+        assertThat(authSessionRepository.findByRefreshTokenHash(expectedRefreshTokenHash))
+                .hasValueSatisfying(session -> assertThat(session.getId()).isEqualTo(savedSession.getId()));
         assertThat(savedSession.getExpiresAt()).isAfter(savedSession.getCreatedAt());
         assertThat(savedSession.isRevoked()).isFalse();
         assertThat(savedSession.getRevokedAt()).isNull();
