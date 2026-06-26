@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.content.service;
 
 import com.example.sb10_MoPl_team3.content.dto.ContentCreateRequest;
 import com.example.sb10_MoPl_team3.content.dto.ContentDto;
+import com.example.sb10_MoPl_team3.content.dto.ContentUpdateRequest;
 import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.entity.ContentStats;
 import com.example.sb10_MoPl_team3.content.mapper.ContentMapper;
@@ -16,6 +17,7 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -33,18 +35,21 @@ public class ContentServiceImpl implements ContentService {
   private final TransactionTemplate transactionTemplate;
   private final ContentStatsRepository contentStatsRepository;
   private final ContentTagRepository contentTagRepository;
+  private final ContentTagService contentTagService;
 
   public ContentServiceImpl(
       ContentRepository contentRepository,
       FileStorageService fileStorageService,
       PlatformTransactionManager transactionManager,
       ContentStatsRepository contentStatsRepository,
-      ContentTagRepository contentTagRepository) {
+      ContentTagRepository contentTagRepository,
+      ContentTagService contentTagService) {
     this.contentRepository = contentRepository;
     this.fileStorageService = fileStorageService;
     this.transactionTemplate = new TransactionTemplate(transactionManager);
     this.contentStatsRepository = contentStatsRepository;
     this.contentTagRepository = contentTagRepository;
+    this.contentTagService = contentTagService;
   }
 
   @Override
@@ -74,11 +79,26 @@ public class ContentServiceImpl implements ContentService {
   @Override
   public ContentDto getContent(UUID contentId) {
     Content content = contentRepository.findById(contentId)
-        .filter(c -> c.getDeletedAt() == null)
         .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
 
     ContentStats stats = contentStatsRepository.findById(contentId).orElse(null);
     List<String> tags = contentTagRepository.findTagNamesByContentId(contentId);
+
+    return ContentMapper.toDto(content, stats, tags);
+  }
+
+  @Override
+  @Transactional
+  public ContentDto updateContent(UUID contentId, ContentUpdateRequest request) {
+    Content content = contentRepository.findById(contentId)
+        .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
+
+    content.update(request.title(), request.description());
+
+    List<String> tags = contentTagService.syncTags(content, request.tags());
+
+    ContentStats stats = contentStatsRepository.findById(contentId)
+        .orElse(null);
 
     return ContentMapper.toDto(content, stats, tags);
   }

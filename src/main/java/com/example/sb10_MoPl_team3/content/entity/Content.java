@@ -1,12 +1,9 @@
 package com.example.sb10_MoPl_team3.content.entity;
 
 import com.example.sb10_MoPl_team3.content.ContentType;
-import jakarta.persistence.EntityListeners;
-import java.time.Instant;
 
+import java.time.Instant;
 import lombok.Builder;
-import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.SQLRestriction;
 
 import com.example.sb10_MoPl_team3.global.base.BaseEntity;
 
@@ -15,15 +12,18 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "contents")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@SQLDelete(sql = "UPDATE contents SET deleted_at = now() WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 public class Content extends BaseEntity {
 
   @Enumerated(EnumType.STRING)
@@ -71,6 +71,14 @@ public class Content extends BaseEntity {
     this.thumbnailUrl = thumbnailUrl;
     this.externalId = externalId;
     this.source = source;
+  }
+
+  public void update (String title, String description){
+    if (title == null || title.isBlank()) {
+      throw new IllegalArgumentException("title은 필수입니다");
+    }
+    this.title = title;
+    this.description = description;
   }
 
 }
