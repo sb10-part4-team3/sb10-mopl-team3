@@ -11,6 +11,9 @@ import org.springframework.data.repository.query.Param;
 public interface ConversationRepository extends JpaRepository<Conversation, UUID> {
 
   @EntityGraph(attributePaths = {"user1", "user2"})
+  Optional<Conversation> findWithUsersById(UUID id);
+
+  @EntityGraph(attributePaths = {"user1", "user2"})
   @Query("""
             select c
             from Conversation c

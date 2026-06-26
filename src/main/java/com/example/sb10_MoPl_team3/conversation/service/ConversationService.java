@@ -36,6 +36,26 @@ public class ConversationService {
             .orElseGet(() -> createOrFindConversation(requestUserId, withUserId));
     }
 
+    public ConversationDto findWithUser(UUID requestUserId, UUID userId) {
+        if (requestUserId.equals(userId)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        return findConversation(requestUserId, userId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND));
+    }
+
+    public ConversationDto find(UUID requestUserId, UUID conversationId) {
+        Conversation conversation = conversationRepository.findWithUsersById(conversationId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!isParticipant(conversation, requestUserId)) {
+            throw new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND);
+        }
+
+        return ConversationMapper.toDto(conversation, requestUserId);
+    }
+
     private ConversationDto createOrFindConversation(UUID requestUserId, UUID withUserId) {
         try {
             return createNewConversation(requestUserId, withUserId);
@@ -51,6 +71,11 @@ public class ConversationService {
     ) {
         return conversationRepository.findByUserIds(requestUserId, withUserId)
             .map(conversation -> ConversationMapper.toDto(conversation, requestUserId));
+    }
+
+    private boolean isParticipant(Conversation conversation, UUID userId) {
+        return conversation.getUser1().getId().equals(userId)
+            || conversation.getUser2().getId().equals(userId);
     }
 
     private ConversationDto createNewConversation(UUID requestUserId, UUID withUserId) {
