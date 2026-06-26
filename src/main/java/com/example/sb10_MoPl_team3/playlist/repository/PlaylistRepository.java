@@ -13,6 +13,7 @@ import java.util.UUID;
 
 @Repository
 public interface PlaylistRepository extends JpaRepository<Playlist, UUID> {
+    // 구독자수 증가
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             update Playlist p
@@ -22,6 +23,7 @@ public interface PlaylistRepository extends JpaRepository<Playlist, UUID> {
             """)
     int increaseSubscriberCount(UUID playlistId, PlaylistStatus deletedStatus);
 
+    // 구독자수 감소
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             update Playlist p
