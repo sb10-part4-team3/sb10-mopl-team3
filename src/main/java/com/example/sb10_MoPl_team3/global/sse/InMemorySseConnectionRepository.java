@@ -31,15 +31,11 @@ public class InMemorySseConnectionRepository implements SseConnectionRepository 
 
     @Override
     public void deleteEmitter(UUID userId, String emitterId) {
-        Map<String, SseEmitter> userEmitters = emitters.get(userId);
-        if (userEmitters == null) {
-            return;
-        }
+        emitters.computeIfPresent(userId, (key, userEmitters) -> {
+            userEmitters.remove(emitterId);
 
-        userEmitters.remove(emitterId);
-        if (userEmitters.isEmpty()) {
-            emitters.remove(userId, userEmitters);
-        }
+            return userEmitters.isEmpty() ? null : userEmitters;
+        });
     }
 
     @Override

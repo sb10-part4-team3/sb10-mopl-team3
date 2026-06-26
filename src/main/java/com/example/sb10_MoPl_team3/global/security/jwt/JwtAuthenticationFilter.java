@@ -7,8 +7,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.InvalidMediaTypeException;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -70,21 +71,45 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private String extractToken(HttpServletRequest request) {
+        if (isSseSubscribeRequest(request) && hasDuplicatedSseTokenParameter(request)) {
+            return "";
+        }
+
         String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (authorization != null && authorization.startsWith(BEARER_PREFIX)) {
             return authorization.substring(BEARER_PREFIX.length()).trim();
         }
 
         if (isSseSubscribeRequest(request)) {
-            String accessToken = request.getParameter(ACCESS_TOKEN_PARAM);
-            if (accessToken == null || accessToken.isBlank()) {
-                accessToken = request.getParameter(ACCESS_TOKEN_SNAKE_CASE_PARAM);
-            }
-
-            return accessToken == null ? null : accessToken.trim();
+            return extractSseQueryToken(request);
         }
 
         return null;
+    }
+
+    private String extractSseQueryToken(HttpServletRequest request) {
+        String[] camelCaseTokens = request.getParameterValues(ACCESS_TOKEN_PARAM);
+        if (camelCaseTokens != null && camelCaseTokens.length == 1) {
+            return camelCaseTokens[0].trim();
+        }
+
+        String[] snakeCaseTokens = request.getParameterValues(ACCESS_TOKEN_SNAKE_CASE_PARAM);
+        if (snakeCaseTokens != null && snakeCaseTokens.length == 1) {
+            return snakeCaseTokens[0].trim();
+        }
+
+        return null;
+    }
+
+    private boolean hasDuplicatedSseTokenParameter(HttpServletRequest request) {
+        return countParameterValues(request, ACCESS_TOKEN_PARAM)
+                + countParameterValues(request, ACCESS_TOKEN_SNAKE_CASE_PARAM) > 1;
+    }
+
+    private int countParameterValues(HttpServletRequest request, String parameterName) {
+        String[] values = request.getParameterValues(parameterName);
+
+        return values == null ? 0 : values.length;
     }
 
     private boolean isSseSubscribeRequest(HttpServletRequest request) {
@@ -93,6 +118,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return "GET".equals(request.getMethod())
                 && SSE_SUBSCRIBE_PATH.equals(request.getServletPath())
                 && accept != null
-                && accept.contains(MediaType.TEXT_EVENT_STREAM_VALUE);
+                && hasTextEventStreamAccept(accept);
+    }
+
+    private boolean hasTextEventStreamAccept(String accept) {
+        try {
+            return MediaType.parseMediaTypes(accept).stream()
+                    .anyMatch(mediaType ->
+                            "text".equalsIgnoreCase(mediaType.getType())
+                                    && "event-stream".equalsIgnoreCase(mediaType.getSubtype()));
+        } catch (InvalidMediaTypeException e) {
+            return false;
+        }
     }
 }

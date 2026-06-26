@@ -138,6 +138,136 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("SSE 구독 요청은 access_token 쿼리 파라미터 별칭으로 인증할 수 있다")
+    void sseSubscribeWithSnakeCaseAccessTokenQueryParameter() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        String token = "valid-sse-access-token";
+
+        JwtClaims claims = new JwtClaims(
+                userId,
+                UserRole.USER,
+                JwtTokenType.ACCESS,
+                sessionId,
+                Instant.parse("2026-06-24T00:00:00Z"),
+                Instant.parse("2026-06-24T01:00:00Z")
+        );
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setServletPath("/api/sse");
+        request.addHeader(HttpHeaders.ACCEPT, MediaType.TEXT_EVENT_STREAM_VALUE);
+        request.addParameter("access_token", token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtProvider.parseAccessToken(token)).thenReturn(claims);
+
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        assertThat(authentication).isNotNull();
+        assertThat(authentication.getPrincipal()).isInstanceOf(AuthUser.class);
+
+        AuthUser authUser = (AuthUser) authentication.getPrincipal();
+
+        assertThat(authUser.userId()).isEqualTo(userId);
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("SSE 구독 요청의 Accept 헤더는 대소문자와 파라미터가 달라도 허용한다")
+    void sseSubscribeWithCaseInsensitiveAcceptHeader() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        String token = "valid-sse-access-token";
+
+        JwtClaims claims = new JwtClaims(
+                userId,
+                UserRole.USER,
+                JwtTokenType.ACCESS,
+                sessionId,
+                Instant.parse("2026-06-24T00:00:00Z"),
+                Instant.parse("2026-06-24T01:00:00Z")
+        );
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setServletPath("/api/sse");
+        request.addHeader(HttpHeaders.ACCEPT, "TEXT/EVENT-STREAM;charset=UTF-8");
+        request.addParameter("accessToken", token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtProvider.parseAccessToken(token)).thenReturn(claims);
+
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        assertThat(authentication).isNotNull();
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("Accept 헤더가 text/event-stream 부분 문자열만 포함하면 SSE 쿼리 토큰 인증을 하지 않는다")
+    void accessTokenQueryParameterIsIgnoredWithNonExactSseAcceptHeader() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setServletPath("/api/sse");
+        request.addHeader(HttpHeaders.ACCEPT, "application/text/event-stream+json");
+        request.addParameter("accessToken", "query-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+
+        verify(jwtProvider, never()).parseAccessToken("query-token");
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("SSE 구독 요청의 accessToken 쿼리 파라미터가 중복되면 401을 반환한다")
+    void sseSubscribeWithDuplicatedAccessTokenQueryParameter() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setServletPath("/api/sse");
+        request.addHeader(HttpHeaders.ACCEPT, MediaType.TEXT_EVENT_STREAM_VALUE);
+        request.addParameter("accessToken", "first-token", "second-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+
+        verify(jwtProvider, never()).parseAccessToken("first-token");
+        verify(jwtProvider, never()).parseAccessToken("second-token");
+        verify(filterChain, never()).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("SSE 구독 요청의 accessToken과 access_token이 함께 있으면 401을 반환한다")
+    void sseSubscribeWithMixedTokenQueryParameters() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setServletPath("/api/sse");
+        request.addHeader(HttpHeaders.ACCEPT, MediaType.TEXT_EVENT_STREAM_VALUE);
+        request.addParameter("accessToken", "camel-case-token");
+        request.addParameter("access_token", "snake-case-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+
+        verify(jwtProvider, never()).parseAccessToken("camel-case-token");
+        verify(jwtProvider, never()).parseAccessToken("snake-case-token");
+        verify(filterChain, never()).doFilter(request, response);
+    }
+
+    @Test
     @DisplayName("SSE 구독 요청이 아니면 accessToken 쿼리 파라미터를 인증에 사용하지 않는다")
     void accessTokenQueryParameterIsIgnoredOutsideSseSubscribe() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
