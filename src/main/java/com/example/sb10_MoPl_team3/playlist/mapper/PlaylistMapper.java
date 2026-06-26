@@ -10,10 +10,10 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface PlaylistMapper {
-    @Mapping(target = "subscribedByMe", ignore = true)
+    @Mapping(source = "subscribedByMe", target = "subscribedByMe")
     @Mapping(target = "contents", ignore = true)
     @Mapping(source = "owner", target = "owner")
-    PlaylistDto toDto(Playlist playlist);
+    PlaylistDto toDto(Playlist playlist, boolean subscribedByMe);
 
     default UserSummary mapOwner(User owner) {
         if (owner == null) {
