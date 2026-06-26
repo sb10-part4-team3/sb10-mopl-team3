@@ -10,4 +10,5 @@ public interface ContentService {
   ContentDto create(ContentCreateRequest request, MultipartFile thumbnail);
   ContentDto getContent(UUID contentId);
   ContentDto updateContent(UUID contentId, ContentUpdateRequest request);
+  void deleteContent(UUID contentId);
 }
