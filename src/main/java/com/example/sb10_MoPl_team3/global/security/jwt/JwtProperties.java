@@ -17,15 +17,23 @@ public record JwtProperties(
         @NotNull
         Duration accessTokenExpiration,
 
+        @NotNull
+        Duration refreshTokenExpiration,
+
         @NotBlank
         String issuer
 ) {
 
     public JwtProperties {
         Objects.requireNonNull(accessTokenExpiration, "accessTokenExpiration must not be null");
+        Objects.requireNonNull(refreshTokenExpiration, "refreshTokenExpiration must not be null");
 
         if (accessTokenExpiration.isZero() || accessTokenExpiration.isNegative()) {
             throw new IllegalArgumentException("accessTokenExpiration must be positive");
+        }
+
+        if (refreshTokenExpiration.isZero() || refreshTokenExpiration.isNegative()) {
+            throw new IllegalArgumentException("refreshTokenExpiration must be positive");
         }
     }
 }
