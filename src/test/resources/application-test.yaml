@@ -12,6 +12,12 @@ spring:
       hibernate:
         format_sql: true
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: test
+
 aws:
   s3:
     bucket: test-bucket
@@ -20,4 +26,5 @@ aws:
 jwt:
   secret: dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtcHJvdmlkZXItdGVzdC1tdXN0LWJlLWxvbmc=
   access-token-expiration: 1h
+  refresh-token-expiration: 7d
   issuer: mopl-test

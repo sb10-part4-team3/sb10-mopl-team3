@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.auth.integration;
 
+import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtTokenType;
@@ -16,6 +17,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -48,6 +50,9 @@ class AuthIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private AuthSessionRepository authSessionRepository;
 
     @Test
     @DisplayName("회원가입 요청이 유효하면 사용자를 저장하고 비밀번호를 암호화한다")
@@ -89,6 +94,7 @@ class AuthIntegrationTest {
         MvcResult result = signIn("login@test.com", "password1!")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
                 .andExpect(jsonPath("$.userDto.email").value("login@test.com"))
                 .andExpect(jsonPath("$.userDto.role").value("USER"))
                 .andExpect(jsonPath("$.userDto.locked").value(false))
@@ -103,6 +109,7 @@ class AuthIntegrationTest {
         assertThat(claims.userId()).isEqualTo(savedUser.getId());
         assertThat(claims.role()).isEqualTo(UserRole.USER);
         assertThat(claims.type()).isEqualTo(JwtTokenType.ACCESS);
+        assertThat(claims.sessionId()).isNotNull();
     }
 
     @Test
