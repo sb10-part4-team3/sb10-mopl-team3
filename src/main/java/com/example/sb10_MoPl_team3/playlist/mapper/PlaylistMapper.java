@@ -12,7 +12,7 @@ import org.mapstruct.Mapping;
 public interface PlaylistMapper {
     @Mapping(source = "subscribedByMe", target = "subscribedByMe")
     @Mapping(target = "contents", ignore = true)
-    @Mapping(source = "owner", target = "owner")
+    @Mapping(source = "playlist.owner", target = "owner")
     PlaylistDto toDto(Playlist playlist, boolean subscribedByMe);
 
     default UserSummary mapOwner(User owner) {
