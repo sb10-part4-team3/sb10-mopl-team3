@@ -2,8 +2,11 @@ package com.example.sb10_MoPl_team3.content.repository;
 
 import com.example.sb10_MoPl_team3.content.entity.ContentTag;
 import com.example.sb10_MoPl_team3.content.entity.ContentTagId;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ContentTagRepository extends JpaRepository<ContentTag, ContentTagId> {
+public interface ContentTagRepository extends JpaRepository<ContentTag, ContentTagId> ,
+    ContentTagRepositoryCustom{
 
 }

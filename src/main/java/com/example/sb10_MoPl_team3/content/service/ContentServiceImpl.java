@@ -2,14 +2,22 @@ package com.example.sb10_MoPl_team3.content.service;
 
 import com.example.sb10_MoPl_team3.content.dto.ContentCreateRequest;
 import com.example.sb10_MoPl_team3.content.dto.ContentDto;
+import com.example.sb10_MoPl_team3.content.dto.ContentUpdateRequest;
 import com.example.sb10_MoPl_team3.content.entity.Content;
+import com.example.sb10_MoPl_team3.content.entity.ContentStats;
+import com.example.sb10_MoPl_team3.content.mapper.ContentMapper;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
+import com.example.sb10_MoPl_team3.content.repository.ContentStatsRepository;
+import com.example.sb10_MoPl_team3.content.repository.ContentTagRepository;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.file.FileStorageService;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,14 +33,23 @@ public class ContentServiceImpl implements ContentService {
   // 트랜잭션 경계를 직접 제어하기 위해 TransactionTemplate을 사용해
   // "DB 저장"만 짧게 트랜잭션으로 감싼다.
   private final TransactionTemplate transactionTemplate;
+  private final ContentStatsRepository contentStatsRepository;
+  private final ContentTagRepository contentTagRepository;
+  private final ContentTagService contentTagService;
 
   public ContentServiceImpl(
       ContentRepository contentRepository,
       FileStorageService fileStorageService,
-      PlatformTransactionManager transactionManager) {
+      PlatformTransactionManager transactionManager,
+      ContentStatsRepository contentStatsRepository,
+      ContentTagRepository contentTagRepository,
+      ContentTagService contentTagService) {
     this.contentRepository = contentRepository;
     this.fileStorageService = fileStorageService;
     this.transactionTemplate = new TransactionTemplate(transactionManager);
+    this.contentStatsRepository = contentStatsRepository;
+    this.contentTagRepository = contentTagRepository;
+    this.contentTagService = contentTagService;
   }
 
   @Override
@@ -57,6 +74,34 @@ public class ContentServiceImpl implements ContentService {
       }
       throw e;
     }
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public ContentDto getContent(UUID contentId) {
+    Content content = contentRepository.findById(contentId)
+        .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
+
+    ContentStats stats = contentStatsRepository.findById(contentId).orElse(null);
+    List<String> tags = contentTagRepository.findTagNamesByContentId(contentId);
+
+    return ContentMapper.toDto(content, stats, tags);
+  }
+
+  @Override
+  @Transactional
+  public ContentDto updateContent(UUID contentId, ContentUpdateRequest request) {
+    Content content = contentRepository.findById(contentId)
+        .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
+
+    content.update(request.title(), request.description());
+
+    List<String> tags = contentTagService.syncTags(content, request.tags());
+
+    ContentStats stats = contentStatsRepository.findById(contentId)
+        .orElse(null);
+
+    return ContentMapper.toDto(content, stats, tags);
   }
 
   private ContentDto saveContent(ContentCreateRequest request, String thumbnailUrl) {
