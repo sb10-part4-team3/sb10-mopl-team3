@@ -9,6 +9,7 @@ import org.springframework.data.redis.core.RedisHash;
 import org.springframework.data.redis.core.TimeToLive;
 import org.springframework.data.redis.core.index.Indexed;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -64,6 +65,11 @@ public class AuthSession {
             Instant expiresAt,
             Instant now
     ) {
+        long ttlSeconds = Duration.between(now, expiresAt).toSeconds();
+        if (ttlSeconds <= 0) {
+            throw new IllegalArgumentException("expiresAt must be after now");
+        }
+
         return AuthSession.builder()
                 .id(UUID.randomUUID())
                 .userId(userId)
@@ -72,7 +78,7 @@ public class AuthSession {
                 .revoked(false)
                 .revokedAt(null)
                 .createdAt(now)
-                .ttlSeconds(Math.max(1, expiresAt.getEpochSecond() - now.getEpochSecond()))
+                .ttlSeconds(ttlSeconds)
                 .build();
     }
 }

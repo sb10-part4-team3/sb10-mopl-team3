@@ -31,6 +31,7 @@ public class AuthService {
     private final JwtProperties jwtProperties;
     private final Clock clock;
 
+    @Transactional
     public JwtDto signIn(SignInRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(InvalidCredentialException::new);

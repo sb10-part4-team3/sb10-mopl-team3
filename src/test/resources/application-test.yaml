@@ -12,12 +12,6 @@ spring:
       hibernate:
         format_sql: true
 
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      password: test
-
 aws:
   s3:
     bucket: test-bucket
