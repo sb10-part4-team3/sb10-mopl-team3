@@ -8,11 +8,13 @@ import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistCreateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistUpdateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.response.PlaylistDto;
 import com.example.sb10_MoPl_team3.playlist.entity.Playlist;
+import com.example.sb10_MoPl_team3.playlist.entity.PlaylistSubscriber;
 import com.example.sb10_MoPl_team3.playlist.enums.PlaylistStatus;
 import com.example.sb10_MoPl_team3.playlist.exception.PlaylistNotFoundException;
 import com.example.sb10_MoPl_team3.playlist.exception.PlaylistOwnerMismatchException;
 import com.example.sb10_MoPl_team3.playlist.mapper.PlaylistMapper;
 import com.example.sb10_MoPl_team3.playlist.repository.PlaylistRepository;
+import com.example.sb10_MoPl_team3.playlist.repository.PlaylistSubscriptionRepository;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PlaylistServiceImpl implements PlaylistService{
     private final PlaylistRepository playlistRepository;
+    private final PlaylistSubscriptionRepository playlistSubscriptionRepository;
     private final PlaylistMapper playlistMapper;
     private final UserRepository userRepository;
 
@@ -72,6 +75,46 @@ public class PlaylistServiceImpl implements PlaylistService{
         validatePlaylistStatus(targetPlaylist);
 
         return playlistMapper.toDto(targetPlaylist);
+    }
+
+    // 플레이리스트 구독
+    @Override
+    public void subscribe(UUID playlistId) {
+        UUID requestUserId = getAuthenticatedUserId();
+        Playlist playlist = getPlaylistOrThrow(playlistId);
+        User user = getUserOrThrow(requestUserId);
+
+        validatePlaylistStatus(playlist);
+
+        if (playlist.getOwner().getId().equals(requestUserId)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        if (playlistSubscriptionRepository.existsByPlaylistIdAndUserId(playlistId, requestUserId)) {
+            return;
+        }
+
+        playlistSubscriptionRepository.save(PlaylistSubscriber.builder()
+                        .playlist(playlist)
+                        .user(user)
+                        .build()
+        );
+        playlist.increaseSubscriberCount();
+    }
+
+    // 플레이리스트 구독 취소
+    @Override
+    public void unsubscribe(UUID playlistId) {
+        UUID requestUserId = getAuthenticatedUserId();
+        Playlist playlist = getPlaylistOrThrow(playlistId);
+
+        validatePlaylistStatus(playlist);
+
+        playlistSubscriptionRepository.findByPlaylistIdAndUserId(playlistId, requestUserId)
+                .ifPresent(subscription -> {
+                    playlistSubscriptionRepository.delete(subscription);
+                    playlist.decreaseSubscriberCount();
+                });
     }
 
     // 플레이리스트 논리 삭제

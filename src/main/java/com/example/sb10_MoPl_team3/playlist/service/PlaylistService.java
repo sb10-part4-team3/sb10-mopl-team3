@@ -16,6 +16,12 @@ public interface PlaylistService {
     // 플레이리스트 단건 조회
     public PlaylistDto findById(UUID playlistId);
 
+    // 플레이리스트 구독
+    public void subscribe(UUID playlistId);
+
+    // 플레이리스트 구독 취소
+    public void unsubscribe(UUID playlistId);
+
     // 플레이리스트 논리 삭제
     public void delete(UUID playlistId);
 

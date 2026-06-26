@@ -54,4 +54,23 @@ public class PlaylistController {
         playlistService.delete(playlistId);
         return ResponseEntity.ok().build();
     }
+
+    // 플레이리스트 구독
+    @PostMapping("/{playlistId}/subscription")
+    public ResponseEntity<Void> subscribePlaylist(
+            @PathVariable UUID playlistId
+    ) {
+        playlistService.subscribe(playlistId);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    // 플레이리스트 구독 취소
+    @DeleteMapping("/{playlistId}/subscription")
+    public ResponseEntity<Void> unsubscribePlaylist(
+            @PathVariable UUID playlistId
+    ) {
+        playlistService.unsubscribe(playlistId);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
 }
