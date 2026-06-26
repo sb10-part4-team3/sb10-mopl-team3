@@ -104,6 +104,15 @@ public class ContentServiceImpl implements ContentService {
     return ContentMapper.toDto(content, stats, tags);
   }
 
+  @Override
+  @Transactional
+  public void deleteContent(UUID contentId) {
+    Content content = contentRepository.findById(contentId)
+        .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
+
+    contentRepository.delete(content);
+  }
+
   private ContentDto saveContent(ContentCreateRequest request, String thumbnailUrl) {
     List<String> tags = request.tags() != null ? request.tags() : List.of(); // TODO 태그엔티티 생성후 수정 필요
 
