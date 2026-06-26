@@ -66,4 +66,19 @@ public class Playlist extends BaseEntity {
         this.status = PlaylistStatus.DELETED;
         this.deletedAt = Instant.now();
     }
+
+    // 플레이리스트 구독자 수 증가
+    public void increaseSubscriberCount() {
+        this.subscriberCount = this.subscriberCount == null ? 1 : this.subscriberCount + 1;
+    }
+
+    // 플레이리스트 구독자 수 감소
+    public void decreaseSubscriberCount() {
+        if (this.subscriberCount == null || this.subscriberCount <= 0) {
+            this.subscriberCount = 0;
+            return;
+        }
+
+        this.subscriberCount--;
+    }
 }
