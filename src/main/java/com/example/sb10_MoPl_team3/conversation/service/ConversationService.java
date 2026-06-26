@@ -9,18 +9,21 @@ import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class ConversationService {
 
     private final ConversationRepository conversationRepository;
     private final UserRepository userRepository;
+    private final PlatformTransactionManager transactionManager;
 
     public ConversationDto create(UUID requestUserId, ConversationCreateRequest request) {
         UUID withUserId = request.withUserId();
@@ -29,19 +32,39 @@ public class ConversationService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
+        return findConversation(requestUserId, withUserId)
+            .orElseGet(() -> createOrFindConversation(requestUserId, withUserId));
+    }
+
+    private ConversationDto createOrFindConversation(UUID requestUserId, UUID withUserId) {
+        try {
+            return createNewConversation(requestUserId, withUserId);
+        } catch (DataIntegrityViolationException exception) {
+            return findConversation(requestUserId, withUserId)
+                .orElseThrow(() -> exception);
+        }
+    }
+
+    private Optional<ConversationDto> findConversation(
+        UUID requestUserId,
+        UUID withUserId
+    ) {
         return conversationRepository.findByUserIds(requestUserId, withUserId)
-            .map(conversation -> ConversationMapper.toDto(conversation, requestUserId))
-            .orElseGet(() -> createNewConversation(requestUserId, withUserId));
+            .map(conversation -> ConversationMapper.toDto(conversation, requestUserId));
     }
 
     private ConversationDto createNewConversation(UUID requestUserId, UUID withUserId) {
-        User requestUser = findUser(requestUserId);
-        User withUser = findUser(withUserId);
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 
-        Conversation conversation = conversationRepository.save(
-            new Conversation(requestUser, withUser)
-        );
-        return ConversationMapper.toDto(conversation, requestUserId);
+        return transactionTemplate.execute(status -> {
+            User requestUser = findUser(requestUserId);
+            User withUser = findUser(withUserId);
+
+            Conversation conversation = conversationRepository.saveAndFlush(
+                new Conversation(requestUser, withUser)
+            );
+            return ConversationMapper.toDto(conversation, requestUserId);
+        });
     }
 
     private User findUser(UUID userId) {
