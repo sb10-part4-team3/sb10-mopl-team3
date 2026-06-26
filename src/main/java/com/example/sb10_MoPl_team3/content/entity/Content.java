@@ -75,14 +75,16 @@ public class Content extends BaseEntity {
     this.source = source;
   }
 
-  public void update (String title, String description){
+  public void update(String title, String description) {
     if (title != null) {
       if (title.isBlank()) {
         throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
       }
       this.title = title;
     }
-    this.description = description;
+    if (description != null) {
+      this.description = description;
+    }
   }
 
 }
