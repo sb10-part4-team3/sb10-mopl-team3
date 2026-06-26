@@ -107,7 +107,10 @@ public class PlaylistServiceImpl implements PlaylistService{
         } catch (DataIntegrityViolationException e) {
             // 동시에 같은 사용자가 같은 플레이리스트를 구독했거나 이미 구독 중인 경우.
             // 유니크 제약이 보장하므로 카운트는 증가시키지 않고 멱등 성공으로 처리한다.
-            return;
+            if (playlistSubscriptionRepository.existsByPlaylistIdAndUserId(playlistId, requestUserId)) {
+                return;
+            }
+            throw e;
         }
 
         int updated = playlistRepository.increaseSubscriberCount(
