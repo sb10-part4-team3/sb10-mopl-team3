@@ -33,6 +33,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.http.HttpHeaders.SET_COOKIE;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -42,7 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class AuthIntegrationTest {
 
     @Container
@@ -226,5 +228,83 @@ class AuthIntegrationTest {
                           "password": "%s"
                         }
                         """.formatted(email, password)));
+    }
+
+    @Test
+    @DisplayName("refresh token 쿠키가 유효하면 새 access token과 새 refresh token 쿠키를 발급한다")
+    void refresh_success() throws Exception {
+        signUp("Test User", "refresh@test.com", "password1!")
+                .andExpect(status().isCreated());
+
+        MvcResult signInResult = signIn("refresh@test.com", "password1!")
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Cookie refreshTokenCookie = signInResult.getResponse().getCookie("REFRESH_TOKEN");
+        assertThat(refreshTokenCookie).isNotNull();
+
+        MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
+                        .with(csrf())
+                        .cookie(refreshTokenCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.userDto.email").value("refresh@test.com"))
+                .andReturn();
+
+        Cookie newRefreshTokenCookie = refreshResult.getResponse().getCookie("REFRESH_TOKEN");
+        assertThat(newRefreshTokenCookie).isNotNull();
+        assertThat(newRefreshTokenCookie.getValue()).isNotBlank();
+        assertThat(newRefreshTokenCookie.isHttpOnly()).isTrue();
+        assertThat(newRefreshTokenCookie.getPath()).isEqualTo("/api/auth");
+
+        JsonNode jsonNode = objectMapper.readTree(refreshResult.getResponse().getContentAsString());
+        String newAccessToken = jsonNode.get("accessToken").asText();
+
+        JwtClaims claims = jwtProvider.parseAccessToken(newAccessToken);
+        User savedUser = userRepository.findByEmail("refresh@test.com").orElseThrow();
+
+        assertThat(claims.userId()).isEqualTo(savedUser.getId());
+        assertThat(claims.sessionId()).isNotNull();
+
+        String newRefreshTokenHash = tokenService.hashRefreshToken(newRefreshTokenCookie.getValue());
+        assertThat(authSessionRepository.findByRefreshTokenHash(newRefreshTokenHash)).isPresent();
+    }
+
+    @Test
+    @DisplayName("refresh token 쿠키가 없으면 401을 반환한다")
+    void refresh_missingCookie() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh")
+                        .with(csrf()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
+    }
+
+    @Test
+    @DisplayName("로그아웃하면 현재 인증 세션을 무효화하고 refresh token 쿠키를 만료한다")
+    void signOut_success() throws Exception {
+        signUp("Test User", "logout@test.com", "password1!")
+                .andExpect(status().isCreated());
+
+        MvcResult signInResult = signIn("logout@test.com", "password1!")
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode jsonNode = objectMapper.readTree(signInResult.getResponse().getContentAsString());
+        String accessToken = jsonNode.get("accessToken").asText();
+
+        JwtClaims claims = jwtProvider.parseAccessToken(accessToken);
+
+        mockMvc.perform(post("/api/auth/sign-out")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isNoContent())
+                .andExpect(header().string(SET_COOKIE, containsString("REFRESH_TOKEN=")))
+                .andExpect(header().string(SET_COOKIE, containsString("Max-Age=0")));
+
+        AuthSession authSession = authSessionRepository.findById(claims.sessionId()).orElseThrow();
+
+        assertThat(authSession.isRevoked()).isTrue();
+        assertThat(authSession.getRevokedAt()).isNotNull();
     }
 }
