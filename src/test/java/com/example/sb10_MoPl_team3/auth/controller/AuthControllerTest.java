@@ -4,6 +4,7 @@ import com.example.sb10_MoPl_team3.auth.dto.AuthTokenResult;
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
 import com.example.sb10_MoPl_team3.auth.service.AuthService;
+import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
@@ -16,19 +17,24 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.http.HttpHeaders.SET_COOKIE;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -182,5 +188,40 @@ class AuthControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+    }
+
+    @Test
+    @DisplayName("인증된 사용자가 로그아웃하면 세션을 무효화하고 refresh token 쿠키를 만료한다")
+    void signOut_success() throws Exception {
+        AuthUser authUser = new AuthUser(
+                UUID.randomUUID(),
+                UserRole.USER,
+                UUID.randomUUID()
+        );
+
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        authUser,
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                );
+
+        mockMvc.perform(post("/api/auth/sign-out")
+                        .with(csrf())
+                        .with(authentication(authentication)))
+                .andExpect(status().isNoContent())
+                .andExpect(header().string(SET_COOKIE, containsString("REFRESH_TOKEN=")))
+                .andExpect(header().string(SET_COOKIE, containsString("Max-Age=0")))
+                .andExpect(header().string(SET_COOKIE, containsString("HttpOnly")));
+
+        then(authService).should().signOut(authUser);
+    }
+
+    @Test
+    @DisplayName("인증 정보 없이 로그아웃하면 401을 반환한다")
+    void signOut_unauthenticated() throws Exception {
+        mockMvc.perform(post("/api/auth/sign-out")
+                        .with(csrf()))
+                .andExpect(status().isUnauthorized());
     }
 }
