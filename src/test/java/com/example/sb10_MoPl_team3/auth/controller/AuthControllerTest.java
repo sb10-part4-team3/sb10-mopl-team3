@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.auth.controller;
 
 import com.example.sb10_MoPl_team3.auth.dto.AuthTokenResult;
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
+import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
 import com.example.sb10_MoPl_team3.auth.service.AuthService;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
@@ -9,6 +10,7 @@ import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.global.config.SecurityConfig;
 import com.example.sb10_MoPl_team3.global.exception.GlobalExceptionHandler;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -117,7 +119,57 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("濡쒓렇???붿껌 媛믪씠 ?좏슚?섏? ?딆쑝硫?400??諛섑솚?쒕떎")
+    @DisplayName("refresh token 쿠키가 유효하면 새 토큰을 발급한다")
+    void refresh_success() throws Exception {
+        UserDto userDto = new UserDto(
+                UUID.randomUUID(),
+                Instant.parse("2026-06-23T00:00:00Z"),
+                "user@test.com",
+                "Test User",
+                null,
+                UserRole.USER,
+                false
+        );
+
+        given(authService.reissueToken("refresh-token"))
+                .willReturn(new AuthTokenResult(new JwtDto(userDto, "new-access-token"), "new-refresh-token"));
+        given(jwtProperties.refreshTokenExpiration()).willReturn(Duration.ofDays(7));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .with(csrf())
+                        .cookie(new Cookie("REFRESH_TOKEN", "refresh-token")))
+                .andExpect(status().isOk())
+                .andExpect(header().string(SET_COOKIE, containsString("REFRESH_TOKEN=new-refresh-token")))
+                .andExpect(header().string(SET_COOKIE, containsString("HttpOnly")))
+                .andExpect(jsonPath("$.accessToken").value("new-access-token"))
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.userDto.email").value("user@test.com"));
+    }
+
+    @Test
+    @DisplayName("refresh token 쿠키가 없으면 401을 반환한다")
+    void refresh_missingCookie() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh")
+                        .with(csrf()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
+    }
+
+    @Test
+    @DisplayName("refresh token이 유효하지 않으면 401을 반환한다")
+    void refresh_invalidToken() throws Exception {
+        given(authService.reissueToken("invalid-refresh-token"))
+                .willThrow(new InvalidRefreshTokenException());
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .with(csrf())
+                        .cookie(new Cookie("REFRESH_TOKEN", "invalid-refresh-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
+    }
+
+    @Test
+    @DisplayName("로그인 요청 값이 유효하지 않으면 400을 반환한다")
     void signIn_invalid() throws Exception {
         mockMvc.perform(post("/api/auth/sign-in")
                         .contentType(APPLICATION_JSON)

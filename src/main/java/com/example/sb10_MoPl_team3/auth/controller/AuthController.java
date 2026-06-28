@@ -3,6 +3,7 @@ package com.example.sb10_MoPl_team3.auth.controller;
 import com.example.sb10_MoPl_team3.auth.dto.AuthTokenResult;
 import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
+import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
 import com.example.sb10_MoPl_team3.auth.service.AuthService;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import jakarta.validation.Valid;
@@ -38,6 +39,20 @@ public class AuthController {
             @NotBlank @RequestParam("password") String password
     ) {
         return issueToken(new SignInRequest(username, password));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<JwtDto> refresh(
+            @CookieValue(value = REFRESH_TOKEN_COOKIE_NAME, required = false) String refreshToken
+    ) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new InvalidRefreshTokenException();
+        }
+
+        AuthTokenResult result = authService.reissueToken(refreshToken);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, createRefreshTokenCookie(result.refreshToken()).toString())
+                .body(result.jwtDto());
     }
 
     private ResponseEntity<JwtDto> issueToken(SignInRequest request) {

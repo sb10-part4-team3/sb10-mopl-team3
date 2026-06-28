@@ -177,7 +177,7 @@ class AuthServiceTest {
 
     @Test
     @DisplayName("유효한 refresh token이면 새 access token을 발급한다")
-    void reissueAccessToken_success() {
+    void reissueToken_success() {
         UUID userId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-28T00:00:00Z");
         String refreshToken = "refresh-token";
@@ -229,7 +229,7 @@ class AuthServiceTest {
 
     @Test
     @DisplayName("refresh token에 해당하는 세션이 없으면 재발급에 실패한다")
-    void reissueAccessToken_sessionNotFound() {
+    void reissueToken_sessionNotFound() {
         String refreshToken = "invalid-refresh-token";
 
         given(tokenService.hashRefreshToken(refreshToken)).willReturn("invalid-refresh-token-hash");
@@ -246,7 +246,7 @@ class AuthServiceTest {
 
     @Test
     @DisplayName("이미 무효화된 세션이면 재발급에 실패한다")
-    void reissueAccessToken_revokedSession() {
+    void reissueToken_revokedSession() {
         UUID userId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-28T00:00:00Z");
         String refreshToken = "refresh-token";
@@ -275,7 +275,7 @@ class AuthServiceTest {
 
     @Test
     @DisplayName("만료된 세션이면 재발급에 실패한다")
-    void reissueAccessToken_expiredSession() {
+    void reissueToken_expiredSession() {
         UUID userId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-28T00:00:00Z");
         String refreshToken = "refresh-token";
@@ -303,7 +303,7 @@ class AuthServiceTest {
 
     @Test
     @DisplayName("세션의 사용자를 찾을 수 없으면 재발급에 실패한다")
-    void reissueAccessToken_userNotFound() {
+    void reissueToken_userNotFound() {
         UUID userId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-28T00:00:00Z");
         String refreshToken = "refresh-token";
