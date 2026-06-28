@@ -1,9 +1,12 @@
 package com.example.sb10_MoPl_team3.auth.service;
 
 import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
+import com.example.sb10_MoPl_team3.auth.dto.request.TokenReissueRequest;
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
+import com.example.sb10_MoPl_team3.auth.dto.response.TokenResponse;
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
+import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.user.entity.User;
@@ -171,5 +174,142 @@ class AuthServiceTest {
         then(tokenService).should(never()).issueAccessToken(any(User.class));
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("유효한 refresh token이면 새 access token을 발급한다")
+    void reissueAccessToken_success() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+        TokenReissueRequest request = new TokenReissueRequest("refresh-token");
+
+        User user = new User(
+                "user@test.com",
+                "테스트유저",
+                "encoded-password",
+                null,
+                UserRole.USER
+        );
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        AuthSession authSession = AuthSession.create(
+                userId,
+                "refresh-token-hash",
+                now.plus(Duration.ofDays(7)),
+                now
+        );
+
+        given(clock.instant()).willReturn(now);
+        given(tokenService.hashRefreshToken(request.refreshToken())).willReturn("refresh-token-hash");
+        given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
+                .willReturn(Optional.of(authSession));
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(tokenService.issueAccessToken(user, authSession.getId())).willReturn("new-access-token");
+
+        TokenResponse response = authService.reissueAccessToken(request);
+
+        assertThat(response.accessToken()).isEqualTo("new-access-token");
+
+        then(tokenService).should().hashRefreshToken("refresh-token");
+        then(authSessionRepository).should().findByRefreshTokenHash("refresh-token-hash");
+        then(userRepository).should().findById(userId);
+        then(tokenService).should().issueAccessToken(user, authSession.getId());
+    }
+
+    @Test
+    @DisplayName("refresh token에 해당하는 세션이 없으면 재발급에 실패한다")
+    void reissueAccessToken_sessionNotFound() {
+        TokenReissueRequest request = new TokenReissueRequest("invalid-refresh-token");
+
+        given(tokenService.hashRefreshToken(request.refreshToken())).willReturn("invalid-refresh-token-hash");
+        given(authSessionRepository.findByRefreshTokenHash("invalid-refresh-token-hash"))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.reissueAccessToken(request))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        then(userRepository).should(never()).findById(any());
+        then(tokenService).should(never()).issueAccessToken(any(User.class), any());
+    }
+
+    @Test
+    @DisplayName("이미 무효화된 세션이면 재발급에 실패한다")
+    void reissueAccessToken_revokedSession() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+        TokenReissueRequest request = new TokenReissueRequest("refresh-token");
+
+        AuthSession authSession = AuthSession.create(
+                userId,
+                "refresh-token-hash",
+                now.plus(Duration.ofDays(7)),
+                now
+        );
+        ReflectionTestUtils.setField(authSession, "revoked", true);
+        ReflectionTestUtils.setField(authSession, "revokedAt", now);
+
+        given(clock.instant()).willReturn(now);
+        given(tokenService.hashRefreshToken(request.refreshToken())).willReturn("refresh-token-hash");
+        given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
+                .willReturn(Optional.of(authSession));
+
+        assertThatThrownBy(() -> authService.reissueAccessToken(request))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        then(userRepository).should(never()).findById(any());
+        then(tokenService).should(never()).issueAccessToken(any(User.class), any());
+    }
+
+    @Test
+    @DisplayName("만료된 세션이면 재발급에 실패한다")
+    void reissueAccessToken_expiredSession() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+        TokenReissueRequest request = new TokenReissueRequest("refresh-token");
+
+        AuthSession authSession = AuthSession.create(
+                userId,
+                "refresh-token-hash",
+                now.plus(Duration.ofDays(7)),
+                now
+        );
+        ReflectionTestUtils.setField(authSession, "expiresAt", now.minusSeconds(1));
+
+        given(clock.instant()).willReturn(now);
+        given(tokenService.hashRefreshToken(request.refreshToken())).willReturn("refresh-token-hash");
+        given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
+                .willReturn(Optional.of(authSession));
+
+        assertThatThrownBy(() -> authService.reissueAccessToken(request))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        then(userRepository).should(never()).findById(any());
+        then(tokenService).should(never()).issueAccessToken(any(User.class), any());
+    }
+
+    @Test
+    @DisplayName("세션의 사용자를 찾을 수 없으면 재발급에 실패한다")
+    void reissueAccessToken_userNotFound() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+        TokenReissueRequest request = new TokenReissueRequest("refresh-token");
+
+        AuthSession authSession = AuthSession.create(
+                userId,
+                "refresh-token-hash",
+                now.plus(Duration.ofDays(7)),
+                now
+        );
+
+        given(clock.instant()).willReturn(now);
+        given(tokenService.hashRefreshToken(request.refreshToken())).willReturn("refresh-token-hash");
+        given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
+                .willReturn(Optional.of(authSession));
+        given(userRepository.findById(userId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.reissueAccessToken(request))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        then(tokenService).should(never()).issueAccessToken(any(User.class), any());
     }
 }
