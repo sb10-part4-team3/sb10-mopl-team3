@@ -51,7 +51,7 @@ class AuthControllerTest {
                 false
         );
 
-        given(authService.signIn(any())).willReturn(new JwtDto(userDto, "access-token"));
+        given(authService.signIn(any())).willReturn(new JwtDto(userDto, "access-token", "refresh-token"));
 
         mockMvc.perform(post("/api/auth/sign-in")
                         .contentType(APPLICATION_JSON)
@@ -64,6 +64,7 @@ class AuthControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.refreshToken").value("refresh-token"))
                 .andExpect(jsonPath("$.userDto.id").exists())
                 .andExpect(jsonPath("$.userDto.createdAt").exists())
                 .andExpect(jsonPath("$.userDto.email").value("user@test.com"))
