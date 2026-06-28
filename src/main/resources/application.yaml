@@ -37,3 +37,9 @@ jwt:
   access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:1h}
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:7d}
   issuer: ${JWT_ISSUER:mopl}
+
+admin:
+  account:
+    email: ${ADMIN_EMAIL}
+    password: ${ADMIN_PASSWORD}
+    name: ${ADMIN_NAME:Admin}

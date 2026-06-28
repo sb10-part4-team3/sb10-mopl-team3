@@ -22,3 +22,9 @@ jwt:
   access-token-expiration: 1h
   refresh-token-expiration: 7d
   issuer: mopl-test
+
+admin:
+  account:
+    email: admin@test.com
+    password: adminPassword1!
+    name: Admin

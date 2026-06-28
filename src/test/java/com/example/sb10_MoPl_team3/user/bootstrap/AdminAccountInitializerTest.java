@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,7 +48,7 @@ class AdminAccountInitializerTest {
         given(passwordEncoder.encode(properties.password())).willReturn("encoded-admin-password");
 
         // when
-        initializer.run();
+        initializer.run(new DefaultApplicationArguments());
 
         // then
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
@@ -81,7 +82,7 @@ class AdminAccountInitializerTest {
         given(userRepository.existsByEmail(properties.email())).willReturn(true);
 
         // when
-        initializer.run();
+        initializer.run(new DefaultApplicationArguments());
 
         // then
         then(passwordEncoder).should(never()).encode(properties.password());
