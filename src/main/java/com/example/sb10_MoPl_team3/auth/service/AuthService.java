@@ -1,9 +1,12 @@
 package com.example.sb10_MoPl_team3.auth.service;
 
 import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
+import com.example.sb10_MoPl_team3.auth.dto.request.TokenReissueRequest;
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
+import com.example.sb10_MoPl_team3.auth.dto.response.TokenResponse;
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
+import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.user.entity.User;
@@ -62,5 +65,28 @@ public class AuthService {
                 accessToken,
                 refreshToken
         );
+    }
+
+    public TokenResponse reissueAccessToken(TokenReissueRequest request) {
+        Instant now = Instant.now(clock);
+        String refreshTokenHash = tokenService.hashRefreshToken(request.refreshToken());
+
+        AuthSession authSession = authSessionRepository.findByRefreshTokenHash(refreshTokenHash)
+                .orElseThrow(InvalidRefreshTokenException::new);
+
+        if (authSession.isRevoked() || !authSession.getExpiresAt().isAfter(now)) {
+            throw new InvalidRefreshTokenException();
+        }
+
+        User user = userRepository.findById(authSession.getUserId())
+                .orElseThrow(InvalidRefreshTokenException::new);
+
+        if (user.getStatus() == UserStatus.LOCKED || user.getStatus() == UserStatus.WITHDRAWN) {
+            throw new InvalidRefreshTokenException();
+        }
+
+        String accessToken = tokenService.issueAccessToken(user, authSession.getId());
+
+        return new TokenResponse(accessToken);
     }
 }
