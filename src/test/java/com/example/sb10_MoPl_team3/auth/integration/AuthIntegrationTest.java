@@ -12,6 +12,7 @@ import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -120,7 +121,7 @@ class AuthIntegrationTest {
         MvcResult result = signIn("login@test.com", "password1!")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
                 .andExpect(jsonPath("$.userDto.email").value("login@test.com"))
                 .andExpect(jsonPath("$.userDto.role").value("USER"))
                 .andExpect(jsonPath("$.userDto.locked").value(false))
@@ -128,7 +129,12 @@ class AuthIntegrationTest {
 
         JsonNode jsonNode = objectMapper.readTree(result.getResponse().getContentAsString());
         String accessToken = jsonNode.get("accessToken").asText();
-        String refreshToken = jsonNode.get("refreshToken").asText();
+        Cookie refreshTokenCookie = result.getResponse().getCookie("REFRESH_TOKEN");
+        assertThat(refreshTokenCookie).isNotNull();
+        assertThat(refreshTokenCookie.isHttpOnly()).isTrue();
+        assertThat(refreshTokenCookie.getPath()).isEqualTo("/api/auth");
+
+        String refreshToken = refreshTokenCookie.getValue();
         String expectedRefreshTokenHash = tokenService.hashRefreshToken(refreshToken);
 
         JwtClaims claims = jwtProvider.parseAccessToken(accessToken);

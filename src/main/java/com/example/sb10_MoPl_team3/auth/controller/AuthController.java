@@ -1,11 +1,17 @@
 package com.example.sb10_MoPl_team3.auth.controller;
 
+import com.example.sb10_MoPl_team3.auth.dto.AuthTokenResult;
 import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
 import com.example.sb10_MoPl_team3.auth.service.AuthService;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -13,13 +19,40 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final AuthService authService;
+    private static final String REFRESH_TOKEN_COOKIE_NAME = "REFRESH_TOKEN";
+    private static final String AUTH_COOKIE_PATH = "/api/auth";
 
-    @PostMapping("/sign-in")
+    private final AuthService authService;
+    private final JwtProperties jwtProperties;
+
+    @PostMapping(value = "/sign-in", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<JwtDto> signIn(
             @Valid @RequestBody SignInRequest request
     ) {
-        JwtDto response = authService.signIn(request);
-        return ResponseEntity.ok(response);
+        return issueToken(request);
+    }
+
+    @PostMapping(value = "/sign-in", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public ResponseEntity<JwtDto> signInForm(
+            @NotBlank @RequestParam("username") String username,
+            @NotBlank @RequestParam("password") String password
+    ) {
+        return issueToken(new SignInRequest(username, password));
+    }
+
+    private ResponseEntity<JwtDto> issueToken(SignInRequest request) {
+        AuthTokenResult result = authService.signIn(request);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, createRefreshTokenCookie(result.refreshToken()).toString())
+                .body(result.jwtDto());
+    }
+
+    private ResponseCookie createRefreshTokenCookie(String refreshToken) {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
+                .httpOnly(true)
+                .path(AUTH_COOKIE_PATH)
+                .maxAge(jwtProperties.refreshTokenExpiration())
+                .sameSite("Lax")
+                .build();
     }
 }

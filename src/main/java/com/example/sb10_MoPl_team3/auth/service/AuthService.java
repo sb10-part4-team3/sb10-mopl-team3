@@ -1,9 +1,8 @@
 package com.example.sb10_MoPl_team3.auth.service;
 
+import com.example.sb10_MoPl_team3.auth.dto.AuthTokenResult;
 import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
-import com.example.sb10_MoPl_team3.auth.dto.request.TokenReissueRequest;
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
-import com.example.sb10_MoPl_team3.auth.dto.response.TokenResponse;
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
@@ -36,7 +35,7 @@ public class AuthService {
     private final Clock clock;
 
     @Transactional
-    public JwtDto signIn(SignInRequest request) {
+    public AuthTokenResult signIn(SignInRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(InvalidCredentialException::new);
 
@@ -61,16 +60,16 @@ public class AuthService {
 
         String accessToken = tokenService.issueAccessToken(user, authSession.getId());
 
-        return new JwtDto(
-                UserMapper.toDto(user),
-                accessToken,
+        return new AuthTokenResult(
+                new JwtDto(UserMapper.toDto(user), accessToken),
                 refreshToken
         );
     }
 
-    public TokenResponse reissueAccessToken(TokenReissueRequest request) {
+    @Transactional
+    public AuthTokenResult reissueToken(String refreshToken) {
         Instant now = Instant.now(clock);
-        String refreshTokenHash = tokenService.hashRefreshToken(request.refreshToken());
+        String refreshTokenHash = tokenService.hashRefreshToken(refreshToken);
 
         AuthSession authSession = authSessionRepository.findByRefreshTokenHash(refreshTokenHash)
                 .orElseThrow(InvalidRefreshTokenException::new);
@@ -86,9 +85,23 @@ public class AuthService {
             throw new InvalidRefreshTokenException();
         }
 
+        String newRefreshToken = tokenService.issueRefreshToken();
+        String newRefreshTokenHash = tokenService.hashRefreshToken(newRefreshToken);
+
+        authSession.rotateRefreshToken(
+                newRefreshTokenHash,
+                now.plus(jwtProperties.refreshTokenExpiration()),
+                now
+        );
+
+        authSessionRepository.save(authSession);
+
         String accessToken = tokenService.issueAccessToken(user, authSession.getId());
 
-        return new TokenResponse(accessToken);
+        return new AuthTokenResult(
+                new JwtDto(UserMapper.toDto(user), accessToken),
+                newRefreshToken
+        );
     }
 
     @Transactional

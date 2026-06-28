@@ -1,9 +1,7 @@
 package com.example.sb10_MoPl_team3.auth.service;
 
+import com.example.sb10_MoPl_team3.auth.dto.AuthTokenResult;
 import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
-import com.example.sb10_MoPl_team3.auth.dto.request.TokenReissueRequest;
-import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
-import com.example.sb10_MoPl_team3.auth.dto.response.TokenResponse;
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
@@ -79,12 +77,12 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken("refresh-token")).willReturn("refresh-token-hash");
         given(tokenService.issueAccessToken(any(User.class), any(UUID.class))).willReturn("access-token");
 
-        JwtDto response = authService.signIn(request);
+        AuthTokenResult response = authService.signIn(request);
 
-        assertThat(response.accessToken()).isEqualTo("access-token");
+        assertThat(response.jwtDto().accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
-        assertThat(response.userDto().email()).isEqualTo("user@test.com");
-        assertThat(response.userDto().locked()).isFalse();
+        assertThat(response.jwtDto().userDto().email()).isEqualTo("user@test.com");
+        assertThat(response.jwtDto().userDto().locked()).isFalse();
 
         ArgumentCaptor<AuthSession> authSessionCaptor = ArgumentCaptor.forClass(AuthSession.class);
         then(authSessionRepository).should().save(authSessionCaptor.capture());
@@ -182,7 +180,8 @@ class AuthServiceTest {
     void reissueAccessToken_success() {
         UUID userId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-28T00:00:00Z");
-        TokenReissueRequest request = new TokenReissueRequest("refresh-token");
+        String refreshToken = "refresh-token";
+        Duration refreshTokenExpiration = Duration.ofDays(7);
 
         User user = new User(
                 "user@test.com",
@@ -201,35 +200,47 @@ class AuthServiceTest {
         );
 
         given(clock.instant()).willReturn(now);
-        given(tokenService.hashRefreshToken(request.refreshToken())).willReturn("refresh-token-hash");
+        given(jwtProperties.refreshTokenExpiration()).willReturn(refreshTokenExpiration);
+        given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
+        given(tokenService.issueRefreshToken()).willReturn("new-refresh-token");
+        given(tokenService.hashRefreshToken("new-refresh-token")).willReturn("new-refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(tokenService.issueAccessToken(user, authSession.getId())).willReturn("new-access-token");
 
-        TokenResponse response = authService.reissueAccessToken(request);
+        AuthTokenResult response = authService.reissueToken(refreshToken);
 
-        assertThat(response.accessToken()).isEqualTo("new-access-token");
+        assertThat(response.jwtDto().accessToken()).isEqualTo("new-access-token");
+        assertThat(response.jwtDto().userDto().email()).isEqualTo("user@test.com");
+        assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
+        assertThat(authSession.getRefreshTokenHash()).isEqualTo("new-refresh-token-hash");
+        assertThat(authSession.getExpiresAt()).isEqualTo(now.plus(refreshTokenExpiration));
+        assertThat(authSession.getTtlSeconds()).isEqualTo(refreshTokenExpiration.toSeconds());
 
         then(tokenService).should().hashRefreshToken("refresh-token");
+        then(tokenService).should().issueRefreshToken();
+        then(tokenService).should().hashRefreshToken("new-refresh-token");
         then(authSessionRepository).should().findByRefreshTokenHash("refresh-token-hash");
         then(userRepository).should().findById(userId);
+        then(authSessionRepository).should().save(authSession);
         then(tokenService).should().issueAccessToken(user, authSession.getId());
     }
 
     @Test
     @DisplayName("refresh token에 해당하는 세션이 없으면 재발급에 실패한다")
     void reissueAccessToken_sessionNotFound() {
-        TokenReissueRequest request = new TokenReissueRequest("invalid-refresh-token");
+        String refreshToken = "invalid-refresh-token";
 
-        given(tokenService.hashRefreshToken(request.refreshToken())).willReturn("invalid-refresh-token-hash");
+        given(tokenService.hashRefreshToken(refreshToken)).willReturn("invalid-refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("invalid-refresh-token-hash"))
                 .willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.reissueAccessToken(request))
+        assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
 
         then(userRepository).should(never()).findById(any());
+        then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
     }
 
@@ -238,7 +249,7 @@ class AuthServiceTest {
     void reissueAccessToken_revokedSession() {
         UUID userId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-28T00:00:00Z");
-        TokenReissueRequest request = new TokenReissueRequest("refresh-token");
+        String refreshToken = "refresh-token";
 
         AuthSession authSession = AuthSession.create(
                 userId,
@@ -250,14 +261,15 @@ class AuthServiceTest {
         ReflectionTestUtils.setField(authSession, "revokedAt", now);
 
         given(clock.instant()).willReturn(now);
-        given(tokenService.hashRefreshToken(request.refreshToken())).willReturn("refresh-token-hash");
+        given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
 
-        assertThatThrownBy(() -> authService.reissueAccessToken(request))
+        assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
 
         then(userRepository).should(never()).findById(any());
+        then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
     }
 
@@ -266,7 +278,7 @@ class AuthServiceTest {
     void reissueAccessToken_expiredSession() {
         UUID userId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-28T00:00:00Z");
-        TokenReissueRequest request = new TokenReissueRequest("refresh-token");
+        String refreshToken = "refresh-token";
 
         AuthSession authSession = AuthSession.create(
                 userId,
@@ -277,14 +289,15 @@ class AuthServiceTest {
         ReflectionTestUtils.setField(authSession, "expiresAt", now.minusSeconds(1));
 
         given(clock.instant()).willReturn(now);
-        given(tokenService.hashRefreshToken(request.refreshToken())).willReturn("refresh-token-hash");
+        given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
 
-        assertThatThrownBy(() -> authService.reissueAccessToken(request))
+        assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
 
         then(userRepository).should(never()).findById(any());
+        then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
     }
 
@@ -293,7 +306,7 @@ class AuthServiceTest {
     void reissueAccessToken_userNotFound() {
         UUID userId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-28T00:00:00Z");
-        TokenReissueRequest request = new TokenReissueRequest("refresh-token");
+        String refreshToken = "refresh-token";
 
         AuthSession authSession = AuthSession.create(
                 userId,
@@ -303,14 +316,15 @@ class AuthServiceTest {
         );
 
         given(clock.instant()).willReturn(now);
-        given(tokenService.hashRefreshToken(request.refreshToken())).willReturn("refresh-token-hash");
+        given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
         given(userRepository.findById(userId)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.reissueAccessToken(request))
+        assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
 
+        then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
     }
 

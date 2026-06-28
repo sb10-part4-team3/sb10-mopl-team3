@@ -90,4 +90,15 @@ public class AuthSession {
         this.revoked = true;
         this.revokedAt = now;
     }
+
+    public void rotateRefreshToken(String refreshTokenHash, Instant expiresAt, Instant now) {
+        long ttlSeconds = Duration.between(now, expiresAt).toSeconds();
+        if (ttlSeconds <= 0) {
+            throw new IllegalArgumentException("expiresAt must be after now");
+        }
+
+        this.refreshTokenHash = refreshTokenHash;
+        this.expiresAt = expiresAt;
+        this.ttlSeconds = ttlSeconds;
+    }
 }

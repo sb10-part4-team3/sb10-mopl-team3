@@ -1,8 +1,10 @@
 package com.example.sb10_MoPl_team3.auth.controller;
 
+import com.example.sb10_MoPl_team3.auth.dto.AuthTokenResult;
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
 import com.example.sb10_MoPl_team3.auth.service.AuthService;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.global.config.SecurityConfig;
@@ -15,11 +17,15 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.http.HttpHeaders.SET_COOKIE;
+import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -38,6 +44,9 @@ class AuthControllerTest {
     @MockitoBean
     private JwtProvider jwtProvider;
 
+    @MockitoBean
+    private JwtProperties jwtProperties;
+
     @Test
     @DisplayName("로그인 요청이 유효하면 사용자 정보와 액세스 토큰을 반환한다")
     void signIn_success() throws Exception {
@@ -51,7 +60,9 @@ class AuthControllerTest {
                 false
         );
 
-        given(authService.signIn(any())).willReturn(new JwtDto(userDto, "access-token", "refresh-token"));
+        given(authService.signIn(any()))
+                .willReturn(new AuthTokenResult(new JwtDto(userDto, "access-token"), "refresh-token"));
+        given(jwtProperties.refreshTokenExpiration()).willReturn(Duration.ofDays(7));
 
         mockMvc.perform(post("/api/auth/sign-in")
                         .contentType(APPLICATION_JSON)
@@ -63,8 +74,10 @@ class AuthControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(header().string(SET_COOKIE, containsString("REFRESH_TOKEN=refresh-token")))
+                .andExpect(header().string(SET_COOKIE, containsString("HttpOnly")))
                 .andExpect(jsonPath("$.accessToken").value("access-token"))
-                .andExpect(jsonPath("$.refreshToken").value("refresh-token"))
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
                 .andExpect(jsonPath("$.userDto.id").exists())
                 .andExpect(jsonPath("$.userDto.createdAt").exists())
                 .andExpect(jsonPath("$.userDto.email").value("user@test.com"))
@@ -75,7 +88,36 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("로그인 요청 값이 유효하지 않으면 400을 반환한다")
+    @DisplayName("form 로그인 요청이 유효하면 사용자 정보와 액세스 토큰을 반환한다")
+    void signIn_form_success() throws Exception {
+        UserDto userDto = new UserDto(
+                UUID.randomUUID(),
+                Instant.parse("2026-06-23T00:00:00Z"),
+                "user@test.com",
+                "Test User",
+                null,
+                UserRole.USER,
+                false
+        );
+
+        given(authService.signIn(any()))
+                .willReturn(new AuthTokenResult(new JwtDto(userDto, "access-token"), "refresh-token"));
+        given(jwtProperties.refreshTokenExpiration()).willReturn(Duration.ofDays(7));
+
+        mockMvc.perform(post("/api/auth/sign-in")
+                        .contentType(APPLICATION_FORM_URLENCODED)
+                        .with(csrf())
+                        .param("username", "user@test.com")
+                        .param("password", "password1!"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(SET_COOKIE, containsString("REFRESH_TOKEN=refresh-token")))
+                .andExpect(jsonPath("$.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.userDto.email").value("user@test.com"));
+    }
+
+    @Test
+    @DisplayName("濡쒓렇???붿껌 媛믪씠 ?좏슚?섏? ?딆쑝硫?400??諛섑솚?쒕떎")
     void signIn_invalid() throws Exception {
         mockMvc.perform(post("/api/auth/sign-in")
                         .contentType(APPLICATION_JSON)
