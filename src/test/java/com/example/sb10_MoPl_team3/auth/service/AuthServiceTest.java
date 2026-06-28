@@ -8,6 +8,7 @@ import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
@@ -311,5 +312,85 @@ class AuthServiceTest {
                 .isInstanceOf(InvalidRefreshTokenException.class);
 
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
+    }
+
+    @Test
+    @DisplayName("현재 인증 세션이 존재하면 로그아웃 시 세션을 무효화한다")
+    void signOut_success() {
+        UUID userId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+
+        AuthUser authUser = new AuthUser(userId, UserRole.USER, sessionId);
+
+        AuthSession authSession = AuthSession.create(
+                userId,
+                "refresh-token-hash",
+                now.plus(Duration.ofDays(7)),
+                now
+        );
+        ReflectionTestUtils.setField(authSession, "id", sessionId);
+
+        given(clock.instant()).willReturn(now);
+        given(authSessionRepository.findById(sessionId)).willReturn(Optional.of(authSession));
+
+        authService.signOut(authUser);
+
+        assertThat(authSession.isRevoked()).isTrue();
+        assertThat(authSession.getRevokedAt()).isEqualTo(now);
+
+        then(authSessionRepository).should().findById(sessionId);
+        then(authSessionRepository).should().save(authSession);
+    }
+
+    @Test
+    @DisplayName("현재 인증 세션이 이미 없으면 로그아웃은 성공 처리한다")
+    void signOut_sessionNotFound() {
+        UUID userId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        AuthUser authUser = new AuthUser(userId, UserRole.USER, sessionId);
+
+        given(authSessionRepository.findById(sessionId)).willReturn(Optional.empty());
+
+        authService.signOut(authUser);
+
+        then(authSessionRepository).should().findById(sessionId);
+        then(authSessionRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("현재 인증 정보에 sessionId가 없으면 로그아웃에 실패한다")
+    void signOut_sessionIdNull() {
+        AuthUser authUser = new AuthUser(UUID.randomUUID(), UserRole.USER, null);
+
+        assertThatThrownBy(() -> authService.signOut(authUser))
+                .isInstanceOf(InvalidCredentialException.class);
+
+        then(authSessionRepository).should(never()).findById(any());
+        then(authSessionRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("현재 인증 사용자와 세션의 사용자가 다르면 로그아웃에 실패한다")
+    void signOut_userMismatch() {
+        UUID sessionId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+        AuthUser authUser = new AuthUser(UUID.randomUUID(), UserRole.USER, sessionId);
+
+        AuthSession authSession = AuthSession.create(
+                UUID.randomUUID(),
+                "refresh-token-hash",
+                now.plus(Duration.ofDays(7)),
+                now
+        );
+        ReflectionTestUtils.setField(authSession, "id", sessionId);
+
+        given(authSessionRepository.findById(sessionId)).willReturn(Optional.of(authSession));
+
+        assertThatThrownBy(() -> authService.signOut(authUser))
+                .isInstanceOf(InvalidCredentialException.class);
+
+        then(authSessionRepository).should().findById(sessionId);
+        then(authSessionRepository).should(never()).save(any());
     }
 }
