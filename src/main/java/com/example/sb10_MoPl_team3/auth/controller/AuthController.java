@@ -5,6 +5,7 @@ import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
 import com.example.sb10_MoPl_team3.auth.service.AuthService;
+import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -13,6 +14,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.ResponseCookie;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -55,6 +57,17 @@ public class AuthController {
                 .body(result.jwtDto());
     }
 
+    @PostMapping("/sign-out")
+    public ResponseEntity<Void> signOut(
+            @AuthenticationPrincipal AuthUser authUser
+    ) {
+        authService.signOut(authUser);
+
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, expireRefreshTokenCookie().toString())
+                .build();
+    }
+
     private ResponseEntity<JwtDto> issueToken(SignInRequest request) {
         AuthTokenResult result = authService.signIn(request);
         return ResponseEntity.ok()
@@ -67,6 +80,15 @@ public class AuthController {
                 .httpOnly(true)
                 .path(AUTH_COOKIE_PATH)
                 .maxAge(jwtProperties.refreshTokenExpiration())
+                .sameSite("Lax")
+                .build();
+    }
+
+    private ResponseCookie expireRefreshTokenCookie() {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
+                .httpOnly(true)
+                .path(AUTH_COOKIE_PATH)
+                .maxAge(0)
                 .sameSite("Lax")
                 .build();
     }
