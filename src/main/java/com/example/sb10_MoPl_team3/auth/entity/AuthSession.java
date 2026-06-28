@@ -81,4 +81,13 @@ public class AuthSession {
                 .ttlSeconds(ttlSeconds)
                 .build();
     }
+
+    public void revoke(Instant now) {
+        if (revoked) {
+            return;
+        }
+
+        this.revoked = true;
+        this.revokedAt = now;
+    }
 }

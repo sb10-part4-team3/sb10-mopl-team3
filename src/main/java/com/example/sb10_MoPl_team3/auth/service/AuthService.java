@@ -8,6 +8,7 @@ import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
@@ -88,5 +89,26 @@ public class AuthService {
         String accessToken = tokenService.issueAccessToken(user, authSession.getId());
 
         return new TokenResponse(accessToken);
+    }
+
+    @Transactional
+    public void signOut(AuthUser authUser) {
+        if (authUser.sessionId() == null) {
+            throw new InvalidCredentialException();
+        }
+
+        AuthSession authSession = authSessionRepository.findById(authUser.sessionId())
+                .orElse(null);
+
+        if (authSession == null) {
+            return;
+        }
+
+        if (!authSession.getUserId().equals(authUser.userId())) {
+            throw new InvalidCredentialException();
+        }
+
+        authSession.revoke(Instant.now(clock));
+        authSessionRepository.save(authSession);
     }
 }
