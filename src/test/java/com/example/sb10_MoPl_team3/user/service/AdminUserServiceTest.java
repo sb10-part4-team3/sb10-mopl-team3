@@ -11,6 +11,7 @@ import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,9 +30,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class AdminUserServiceTest {
@@ -277,6 +280,105 @@ class AdminUserServiceTest {
 
         // when & then
         assertThatThrownBy(() -> adminUserService.updateUserRole(userId, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("관리자는 사용자 계정을 잠글 수 있고 해당 사용자의 세션은 모두 무효화된다")
+    void updateUserStatus_lock_success() {
+        // given
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-29T00:00:00Z");
+
+        User user = createUser(
+                userId,
+                "user@test.com",
+                "User",
+                UserRole.USER,
+                "2026-06-28T00:00:00Z"
+        );
+
+        AuthSession session1 = AuthSession.create(
+                userId,
+                "refresh-token-hash-1",
+                now.plusSeconds(3600),
+                now
+        );
+
+        AuthSession session2 = AuthSession.create(
+                userId,
+                "refresh-token-hash-2",
+                now.plusSeconds(3600),
+                now
+        );
+
+        UserStatusUpdateRequest request = new UserStatusUpdateRequest(true);
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(authSessionRepository.findAllByUserId(userId)).willReturn(List.of(session1, session2));
+        given(clock.instant()).willReturn(now);
+
+        // when
+        UserDto response = adminUserService.updateUserStatus(userId, request);
+
+        // then
+        assertThat(user.getStatus()).isEqualTo(UserStatus.LOCKED);
+        assertThat(response.locked()).isTrue();
+
+        assertThat(session1.isRevoked()).isTrue();
+        assertThat(session1.getRevokedAt()).isEqualTo(now);
+        assertThat(session2.isRevoked()).isTrue();
+        assertThat(session2.getRevokedAt()).isEqualTo(now);
+
+        then(userRepository).should().findById(userId);
+        then(authSessionRepository).should().findAllByUserId(userId);
+        then(authSessionRepository).should().saveAll(List.of(session1, session2));
+    }
+
+    @Test
+    @DisplayName("관리자는 잠긴 사용자 계정의 잠금을 해제할 수 있다")
+    void updateUserStatus_unlock_success() {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        User user = createUser(
+                userId,
+                "user@test.com",
+                "User",
+                UserRole.USER,
+                "2026-06-28T00:00:00Z"
+        );
+        ReflectionTestUtils.setField(user, "status", UserStatus.LOCKED);
+
+        UserStatusUpdateRequest request = new UserStatusUpdateRequest(false);
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+
+        // when
+        UserDto response = adminUserService.updateUserStatus(userId, request);
+
+        // then
+        assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(response.locked()).isFalse();
+
+        then(userRepository).should().findById(userId);
+        then(authSessionRepository).should(never()).findAllByUserId(userId);
+        then(authSessionRepository).should(never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("상태를 변경할 사용자가 없으면 예외가 발생한다")
+    void updateUserStatus_userNotFound() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UserStatusUpdateRequest request = new UserStatusUpdateRequest(true);
+
+        given(userRepository.findById(userId)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> adminUserService.updateUserStatus(userId, request))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
