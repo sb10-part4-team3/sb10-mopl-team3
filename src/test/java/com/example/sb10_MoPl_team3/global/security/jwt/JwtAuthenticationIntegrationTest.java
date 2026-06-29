@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -102,7 +103,9 @@ class JwtAuthenticationIntegrationTest {
                                 """.formatted(email, password)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("REFRESH_TOKEN=")))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("HttpOnly")))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();

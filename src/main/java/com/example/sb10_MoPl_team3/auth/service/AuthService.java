@@ -1,10 +1,13 @@
 package com.example.sb10_MoPl_team3.auth.service;
 
+import com.example.sb10_MoPl_team3.auth.dto.AuthTokenResult;
 import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
+import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
@@ -32,7 +35,7 @@ public class AuthService {
     private final Clock clock;
 
     @Transactional
-    public JwtDto signIn(SignInRequest request) {
+    public AuthTokenResult signIn(SignInRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(InvalidCredentialException::new);
 
@@ -57,10 +60,68 @@ public class AuthService {
 
         authSessionRepository.save(authSession);
 
-        return new JwtDto(
-                UserMapper.toDto(user),
-                accessToken,
+        return new AuthTokenResult(
+                new JwtDto(UserMapper.toDto(user), accessToken),
                 refreshToken
         );
+    }
+
+    @Transactional
+    public AuthTokenResult reissueToken(String refreshToken) {
+        Instant now = Instant.now(clock);
+        String refreshTokenHash = tokenService.hashRefreshToken(refreshToken);
+
+        AuthSession authSession = authSessionRepository.findByRefreshTokenHash(refreshTokenHash)
+                .orElseThrow(InvalidRefreshTokenException::new);
+
+        if (authSession.isRevoked() || !authSession.getExpiresAt().isAfter(now)) {
+            throw new InvalidRefreshTokenException();
+        }
+
+        User user = userRepository.findById(authSession.getUserId())
+                .orElseThrow(InvalidRefreshTokenException::new);
+
+        if (user.getStatus() == UserStatus.LOCKED || user.getStatus() == UserStatus.WITHDRAWN) {
+            throw new InvalidRefreshTokenException();
+        }
+
+        String newRefreshToken = tokenService.issueRefreshToken();
+        String newRefreshTokenHash = tokenService.hashRefreshToken(newRefreshToken);
+
+        authSession.rotateRefreshToken(
+                newRefreshTokenHash,
+                now.plus(jwtProperties.refreshTokenExpiration()),
+                now
+        );
+
+        String accessToken = tokenService.issueAccessToken(user, authSession.getId());
+
+        authSessionRepository.save(authSession);
+
+        return new AuthTokenResult(
+                new JwtDto(UserMapper.toDto(user), accessToken),
+                newRefreshToken
+        );
+    }
+
+    @Transactional
+    public void signOut(AuthUser authUser) {
+        if (authUser.sessionId() == null) {
+            throw new InvalidCredentialException();
+        }
+
+        AuthSession authSession = authSessionRepository.findById(authUser.sessionId())
+                .orElse(null);
+
+        if (authSession == null) {
+            return;
+        }
+
+        if (!authSession.getUserId().equals(authUser.userId())) {
+            throw new InvalidCredentialException();
+        }
+
+        authSession.revoke(Instant.now(clock));
+        authSessionRepository.save(authSession);
     }
 }
