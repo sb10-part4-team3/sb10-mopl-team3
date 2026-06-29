@@ -1,10 +1,12 @@
 package com.example.sb10_MoPl_team3.user.controller;
 
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
+import com.example.sb10_MoPl_team3.user.dto.request.UserRoleUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.service.AdminUserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,5 +45,14 @@ public class AdminUserController {
         );
 
         return ResponseEntity.ok(adminUserService.findUsers(condition));
+    }
+
+    @PatchMapping("/{userId}/role")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDto> updateUserRole(
+            @PathVariable UUID userId,
+            @Valid @RequestBody UserRoleUpdateRequest request
+    ) {
+        return ResponseEntity.ok(adminUserService.updateUserRole(userId, request));
     }
 }
