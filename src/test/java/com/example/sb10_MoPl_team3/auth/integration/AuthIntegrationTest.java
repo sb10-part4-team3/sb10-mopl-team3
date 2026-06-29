@@ -1,5 +1,8 @@
 package com.example.sb10_MoPl_team3.auth.integration;
 
+import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
+import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.auth.service.TokenService;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtTokenType;
@@ -9,6 +12,7 @@ import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,11 +20,16 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -32,7 +41,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+@Testcontainers
 class AuthIntegrationTest {
+
+    @Container
+    private static final GenericContainer<?> REDIS = new GenericContainer<>("redis:7-alpine")
+            .withExposedPorts(6379);
+
+    @DynamicPropertySource
+    static void redisProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -48,6 +68,17 @@ class AuthIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private AuthSessionRepository authSessionRepository;
+
+    @Autowired
+    private TokenService tokenService;
+
+    @AfterEach
+    void cleanRedis() {
+        authSessionRepository.deleteAll();
+    }
 
     @Test
     @DisplayName("회원가입 요청이 유효하면 사용자를 저장하고 비밀번호를 암호화한다")
@@ -89,6 +120,7 @@ class AuthIntegrationTest {
         MvcResult result = signIn("login@test.com", "password1!")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
                 .andExpect(jsonPath("$.userDto.email").value("login@test.com"))
                 .andExpect(jsonPath("$.userDto.role").value("USER"))
                 .andExpect(jsonPath("$.userDto.locked").value(false))
@@ -96,13 +128,26 @@ class AuthIntegrationTest {
 
         JsonNode jsonNode = objectMapper.readTree(result.getResponse().getContentAsString());
         String accessToken = jsonNode.get("accessToken").asText();
+        String refreshToken = jsonNode.get("refreshToken").asText();
+        String expectedRefreshTokenHash = tokenService.hashRefreshToken(refreshToken);
 
         JwtClaims claims = jwtProvider.parseAccessToken(accessToken);
         User savedUser = userRepository.findByEmail("login@test.com").orElseThrow();
+        AuthSession savedSession = authSessionRepository.findById(claims.sessionId()).orElseThrow();
 
         assertThat(claims.userId()).isEqualTo(savedUser.getId());
         assertThat(claims.role()).isEqualTo(UserRole.USER);
         assertThat(claims.type()).isEqualTo(JwtTokenType.ACCESS);
+        assertThat(claims.sessionId()).isNotNull();
+
+        assertThat(savedSession.getUserId()).isEqualTo(savedUser.getId());
+        assertThat(savedSession.getRefreshTokenHash()).isEqualTo(expectedRefreshTokenHash);
+        assertThat(authSessionRepository.findByRefreshTokenHash(expectedRefreshTokenHash))
+                .hasValueSatisfying(session -> assertThat(session.getId()).isEqualTo(savedSession.getId()));
+        assertThat(savedSession.getExpiresAt()).isAfter(savedSession.getCreatedAt());
+        assertThat(savedSession.isRevoked()).isFalse();
+        assertThat(savedSession.getRevokedAt()).isNull();
+        assertThat(savedSession.getTtlSeconds()).isPositive();
     }
 
     @Test
