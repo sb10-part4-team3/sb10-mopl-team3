@@ -1,9 +1,11 @@
 package com.example.sb10_MoPl_team3.playlist.controller;
 
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistCreateRequest;
+import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistFindAllRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistUpdateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.response.PlaylistDto;
 import com.example.sb10_MoPl_team3.playlist.service.PlaylistService;
+import com.example.sb10_MoPl_team3.review.dto.response.CursorResponsePlaylistDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -46,6 +48,14 @@ public class PlaylistController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    // 플레이리스트 목록 조회
+    @GetMapping
+    public ResponseEntity<CursorResponsePlaylistDto<PlaylistDto>> findPlaylists(
+            @ModelAttribute PlaylistFindAllRequest request
+    ) {
+        return ResponseEntity.ok(playlistService.findAll(request));
+    }
+
     // 플레이리스트 삭제
     @DeleteMapping(value = "/{playlistId}")
     public ResponseEntity<Void> deletePlaylist(
@@ -71,6 +81,26 @@ public class PlaylistController {
     ) {
         playlistService.unsubscribe(playlistId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    // 플레이리스트 콘텐츠 추가
+    @PostMapping("/{playlistId}/contents/{contentId}")
+    public ResponseEntity<Void> addContentToPlaylist(
+            @PathVariable UUID playlistId,
+            @PathVariable UUID contentId
+    ) {
+        playlistService.addContent(playlistId, contentId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // 플레이리스트 콘텐츠 제거
+    @DeleteMapping("/{playlistId}/contents/{contentId}")
+    public ResponseEntity<Void> removeContentFromPlaylist(
+            @PathVariable UUID playlistId,
+            @PathVariable UUID contentId
+    ) {
+        playlistService.removeContent(playlistId, contentId);
+        return ResponseEntity.noContent().build();
     }
 
 }
