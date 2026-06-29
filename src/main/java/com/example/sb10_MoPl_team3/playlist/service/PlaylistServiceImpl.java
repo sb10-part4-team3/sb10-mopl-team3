@@ -9,7 +9,6 @@ import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistCreateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistUpdateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.response.PlaylistDto;
 import com.example.sb10_MoPl_team3.playlist.entity.Playlist;
-import com.example.sb10_MoPl_team3.playlist.entity.PlaylistContent;
 import com.example.sb10_MoPl_team3.playlist.enums.PlaylistStatus;
 import com.example.sb10_MoPl_team3.playlist.exception.PlaylistNotFoundException;
 import com.example.sb10_MoPl_team3.playlist.exception.PlaylistOwnerMismatchException;
@@ -20,7 +19,6 @@ import com.example.sb10_MoPl_team3.playlist.repository.PlaylistSubscriptionRepos
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -162,18 +160,10 @@ public class PlaylistServiceImpl implements PlaylistService{
         Content content = contentRepository.findById(contentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
 
-        if (playlistContentRepository.existsByPlaylistIdAndContentId(playlistId, contentId)) {
-            return;
-        }
+        int inserted = playlistContentRepository.insertIfNotExists(playlist, content);
 
-        // 동시 추가 요청 시 멱등성 유지
-        try {
-            playlistContentRepository.saveAndFlush(new PlaylistContent(playlist, content));
-        } catch (DataIntegrityViolationException e) {
-            if (playlistContentRepository.existsByPlaylistIdAndContentId(playlistId, contentId)) {
-                return;
-            }
-            throw e;
+        if (inserted == 0) {
+            return;
         }
     }
 

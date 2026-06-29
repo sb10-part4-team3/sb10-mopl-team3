@@ -8,7 +8,8 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface PlaylistContentRepository extends JpaRepository<PlaylistContent, UUID> {
+public interface PlaylistContentRepository extends JpaRepository<PlaylistContent, UUID>,
+        PlaylistContentRepositoryCustom {
     boolean existsByPlaylistIdAndContentId(UUID playlistId, UUID contentId);
 
     void deleteByPlaylistIdAndContentId(UUID playlistId, UUID contentId);

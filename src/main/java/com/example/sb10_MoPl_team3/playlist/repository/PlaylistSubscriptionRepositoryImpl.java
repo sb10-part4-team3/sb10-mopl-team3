@@ -4,6 +4,8 @@ import com.example.sb10_MoPl_team3.playlist.entity.Playlist;
 import com.example.sb10_MoPl_team3.playlist.entity.PlaylistSubscriber;
 import com.example.sb10_MoPl_team3.playlist.entity.QPlaylist;
 import com.example.sb10_MoPl_team3.playlist.entity.QPlaylistSubscriber;
+import com.example.sb10_MoPl_team3.playlist.enums.PlaylistStatus;
+import com.example.sb10_MoPl_team3.playlist.exception.PlaylistNotFoundException;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
@@ -26,6 +28,10 @@ public class PlaylistSubscriptionRepositoryImpl implements PlaylistSubscriptionR
                 .where(playlistPath.id.eq(playlist.getId()))
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .fetchOne();
+
+        if (lockedPlaylist == null || lockedPlaylist.getStatus() == PlaylistStatus.DELETED) {
+            throw new PlaylistNotFoundException(playlist.getId());
+        }
 
         Boolean exists = queryFactory
                 .selectOne()
