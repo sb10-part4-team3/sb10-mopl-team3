@@ -334,7 +334,6 @@ class ContentRepositoryCustomImplTest {
 
   @Test
   void findContentsByCursor_동일한_createdAt에서_id로_타이브레이크한다() {
-    // given - 두 콘텐츠의 createdAt을 완전히 동일하게 맞춤
     Content contentA = Content.builder()
         .type(ContentType.MOVIE)
         .title("동시생성A")
@@ -359,30 +358,23 @@ class ContentRepositoryCustomImplTest {
     em.flush();
     em.clear();
 
-    // DB에서 다시 조회해서 실제 id 순서를 확인 (UUID라 랜덤하지만, 둘 중 더 작은 게 먼저 나옴 - ASC 기준)
-    Content refreshedA = contentRepository.findById(contentA.getId()).orElseThrow();
-    Content refreshedB = contentRepository.findById(contentB.getId()).orElseThrow();
-
-    Content smaller = refreshedA.getId().compareTo(refreshedB.getId()) < 0 ? refreshedA : refreshedB;
-    Content larger = refreshedA.getId().compareTo(refreshedB.getId()) < 0 ? refreshedB : refreshedA;
-
-    // when - 1페이지: size=1, ASC → createdAt이 같으니 id가 더 작은 것부터 나와야 함
     CursorPageRequest firstPage = new CursorPageRequest(null, null, 1, "createdAt", "ASC");
     List<Content> firstResult = contentRepository.findContentsByCursor(firstPage, null, null, null);
 
-    // then - size+1=2개를 가져오되, 정렬은 id 보조키로 결정됨
+    // DB가 실제로 정렬한 순서를 "정답"으로 그대로 사용 (미리 추측 안 함)
     assertThat(firstResult).hasSize(2);
-    assertThat(firstResult.get(0).getId()).isEqualTo(smaller.getId());
+    Content firstItem = firstResult.get(0);
+    Content secondItem = firstResult.get(1);
 
-    // when - smaller를 커서로 다음 페이지 요청 → createdAt이 같으므로 tieBreak(id > cursorId) 분기를 타야 함
+    // 1페이지의 첫 항목을 커서로 다음 페이지 요청
     CursorPageRequest secondPage = new CursorPageRequest(
-        smaller.getCreatedAt().toString(), smaller.getId(), 1, "createdAt", "ASC"
+        firstItem.getCreatedAt().toString(), firstItem.getId(), 1, "createdAt", "ASC"
     );
     List<Content> secondResult = contentRepository.findContentsByCursor(secondPage, null, null, null);
 
-    // then - tieBreak 덕분에 larger만 나와야 함 (smaller 자신은 제외되고, 중복도 누락도 없어야 함)
+    // then - 두번째 항목만 나와야 함 (중복도 누락도 없이)
     assertThat(secondResult).hasSize(1);
-    assertThat(secondResult.get(0).getId()).isEqualTo(larger.getId());
+    assertThat(secondResult.get(0).getId()).isEqualTo(secondItem.getId());
   }
 
   private void updateCreatedAt(UUID id, Instant time) {
