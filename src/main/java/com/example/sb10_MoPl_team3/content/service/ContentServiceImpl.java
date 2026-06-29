@@ -102,7 +102,13 @@ public class ContentServiceImpl implements ContentService {
 
     content.update(request.title(), request.description());
 
-    List<String> tags = contentTagService.syncTags(content, request.tags());
+    List<String> tags;
+    if (request.tags() != null) {
+      tags = contentTagService.syncTags(content, request.tags());
+    } else {
+      tags = contentTagRepository.findTagNamesByContentId(contentId);
+    }
+
 
     ContentStats stats = contentStatsRepository.findById(contentId)
         .orElse(null);
@@ -193,7 +199,6 @@ public class ContentServiceImpl implements ContentService {
   }
 
   private ContentDto saveContent(ContentCreateRequest request, String thumbnailUrl) {
-    List<String> tags = request.tags() != null ? request.tags() : List.of(); // TODO 태그엔티티 생성후 수정 필요
 
     Content content = Content.builder()
         .type(request.type())
@@ -205,6 +210,8 @@ public class ContentServiceImpl implements ContentService {
         .build();
 
     Content savedContent = contentRepository.save(content);
+
+    List<String> tags = contentTagService.syncTags(savedContent, request.tags());
 
     ContentStats stats = ContentStats.builder()
         .content(savedContent)
@@ -220,7 +227,7 @@ public class ContentServiceImpl implements ContentService {
         savedContent.getTitle(),
         savedContent.getDescription(),
         savedContent.getThumbnailUrl(),
-        tags, // TODO 태그엔티티 생성후 수정 필요
+        tags,
         stats.getAverageRating().doubleValue(),
         stats.getReviewCount(),
         (long) stats.getViewerCount()

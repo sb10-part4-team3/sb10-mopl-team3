@@ -8,10 +8,13 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface DirectMessageRepository extends JpaRepository<DirectMessage, UUID> {
+public interface DirectMessageRepository extends JpaRepository<DirectMessage, UUID>,
+    DirectMessageRepositoryCustom {
 
     @EntityGraph(attributePaths = {"conversation", "sender", "receiver"})
     Slice<DirectMessage> findByConversationId(UUID conversationId, Pageable pageable);
+
+    long countByConversationId(UUID conversationId);
 
     @EntityGraph(attributePaths = {"conversation", "sender", "receiver"})
     Optional<DirectMessage> findByIdAndConversationId(UUID id, UUID conversationId);
