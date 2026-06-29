@@ -3,10 +3,12 @@ package com.example.sb10_MoPl_team3.playlist.entity;
 import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.global.base.BaseEntity;
 import jakarta.persistence.*;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @NoArgsConstructor
+@Getter
 @Table(
         name = "playlist_contents",
         uniqueConstraints = @UniqueConstraint(

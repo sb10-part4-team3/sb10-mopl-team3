@@ -6,7 +6,9 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -23,4 +25,12 @@ public interface PlaylistSubscriptionRepository extends JpaRepository<PlaylistSu
                and ps.user.id = :userId
             """)
     int deleteByPlaylistIdAndUserId(UUID playlistId, UUID userId);
+
+    @Query("""
+        select ps.playlist.id
+          from PlaylistSubscriber ps
+         where ps.user.id = :userId
+           and ps.playlist.id in :playlistIds
+        """)
+    Set<UUID> findSubscribedPlaylistIds(UUID userId, Collection<UUID> playlistIds);
 }

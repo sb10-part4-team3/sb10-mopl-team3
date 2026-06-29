@@ -1,28 +1,39 @@
 package com.example.sb10_MoPl_team3.playlist.service;
 
+import com.example.sb10_MoPl_team3.content.dto.ContentSummary;
 import com.example.sb10_MoPl_team3.content.entity.Content;
+import com.example.sb10_MoPl_team3.content.entity.ContentStats;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
+import com.example.sb10_MoPl_team3.content.repository.ContentStatsRepository;
+import com.example.sb10_MoPl_team3.content.repository.ContentTagRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.security.SecurityUtils;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistCreateRequest;
+import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistFindAllRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistUpdateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.response.PlaylistDto;
 import com.example.sb10_MoPl_team3.playlist.entity.Playlist;
+import com.example.sb10_MoPl_team3.playlist.entity.PlaylistContent;
 import com.example.sb10_MoPl_team3.playlist.enums.PlaylistStatus;
 import com.example.sb10_MoPl_team3.playlist.exception.PlaylistNotFoundException;
 import com.example.sb10_MoPl_team3.playlist.exception.PlaylistOwnerMismatchException;
 import com.example.sb10_MoPl_team3.playlist.mapper.PlaylistMapper;
 import com.example.sb10_MoPl_team3.playlist.repository.PlaylistContentRepository;
 import com.example.sb10_MoPl_team3.playlist.repository.PlaylistRepository;
+import com.example.sb10_MoPl_team3.playlist.repository.PlaylistRepositoryCustom;
 import com.example.sb10_MoPl_team3.playlist.repository.PlaylistSubscriptionRepository;
+import com.example.sb10_MoPl_team3.review.dto.response.CursorResponsePlaylistDto;
 import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +44,8 @@ public class PlaylistServiceImpl implements PlaylistService{
     private final UserRepository userRepository;
     private final PlaylistContentRepository playlistContentRepository;
     private final ContentRepository contentRepository;
+    private final ContentTagRepository contentTagRepository;
+    private final ContentStatsRepository contentStatsRepository;
 
     // 플레이리스트 생성
     @Override
@@ -85,6 +98,90 @@ public class PlaylistServiceImpl implements PlaylistService{
         PlaylistDto playlistDto = playlistMapper.toDto(targetPlaylist, isSubscribed);
 
         return playlistDto;
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public CursorResponsePlaylistDto<PlaylistDto> findAll(PlaylistFindAllRequest request) {
+        UUID requestUserId = getAuthenticatedUserId();
+
+        String sortBy = request.sortBy() == null || request.sortBy().isBlank()
+                ? "updatedAt"
+                : request.sortBy();
+
+        String sortDirection = request.sortDirection() == null
+                ? "DESCENDING"
+                : request.sortDirection().toUpperCase(Locale.ROOT);
+
+        int limit = request.limit() <= 0 ? 20 : Math.min(request.limit(), 100);
+
+        PlaylistRepositoryCustom.PlaylistSearchResult result =
+                playlistRepository.search(request);
+
+        boolean hasNext = result.playlists().size() > limit;
+        List<Playlist> playlists = hasNext
+                ? result.playlists().subList(0, limit)
+                : result.playlists();
+
+        List<UUID> playlistIds = playlists.stream()
+                .map(Playlist::getId)
+                .toList();
+
+        Set<UUID> subscribedPlaylistIds = playlistIds.isEmpty()
+                ? Set.of()
+                : playlistSubscriptionRepository.findSubscribedPlaylistIds(
+                requestUserId,
+                playlistIds
+        );
+
+        Map<UUID, List<ContentSummary>> contentsByPlaylistId =
+                findContentsByPlaylistId(playlistIds);
+
+        List<PlaylistDto> data = playlists.stream()
+                .map(playlist -> toPlaylistDto(
+                        playlist,
+                        subscribedPlaylistIds.contains(playlist.getId()),
+                        contentsByPlaylistId.getOrDefault(playlist.getId(), List.of())
+                ))
+                .toList();
+
+        String nextCursor = null;
+        UUID nextIdAfter = null;
+
+        if (hasNext && !playlists.isEmpty()) {
+            Playlist last = playlists.get(playlists.size() - 1);
+            nextCursor = sortBy.equals("subscribeCount")
+                    ? String.valueOf(last.getSubscriberCount())
+                    : last.getUpdatedAt().toString();
+            nextIdAfter = last.getId();
+        }
+
+        return new CursorResponsePlaylistDto<>(
+                data,
+                nextCursor,
+                nextIdAfter,
+                hasNext,
+                result.totalCount(),
+                sortBy,
+                sortDirection
+        );
+    }
+
+    private PlaylistDto toPlaylistDto(
+            Playlist playlist,
+            boolean subscribedByMe,
+            List<ContentSummary> contents
+    ) {
+        return new PlaylistDto(
+                playlist.getId(),
+                UserMapper.toSummary(playlist.getOwner()),
+                playlist.getTitle(),
+                playlist.getDescription(),
+                playlist.getUpdatedAt(),
+                playlist.getSubscriberCount().longValue(),
+                subscribedByMe,
+                contents
+        );
     }
 
     // 플레이리스트 구독
@@ -239,5 +336,49 @@ public class PlaylistServiceImpl implements PlaylistService{
         if (!playlist.getOwner().getId().equals(userId)) {
             throw new PlaylistOwnerMismatchException(userId, playlist.getId());
         }
+    }
+
+    // 콘텐츠 조립 헬퍼
+    private Map<UUID, List<ContentSummary>> findContentsByPlaylistId(List<UUID> playlistIds) {
+        if (playlistIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<PlaylistContent> playlistContents =
+                playlistContentRepository.findAllByPlaylistIdInOrderByCreatedAtAsc(playlistIds);
+
+        List<UUID> contentIds = playlistContents.stream()
+                .map(playlistContent -> playlistContent.getContent().getId())
+                .distinct()
+                .toList();
+
+        Map<UUID, ContentStats> statsByContentId =
+                contentStatsRepository.findByIdIn(contentIds).stream()
+                        .collect(Collectors.toMap(ContentStats::getId, Function.identity()));
+
+        return playlistContents.stream()
+                .collect(Collectors.groupingBy(
+                        playlistContent -> playlistContent.getPlaylist().getId(),
+                        Collectors.mapping(
+                                playlistContent -> {
+                                    Content content = playlistContent.getContent();
+                                    ContentStats stats = statsByContentId.get(content.getId());
+                                    List<String> tags =
+                                            contentTagRepository.findTagNamesByContentId(content.getId());
+
+                                    return new ContentSummary(
+                                            content.getId(),
+                                            content.getType(),
+                                            content.getTitle(),
+                                            content.getDescription(),
+                                            content.getThumbnailUrl(),
+                                            tags,
+                                            stats == null ? 0.0 : stats.getAverageRating().doubleValue(),
+                                            stats == null ? 0 : stats.getReviewCount()
+                                    );
+                                },
+                                Collectors.toList()
+                        )
+                ));
     }
 }

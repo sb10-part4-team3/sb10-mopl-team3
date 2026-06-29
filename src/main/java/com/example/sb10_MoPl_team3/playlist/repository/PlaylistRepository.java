@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface PlaylistRepository extends JpaRepository<Playlist, UUID> {
+public interface PlaylistRepository extends JpaRepository<Playlist, UUID>, PlaylistRepositoryCustom{
     // 구독자수 증가
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
