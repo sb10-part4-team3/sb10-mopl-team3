@@ -25,7 +25,7 @@ public interface PlaylistService {
     // 플레이리스트 콘텐츠 추가
     void addContent(UUID playlistId, UUID contentId);
 
-    // 플레이리스트 콘텐츠 삭제
+    // 플레이리스트 콘텐츠 제거
     void removeContent(UUID playlistId, UUID contentId);
 
     // 플레이리스트 논리 삭제
