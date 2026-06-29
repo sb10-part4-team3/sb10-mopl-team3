@@ -1,6 +1,8 @@
 package com.example.sb10_MoPl_team3.conversation.controller;
 
 import com.example.sb10_MoPl_team3.conversation.dto.request.ConversationCreateRequest;
+import com.example.sb10_MoPl_team3.conversation.dto.request.ConversationFindAllRequest;
+import com.example.sb10_MoPl_team3.conversation.dto.response.CursorResponseConversationDto;
 import com.example.sb10_MoPl_team3.conversation.dto.response.ConversationDto;
 import com.example.sb10_MoPl_team3.conversation.service.ConversationService;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
@@ -23,6 +25,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class ConversationController {
 
     private final ConversationService conversationService;
+
+    @GetMapping
+    public ResponseEntity<CursorResponseConversationDto<ConversationDto>> findConversations(
+        @AuthenticationPrincipal AuthUser authUser,
+        ConversationFindAllRequest request
+    ) {
+        CursorResponseConversationDto<ConversationDto> response = conversationService.findAll(
+            authUser.userId(),
+            request
+        );
+        return ResponseEntity.ok(response);
+    }
 
     @GetMapping("/{conversationId}")
     public ResponseEntity<ConversationDto> findConversation(
