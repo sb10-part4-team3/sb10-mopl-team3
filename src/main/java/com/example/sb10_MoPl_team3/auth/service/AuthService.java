@@ -53,9 +53,9 @@ public class AuthService {
                 now
         );
 
-        authSessionRepository.save(authSession);
-
         String accessToken = tokenService.issueAccessToken(user, authSession.getId());
+
+        authSessionRepository.save(authSession);
 
         return new JwtDto(
                 UserMapper.toDto(user),
