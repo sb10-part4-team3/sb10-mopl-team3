@@ -111,6 +111,16 @@ public class ContentServiceImpl implements ContentService {
   }
 
   @Override
+  @Transactional
+  public void deleteContent(UUID contentId) {
+    Content content = contentRepository.findById(contentId)
+        .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
+
+    contentRepository.delete(content);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
   public CursorResponse<ContentDto> getContents(
       CursorPageRequest pageRequest,
       String typeEqual,
@@ -203,6 +213,4 @@ public class ContentServiceImpl implements ContentService {
         0L
     );
   }
-
-
 }

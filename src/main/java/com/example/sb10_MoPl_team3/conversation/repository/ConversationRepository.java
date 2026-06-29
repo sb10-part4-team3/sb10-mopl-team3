@@ -3,12 +3,17 @@ package com.example.sb10_MoPl_team3.conversation.repository;
 import com.example.sb10_MoPl_team3.conversation.entity.Conversation;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ConversationRepository extends JpaRepository<Conversation, UUID> {
 
+  @EntityGraph(attributePaths = {"user1", "user2"})
+  Optional<Conversation> findWithUsersById(UUID id);
+
+  @EntityGraph(attributePaths = {"user1", "user2"})
   @Query("""
             select c
             from Conversation c
