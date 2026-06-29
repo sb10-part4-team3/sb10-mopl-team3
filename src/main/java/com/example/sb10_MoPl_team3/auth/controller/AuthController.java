@@ -29,7 +29,7 @@ public class AuthController {
     private final AuthService authService;
     private final JwtProperties jwtProperties;
 
-    @Value("${auth.refresh-token-cookie.secure:false}")
+    @Value("${auth.refresh-token-cookie.secure:true}")
     private boolean refreshTokenCookieSecure;
 
     @PostMapping(value = "/sign-in", consumes = MediaType.APPLICATION_JSON_VALUE)
