@@ -1,20 +1,24 @@
 package com.example.sb10_MoPl_team3.user.service;
 
+import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
+import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.user.dto.request.UserRoleUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
+import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +36,8 @@ public class AdminUserService {
     );
 
     private final UserRepository userRepository;
+    private final AuthSessionRepository authSessionRepository;
+    private final Clock clock;
 
     public CursorResponse<UserDto> findUsers(UserSearchCondition condition) {
         String sortBy = normalizeSortBy(condition.sortBy());
@@ -54,6 +60,32 @@ public class AdminUserService {
                 userDto -> extractCursor(userDto, sortBy),
                 UserDto::id
         );
+    }
+
+    @Transactional
+    public UserDto updateUserRole(UUID userId, UserRoleUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        user.changeRole(request.role());
+
+        revokeUserSessions(userId);
+
+        return UserMapper.toDto(user);
+    }
+
+    private void revokeUserSessions(UUID userId) {
+        Instant now = Instant.now(clock);
+
+        Iterable<AuthSession> sessions = authSessionRepository.findAllByUserId(userId);
+        List<AuthSession> revokedSessions = new ArrayList<>();
+
+        for (AuthSession session : sessions) {
+            session.revoke(now);
+            revokedSessions.add(session);
+        }
+
+        authSessionRepository.saveAll(revokedSessions);
     }
 
     private String normalizeSortBy(String sortBy) {
