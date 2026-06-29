@@ -10,7 +10,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface PlaylistSubscriptionRepository extends JpaRepository<PlaylistSubscriber, UUID> {
+public interface PlaylistSubscriptionRepository extends JpaRepository<PlaylistSubscriber, UUID>,
+        PlaylistSubscriptionRepositoryCustom {
     boolean existsByPlaylistIdAndUserId(UUID playlistId, UUID userId);
 
     Optional<PlaylistSubscriber> findByPlaylistIdAndUserId(UUID playlistId, UUID userId);

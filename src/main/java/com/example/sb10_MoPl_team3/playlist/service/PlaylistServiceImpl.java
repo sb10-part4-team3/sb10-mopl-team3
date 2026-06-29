@@ -1,24 +1,24 @@
 package com.example.sb10_MoPl_team3.playlist.service;
 
+import com.example.sb10_MoPl_team3.content.entity.Content;
+import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.security.SecurityUtils;
-import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistCreateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistUpdateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.response.PlaylistDto;
 import com.example.sb10_MoPl_team3.playlist.entity.Playlist;
-import com.example.sb10_MoPl_team3.playlist.entity.PlaylistSubscriber;
 import com.example.sb10_MoPl_team3.playlist.enums.PlaylistStatus;
 import com.example.sb10_MoPl_team3.playlist.exception.PlaylistNotFoundException;
 import com.example.sb10_MoPl_team3.playlist.exception.PlaylistOwnerMismatchException;
 import com.example.sb10_MoPl_team3.playlist.mapper.PlaylistMapper;
+import com.example.sb10_MoPl_team3.playlist.repository.PlaylistContentRepository;
 import com.example.sb10_MoPl_team3.playlist.repository.PlaylistRepository;
 import com.example.sb10_MoPl_team3.playlist.repository.PlaylistSubscriptionRepository;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +31,8 @@ public class PlaylistServiceImpl implements PlaylistService{
     private final PlaylistSubscriptionRepository playlistSubscriptionRepository;
     private final PlaylistMapper playlistMapper;
     private final UserRepository userRepository;
+    private final PlaylistContentRepository playlistContentRepository;
+    private final ContentRepository contentRepository;
 
     // 플레이리스트 생성
     @Override
@@ -100,17 +102,10 @@ public class PlaylistServiceImpl implements PlaylistService{
 
         User user = getUserOrThrow(requestUserId);
 
-        try {
-            playlistSubscriptionRepository.saveAndFlush(
-                    new PlaylistSubscriber(playlist, user)
-            );
-        } catch (DataIntegrityViolationException e) {
-            // 동시에 같은 사용자가 같은 플레이리스트를 구독했거나 이미 구독 중인 경우.
-            // 유니크 제약이 보장하므로 카운트는 증가시키지 않고 멱등 성공으로 처리한다.
-            if (playlistSubscriptionRepository.existsByPlaylistIdAndUserId(playlistId, requestUserId)) {
-                return;
-            }
-            throw e;
+        int inserted = playlistSubscriptionRepository.insertIfNotExists(playlist, user);
+
+        if (inserted == 0) {
+            return;
         }
 
         int updated = playlistRepository.increaseSubscriberCount(
@@ -150,6 +145,43 @@ public class PlaylistServiceImpl implements PlaylistService{
         if (updated == 0) {
             throw new PlaylistNotFoundException(playlistId);
         }
+    }
+
+    // 플레이리스트 콘텐츠 추가
+    @Transactional
+    @Override
+    public void addContent(UUID playlistId, UUID contentId) {
+        UUID requestUserId = getAuthenticatedUserId();
+
+        Playlist playlist = getPlaylistOrThrow(playlistId);
+        validatePlaylistStatus(playlist);
+        validatePlaylistOwner(playlist, requestUserId);
+
+        Content content = contentRepository.findById(contentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
+
+        int inserted = playlistContentRepository.insertIfNotExists(playlist, content);
+
+        if (inserted == 0) {
+            return;
+        }
+    }
+
+    // 플레이리스트 콘텐츠 제거
+    @Transactional
+    @Override
+    public void removeContent(UUID playlistId, UUID contentId) {
+        UUID requestUserId = getAuthenticatedUserId();
+
+        Playlist playlist = getPlaylistOrThrow(playlistId);
+        validatePlaylistStatus(playlist);
+        validatePlaylistOwner(playlist, requestUserId);
+
+        if (!contentRepository.existsById(contentId)) {
+            throw new BusinessException(ErrorCode.CONTENT_NOT_FOUND);
+        }
+
+        playlistContentRepository.deleteByPlaylistIdAndContentId(playlistId, contentId);
     }
 
     // 플레이리스트 논리 삭제

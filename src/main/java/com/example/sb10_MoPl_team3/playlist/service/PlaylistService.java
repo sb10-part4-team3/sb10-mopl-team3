@@ -22,6 +22,12 @@ public interface PlaylistService {
     // 플레이리스트 구독 취소
     public void unsubscribe(UUID playlistId);
 
+    // 플레이리스트 콘텐츠 추가
+    void addContent(UUID playlistId, UUID contentId);
+
+    // 플레이리스트 콘텐츠 제거
+    void removeContent(UUID playlistId, UUID contentId);
+
     // 플레이리스트 논리 삭제
     public void delete(UUID playlistId);
 
