@@ -110,6 +110,11 @@ public class ContentServiceImpl implements ContentService {
     return ContentMapper.toDto(content, stats, tags);
   }
 
+
+  // ContentStats는 Content soft delete 시 별도로 삭제하지 않고 그대로 유지한다.
+  // - ContentStats에는 deletedAt 컬럼이 없어 자체적인 soft delete가 불가능함
+  // - Content의 @SQLRestriction("deleted_at IS NULL")이 조회를 차단하므로,
+  //   ContentStats가 API 응답에 노출될 일은 없음 (Content를 거쳐서만 접근 가능한 구조)
   @Override
   @Transactional
   public void deleteContent(UUID contentId) {
