@@ -175,7 +175,15 @@ public class PlaylistServiceImpl implements PlaylistService{
             return;
         }
 
-        playlistContentRepository.save(new PlaylistContent(playlist, content));
+        // 동시 추가 요청 시 멱등성 유지
+        try {
+            playlistContentRepository.saveAndFlush(new PlaylistContent(playlist, content));
+        } catch (DataIntegrityViolationException e) {
+            if (playlistContentRepository.existsByPlaylistIdAndContentId(playlistId, contentId)) {
+                return;
+            }
+            throw e;
+        }
     }
 
     // 플레이리스트 콘텐츠 제거
