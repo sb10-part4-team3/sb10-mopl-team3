@@ -6,4 +6,8 @@ public record AuthTokenResult(
         JwtDto jwtDto,
         String refreshToken
 ) {
+    @Override
+    public String toString() {
+        return "AuthTokenResult[jwtDto=" + jwtDto + ", refreshToken=PROTECTED]";
+    }
 }

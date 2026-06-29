@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -47,6 +48,7 @@ public class ContentStats {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
+  @Builder
   private ContentStats(Content content, BigDecimal averageRating, int reviewCount,
       int viewerCount) {
     if (content == null) {

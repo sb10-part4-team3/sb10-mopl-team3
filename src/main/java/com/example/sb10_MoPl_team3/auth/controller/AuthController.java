@@ -10,6 +10,7 @@ import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +28,9 @@ public class AuthController {
 
     private final AuthService authService;
     private final JwtProperties jwtProperties;
+
+    @Value("${auth.refresh-token-cookie.secure:true}")
+    private boolean refreshTokenCookieSecure;
 
     @PostMapping(value = "/sign-in", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<JwtDto> signIn(
@@ -78,6 +82,7 @@ public class AuthController {
     private ResponseCookie createRefreshTokenCookie(String refreshToken) {
         return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
                 .httpOnly(true)
+                .secure(refreshTokenCookieSecure)
                 .path(AUTH_COOKIE_PATH)
                 .maxAge(jwtProperties.refreshTokenExpiration())
                 .sameSite("Lax")
@@ -87,6 +92,7 @@ public class AuthController {
     private ResponseCookie expireRefreshTokenCookie() {
         return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
                 .httpOnly(true)
+                .secure(refreshTokenCookieSecure)
                 .path(AUTH_COOKIE_PATH)
                 .maxAge(0)
                 .sameSite("Lax")

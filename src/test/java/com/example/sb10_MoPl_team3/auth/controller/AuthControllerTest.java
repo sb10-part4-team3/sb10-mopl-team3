@@ -175,6 +175,14 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("CSRF 토큰 없이 refresh 요청하면 403을 반환한다")
+    void refresh_withoutCsrf() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie("REFRESH_TOKEN", "refresh-token")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("로그인 요청 값이 유효하지 않으면 400을 반환한다")
     void signIn_invalid() throws Exception {
         mockMvc.perform(post("/api/auth/sign-in")

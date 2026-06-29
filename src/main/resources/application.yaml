@@ -43,3 +43,7 @@ admin:
     email: ${ADMIN_EMAIL}
     password: ${ADMIN_PASSWORD}
     name: ${ADMIN_NAME:Admin}
+
+auth:
+  refresh-token-cookie:
+    secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}

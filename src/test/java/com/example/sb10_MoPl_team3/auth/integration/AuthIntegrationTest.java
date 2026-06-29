@@ -243,6 +243,8 @@ class AuthIntegrationTest {
         Cookie refreshTokenCookie = signInResult.getResponse().getCookie("REFRESH_TOKEN");
         assertThat(refreshTokenCookie).isNotNull();
 
+        String oldRefreshTokenHash = tokenService.hashRefreshToken(refreshTokenCookie.getValue());
+
         MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
                         .with(csrf())
                         .cookie(refreshTokenCookie))
@@ -268,7 +270,10 @@ class AuthIntegrationTest {
         assertThat(claims.sessionId()).isNotNull();
 
         String newRefreshTokenHash = tokenService.hashRefreshToken(newRefreshTokenCookie.getValue());
-        assertThat(authSessionRepository.findByRefreshTokenHash(newRefreshTokenHash)).isPresent();
+        AuthSession rotatedSession = authSessionRepository.findById(claims.sessionId()).orElseThrow();
+
+        assertThat(rotatedSession.getRefreshTokenHash()).isEqualTo(newRefreshTokenHash);
+        assertThat(authSessionRepository.findByRefreshTokenHash(oldRefreshTokenHash)).isEmpty();
     }
 
     @Test

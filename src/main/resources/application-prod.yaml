@@ -1,0 +1,9 @@
+spring:
+  jpa:
+    properties:
+      hibernate:
+        format_sql: false
+
+auth:
+  refresh-token-cookie:
+    secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}

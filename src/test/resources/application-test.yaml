@@ -28,3 +28,7 @@ admin:
     email: admin@test.com
     password: adminPassword1!
     name: Admin
+
+auth:
+  refresh-token-cookie:
+    secure: false
