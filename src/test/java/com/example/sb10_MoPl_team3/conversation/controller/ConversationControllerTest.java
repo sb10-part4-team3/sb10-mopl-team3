@@ -237,6 +237,19 @@ class ConversationControllerTest {
             .andExpect(jsonPath("$.code").value("INVALID_CURSOR"));
     }
 
+    @Test
+    @DisplayName("명세상 필수 쿼리 파라미터가 없으면 대화방 목록 조회는 400을 반환한다")
+    void findConversations_missingRequiredParameter() throws Exception {
+        UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
+        mockMvc.perform(get("/api/conversations")
+                .with(authentication(authToken(requestUserId)))
+                .param("sortDirection", "DESCENDING")
+                .param("sortBy", "createdAt"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+    }
+
     private UsernamePasswordAuthenticationToken authToken(UUID userId) {
         AuthUser authUser = new AuthUser(userId, UserRole.USER, null);
         return new UsernamePasswordAuthenticationToken(

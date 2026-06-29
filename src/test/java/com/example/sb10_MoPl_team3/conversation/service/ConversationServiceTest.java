@@ -201,6 +201,25 @@ class ConversationServiceTest {
     }
 
     @Test
+    @DisplayName("대화방 목록 조회 limit이 0 이하이면 입력값 예외를 던진다")
+    void findAll_invalidLimit() {
+        UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        ConversationFindAllRequest request = new ConversationFindAllRequest(
+            null,
+            null,
+            null,
+            0,
+            "DESCENDING",
+            "createdAt"
+        );
+
+        assertThatThrownBy(() -> conversationService.findAll(requestUserId, request))
+            .isInstanceOfSatisfying(BusinessException.class, exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
+            );
+    }
+
+    @Test
     @DisplayName("특정 사용자와의 대화방이 없으면 대화방 없음 예외를 던진다")
     void findWithUser_notFound() {
         UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");

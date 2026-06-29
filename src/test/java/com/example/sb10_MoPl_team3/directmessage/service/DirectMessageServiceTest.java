@@ -105,7 +105,7 @@ class DirectMessageServiceTest {
     }
 
     @Test
-    @DisplayName("쪽지 목록 조회 파라미터를 생략하면 기본 DESCENDING 분기로 조회한다")
+    @DisplayName("쪽지 목록 조회 정렬값을 생략하면 기본 DESCENDING 분기로 조회한다")
     void findAll_defaultDescending() {
         UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID conversationId = UUID.fromString("00000000-0000-0000-0000-000000000011");
@@ -136,7 +136,7 @@ class DirectMessageServiceTest {
             conversationId,
             null,
             null,
-            null,
+            20,
             null,
             null
         );
@@ -264,6 +264,34 @@ class DirectMessageServiceTest {
             "createdAt"
         )).isInstanceOfSatisfying(BusinessException.class, exception ->
             assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_SORT_DIRECTION)
+        );
+    }
+
+    @Test
+    @DisplayName("쪽지 목록 조회 limit이 0 이하이면 입력값 예외를 던진다")
+    void findAll_invalidLimit() {
+        UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID conversationId = UUID.fromString("00000000-0000-0000-0000-000000000011");
+        User requestUser = user(requestUserId, "a@test.com", "A");
+        Conversation conversation = conversation(
+            conversationId,
+            requestUser,
+            user(UUID.fromString("00000000-0000-0000-0000-000000000002"), "b@test.com", "B")
+        );
+
+        given(conversationRepository.findWithUsersById(conversationId))
+            .willReturn(Optional.of(conversation));
+
+        assertThatThrownBy(() -> directMessageService.findAll(
+            requestUserId,
+            conversationId,
+            null,
+            null,
+            0,
+            "DESCENDING",
+            "createdAt"
+        )).isInstanceOfSatisfying(BusinessException.class, exception ->
+            assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
         );
     }
 

@@ -27,9 +27,9 @@ public class DirectMessageController {
         @PathVariable UUID conversationId,
         @RequestParam(required = false) String cursor,
         @RequestParam(required = false) UUID idAfter,
-        @RequestParam(required = false) Integer limit,
-        @RequestParam(required = false) String sortDirection,
-        @RequestParam(required = false) String sortBy
+        @RequestParam int limit,
+        @RequestParam String sortDirection,
+        @RequestParam String sortBy
     ) {
         CursorResponseDirectMessageDto<DirectMessageDto> response = directMessageService.findAll(
             authUser.userId(),

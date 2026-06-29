@@ -29,8 +29,21 @@ public class ConversationController {
     @GetMapping
     public ResponseEntity<CursorResponseConversationDto<ConversationDto>> findConversations(
         @AuthenticationPrincipal AuthUser authUser,
-        ConversationFindAllRequest request
+        @RequestParam(required = false) String keywordLike,
+        @RequestParam(required = false) String cursor,
+        @RequestParam(required = false) UUID idAfter,
+        @RequestParam int limit,
+        @RequestParam String sortDirection,
+        @RequestParam String sortBy
     ) {
+        ConversationFindAllRequest request = new ConversationFindAllRequest(
+            keywordLike,
+            cursor,
+            idAfter,
+            limit,
+            sortDirection,
+            sortBy
+        );
         CursorResponseConversationDto<ConversationDto> response = conversationService.findAll(
             authUser.userId(),
             request

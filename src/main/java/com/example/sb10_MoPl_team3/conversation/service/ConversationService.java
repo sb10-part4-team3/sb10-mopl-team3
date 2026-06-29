@@ -173,7 +173,7 @@ public class ConversationService {
 
     private int normalizeLimit(int limit) {
         if (limit <= 0) {
-            return 20;
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
         return Math.min(limit, 100);

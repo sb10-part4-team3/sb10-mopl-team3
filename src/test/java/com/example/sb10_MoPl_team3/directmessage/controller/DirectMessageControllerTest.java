@@ -1,7 +1,6 @@
 package com.example.sb10_MoPl_team3.directmessage.controller;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -94,41 +93,6 @@ class DirectMessageControllerTest {
     }
 
     @Test
-    @DisplayName("쪽지 목록 조회 파라미터를 생략하면 서비스 기본값 정규화로 위임한다")
-    void findDirectMessages_defaultParameters() throws Exception {
-        UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
-        UUID conversationId = UUID.fromString("00000000-0000-0000-0000-000000000011");
-        CursorResponseDirectMessageDto<DirectMessageDto> response =
-            new CursorResponseDirectMessageDto<>(
-                List.of(),
-                null,
-                null,
-                false,
-                0L,
-                "createdAt",
-                "DESCENDING"
-            );
-
-        given(directMessageService.findAll(
-            eq(requestUserId),
-            eq(conversationId),
-            isNull(),
-            isNull(),
-            isNull(),
-            isNull(),
-            isNull()
-        )).willReturn(response);
-
-        mockMvc.perform(get("/api/conversations/{conversationId}/direct-messages", conversationId)
-                .with(authentication(authToken(requestUserId))))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data").isArray())
-            .andExpect(jsonPath("$.totalCount").value(0))
-            .andExpect(jsonPath("$.sortBy").value("createdAt"))
-            .andExpect(jsonPath("$.sortDirection").value("DESCENDING"));
-    }
-
-    @Test
     @DisplayName("대화방 소속원이 아닌 사용자가 쪽지 목록을 조회하면 403을 반환한다")
     void findDirectMessages_forbidden() throws Exception {
         UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000003");
@@ -190,6 +154,44 @@ class DirectMessageControllerTest {
                 .param("sortBy", "createdAt"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_PARAMETER_TYPE"));
+    }
+
+    @Test
+    @DisplayName("쪽지 목록 조회 limit이 0이면 400을 반환한다")
+    void findDirectMessages_invalidLimit() throws Exception {
+        UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID conversationId = UUID.fromString("00000000-0000-0000-0000-000000000011");
+
+        given(directMessageService.findAll(
+            eq(requestUserId),
+            eq(conversationId),
+            any(),
+            any(),
+            eq(0),
+            eq("DESCENDING"),
+            eq("createdAt")
+        )).willThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
+
+        mockMvc.perform(get("/api/conversations/{conversationId}/direct-messages", conversationId)
+                .with(authentication(authToken(requestUserId)))
+                .param("limit", "0")
+                .param("sortDirection", "DESCENDING")
+                .param("sortBy", "createdAt"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+    }
+
+    @Test
+    @DisplayName("명세상 필수 쿼리 파라미터가 없으면 쪽지 목록 조회는 400을 반환한다")
+    void findDirectMessages_missingRequiredParameter() throws Exception {
+        UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID conversationId = UUID.fromString("00000000-0000-0000-0000-000000000011");
+
+        mockMvc.perform(get("/api/conversations/{conversationId}/direct-messages", conversationId)
+                .with(authentication(authToken(requestUserId)))
+                .param("sortDirection", "DESCENDING")
+                .param("sortBy", "createdAt"))
+            .andExpect(status().isBadRequest());
     }
 
     private UsernamePasswordAuthenticationToken authToken(UUID userId) {

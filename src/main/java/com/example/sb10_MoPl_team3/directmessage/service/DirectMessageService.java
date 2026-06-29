@@ -32,7 +32,7 @@ public class DirectMessageService {
         UUID conversationId,
         String cursor,
         UUID idAfter,
-        Integer limit,
+        int limit,
         String sortDirection,
         String sortBy
     ) {
@@ -122,9 +122,9 @@ public class DirectMessageService {
         return normalized;
     }
 
-    private int normalizeLimit(Integer limit) {
-        if (limit == null || limit <= 0) {
-            return 20;
+    private int normalizeLimit(int limit) {
+        if (limit <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
         return Math.min(limit, 100);
