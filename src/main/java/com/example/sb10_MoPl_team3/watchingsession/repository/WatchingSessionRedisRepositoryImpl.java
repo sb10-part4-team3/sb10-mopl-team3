@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collections;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -43,7 +44,8 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
         }
 
         return watcherIds.stream()
-                .map(UUID::fromString)
+                .map(this::parseUuid)
+                .flatMap(Optional::stream)
                 .collect(Collectors.toUnmodifiableSet());
     }
 
@@ -64,5 +66,13 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
 
     private String value(UUID id) {
         return Objects.requireNonNull(id, "id는 필수입니다.").toString();
+    }
+
+    private Optional<UUID> parseUuid(String value) {
+        try {
+            return Optional.of(UUID.fromString(value));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
     }
 }

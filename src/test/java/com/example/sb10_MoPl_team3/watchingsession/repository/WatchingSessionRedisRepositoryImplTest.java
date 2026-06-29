@@ -108,6 +108,22 @@ class WatchingSessionRedisRepositoryImplTest {
     }
 
     @Test
+    @DisplayName("Redis에 손상된 시청자 ID 값이 있으면 제외하고 조회한다")
+    void findWatcherIdsIgnoreInvalidValue() {
+        WatchingSessionRedisRepositoryImpl repository = repository();
+        UUID contentId = UUID.randomUUID();
+        UUID watcherId = UUID.randomUUID();
+        String key = key(contentId);
+
+        when(redisTemplate.opsForSet()).thenReturn(setOperations);
+        when(setOperations.members(key)).thenReturn(Set.of(watcherId.toString(), "invalid-watcher-id"));
+
+        Set<UUID> watcherIds = repository.findWatcherIds(contentId);
+
+        assertThat(watcherIds).containsExactly(watcherId);
+    }
+
+    @Test
     @DisplayName("콘텐츠별 현재 시청자 수를 Redis SCARD로 조회한다")
     void countWatchers() {
         WatchingSessionRedisRepositoryImpl repository = repository();
