@@ -3,6 +3,7 @@ package com.example.sb10_MoPl_team3.conversation.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -23,6 +24,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -73,18 +75,18 @@ class ConversationServiceTest {
 
         ConversationFindAllRequest request = new ConversationFindAllRequest(
             "상대",
-            null,
-            null,
+            "2026-06-29T00:00:00Z",
+            first.getId(),
             2,
             "ASCENDING",
             "createdAt"
         );
 
         given(conversationRepository.findParticipatingConversationsAsc(
-            any(UUID.class),
-            any(),
-            any(),
-            any(),
+            eq(requestUserId),
+            eq("상대"),
+            eq(Instant.parse("2026-06-29T00:00:00Z")),
+            eq(first.getId()),
             any(Pageable.class)
         )).willReturn(List.of(first, second, extra));
         given(conversationRepository.countParticipatingConversations(requestUserId, "상대"))
@@ -100,6 +102,24 @@ class ConversationServiceTest {
         assertThat(response.sortBy()).isEqualTo("createdAt");
         assertThat(response.sortDirection()).isEqualTo("ASCENDING");
         assertThat(response.data().get(0).with().userId()).isEqualTo(otherUser.getId());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        then(conversationRepository).should().findParticipatingConversationsAsc(
+            eq(requestUserId),
+            eq("상대"),
+            eq(Instant.parse("2026-06-29T00:00:00Z")),
+            eq(first.getId()),
+            pageableCaptor.capture()
+        );
+        assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(3);
+        then(conversationRepository).should(never()).findParticipatingConversationsDesc(
+            any(),
+            any(),
+            any(),
+            any(),
+            any()
+        );
     }
 
     @Test

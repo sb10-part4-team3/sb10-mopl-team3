@@ -1,6 +1,7 @@
 package com.example.sb10_MoPl_team3.directmessage.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -90,6 +91,41 @@ class DirectMessageControllerTest {
             .andExpect(jsonPath("$.data[0].content").value("안녕하세요"))
             .andExpect(jsonPath("$.hasNext").value(false))
             .andExpect(jsonPath("$.totalCount").value(1));
+    }
+
+    @Test
+    @DisplayName("쪽지 목록 조회 파라미터를 생략하면 서비스 기본값 정규화로 위임한다")
+    void findDirectMessages_defaultParameters() throws Exception {
+        UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID conversationId = UUID.fromString("00000000-0000-0000-0000-000000000011");
+        CursorResponseDirectMessageDto<DirectMessageDto> response =
+            new CursorResponseDirectMessageDto<>(
+                List.of(),
+                null,
+                null,
+                false,
+                0L,
+                "createdAt",
+                "DESCENDING"
+            );
+
+        given(directMessageService.findAll(
+            eq(requestUserId),
+            eq(conversationId),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull()
+        )).willReturn(response);
+
+        mockMvc.perform(get("/api/conversations/{conversationId}/direct-messages", conversationId)
+                .with(authentication(authToken(requestUserId))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data").isArray())
+            .andExpect(jsonPath("$.totalCount").value(0))
+            .andExpect(jsonPath("$.sortBy").value("createdAt"))
+            .andExpect(jsonPath("$.sortDirection").value("DESCENDING"));
     }
 
     @Test

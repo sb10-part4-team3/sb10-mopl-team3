@@ -1,8 +1,10 @@
 package com.example.sb10_MoPl_team3.conversation.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -27,6 +29,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -47,6 +50,48 @@ class ConversationControllerTest {
 
     @MockitoBean
     private JwtProvider jwtProvider;
+
+    @Test
+    @DisplayName("대화방 목록 조회 쿼리 파라미터를 요청 DTO로 바인딩한다")
+    void findConversations_bindsQueryParameters() throws Exception {
+        UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID idAfter = UUID.fromString("00000000-0000-0000-0000-000000000099");
+        CursorResponseConversationDto<ConversationDto> response =
+            new CursorResponseConversationDto<>(
+                List.of(),
+                null,
+                null,
+                false,
+                0L,
+                "createdAt",
+                "DESCENDING"
+            );
+
+        given(conversationService.findAll(eq(requestUserId), any(ConversationFindAllRequest.class)))
+            .willReturn(response);
+
+        mockMvc.perform(get("/api/conversations")
+                .with(authentication(authToken(requestUserId)))
+                .param("keywordLike", "상대")
+                .param("cursor", "2026-06-29T00:00:00Z")
+                .param("idAfter", idAfter.toString())
+                .param("limit", "20")
+                .param("sortDirection", "DESCENDING")
+                .param("sortBy", "createdAt"))
+            .andExpect(status().isOk());
+
+        ArgumentCaptor<ConversationFindAllRequest> captor =
+            ArgumentCaptor.forClass(ConversationFindAllRequest.class);
+        then(conversationService).should().findAll(eq(requestUserId), captor.capture());
+
+        ConversationFindAllRequest capturedRequest = captor.getValue();
+        assertThat(capturedRequest.keywordLike()).isEqualTo("상대");
+        assertThat(capturedRequest.cursor()).isEqualTo("2026-06-29T00:00:00Z");
+        assertThat(capturedRequest.idAfter()).isEqualTo(idAfter);
+        assertThat(capturedRequest.limit()).isEqualTo(20);
+        assertThat(capturedRequest.sortDirection()).isEqualTo("DESCENDING");
+        assertThat(capturedRequest.sortBy()).isEqualTo("createdAt");
+    }
 
     @Test
     @DisplayName("대화방 목록 조회 요청을 쿼리 파라미터로 바인딩하고 200을 반환한다")

@@ -3,7 +3,10 @@ package com.example.sb10_MoPl_team3.directmessage.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 import com.example.sb10_MoPl_team3.conversation.entity.Conversation;
 import com.example.sb10_MoPl_team3.conversation.repository.ConversationRepository;
@@ -20,6 +23,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -101,6 +105,64 @@ class DirectMessageServiceTest {
     }
 
     @Test
+    @DisplayName("쪽지 목록 조회 파라미터를 생략하면 기본 DESCENDING 분기로 조회한다")
+    void findAll_defaultDescending() {
+        UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID conversationId = UUID.fromString("00000000-0000-0000-0000-000000000011");
+        User sender = user(requestUserId, "sender@test.com", "발신자");
+        User receiver = user(UUID.fromString("00000000-0000-0000-0000-000000000002"), "receiver@test.com", "수신자");
+        Conversation conversation = conversation(conversationId, sender, receiver);
+        DirectMessage message = directMessage(
+            UUID.fromString("00000000-0000-0000-0000-000000000101"),
+            conversation,
+            sender,
+            receiver,
+            "기본 정렬",
+            Instant.parse("2026-06-29T00:00:00Z")
+        );
+
+        given(conversationRepository.findWithUsersById(conversationId))
+            .willReturn(Optional.of(conversation));
+        given(directMessageRepository.findByConversationIdWithCursorDesc(
+            eq(conversationId),
+            eq(null),
+            eq(null),
+            any(Pageable.class)
+        )).willReturn(List.of(message));
+        given(directMessageRepository.countByConversationId(conversationId)).willReturn(1L);
+
+        var response = directMessageService.findAll(
+            requestUserId,
+            conversationId,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+
+        assertThat(response.data()).hasSize(1);
+        assertThat(response.sortBy()).isEqualTo("createdAt");
+        assertThat(response.sortDirection()).isEqualTo("DESCENDING");
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        then(directMessageRepository).should().findByConversationIdWithCursorDesc(
+            eq(conversationId),
+            eq(null),
+            eq(null),
+            pageableCaptor.capture()
+        );
+        assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(21);
+        then(directMessageRepository).should(never()).findByConversationIdWithCursorAsc(
+            any(),
+            any(),
+            any(),
+            any()
+        );
+    }
+
+    @Test
     @DisplayName("대화방 소속원이 아닌 사용자는 쪽지 목록 조회가 403 예외로 차단된다")
     void findAll_notParticipant() {
         UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000003");
@@ -174,6 +236,34 @@ class DirectMessageServiceTest {
             "createdAt"
         )).isInstanceOfSatisfying(BusinessException.class, exception ->
             assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_CURSOR)
+        );
+    }
+
+    @Test
+    @DisplayName("쪽지 목록 조회 정렬 방향이 올바르지 않으면 정렬 예외를 던진다")
+    void findAll_invalidSortDirection() {
+        UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID conversationId = UUID.fromString("00000000-0000-0000-0000-000000000011");
+        User requestUser = user(requestUserId, "a@test.com", "A");
+        Conversation conversation = conversation(
+            conversationId,
+            requestUser,
+            user(UUID.fromString("00000000-0000-0000-0000-000000000002"), "b@test.com", "B")
+        );
+
+        given(conversationRepository.findWithUsersById(conversationId))
+            .willReturn(Optional.of(conversation));
+
+        assertThatThrownBy(() -> directMessageService.findAll(
+            requestUserId,
+            conversationId,
+            null,
+            null,
+            20,
+            "INVALID",
+            "createdAt"
+        )).isInstanceOfSatisfying(BusinessException.class, exception ->
+            assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_SORT_DIRECTION)
         );
     }
 
