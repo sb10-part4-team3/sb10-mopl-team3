@@ -29,6 +29,7 @@ class TokenServiceTest {
     private final JwtProperties jwtProperties = new JwtProperties(
             TEST_JWT_SECRET,
             Duration.ofHours(1),
+            Duration.ofDays(7),
             "mopl-test"
     );
 
@@ -36,9 +37,11 @@ class TokenServiceTest {
     private final TokenService tokenService = new TokenService(jwtProvider);
 
     @Test
-    @DisplayName("사용자 정보로 Access Token을 발급한다")
-    void issueAccessToken() {
+    @DisplayName("사용자 정보와 세션 ID로 Access Token을 발급한다")
+    void issueAccessTokenWithSessionId() {
         UUID userId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+
         User user = new User(
                 "user@test.com",
                 "홍길동",
@@ -48,15 +51,35 @@ class TokenServiceTest {
         );
         ReflectionTestUtils.setField(user, "id", userId);
 
-        String accessToken = tokenService.issueAccessToken(user);
+        String accessToken = tokenService.issueAccessToken(user, sessionId);
 
         JwtClaims claims = jwtProvider.parseAccessToken(accessToken);
 
         assertThat(claims.userId()).isEqualTo(userId);
         assertThat(claims.role()).isEqualTo(UserRole.USER);
         assertThat(claims.type()).isEqualTo(JwtTokenType.ACCESS);
-        assertThat(claims.sessionId()).isNull();
+        assertThat(claims.sessionId()).isEqualTo(sessionId);
         assertThat(claims.issuedAt()).isEqualTo(fixedInstant);
         assertThat(claims.expiresAt()).isEqualTo(fixedInstant.plus(Duration.ofHours(1)));
+    }
+
+    @Test
+    @DisplayName("Refresh Token을 발급한다")
+    void issueRefreshToken() {
+        String refreshToken = tokenService.issueRefreshToken();
+
+        assertThat(refreshToken).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("Refresh Token은 해시하여 저장값으로 변환한다")
+    void hashRefreshToken() {
+        String refreshToken = tokenService.issueRefreshToken();
+
+        String hash = tokenService.hashRefreshToken(refreshToken);
+
+        assertThat(hash).isNotBlank();
+        assertThat(hash).isNotEqualTo(refreshToken);
+        assertThat(tokenService.hashRefreshToken(refreshToken)).isEqualTo(hash);
     }
 }

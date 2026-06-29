@@ -4,6 +4,7 @@ import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 
 public record JwtDto(
         UserDto userDto,
-        String accessToken
+        String accessToken,
+        String refreshToken
 ) {
 }

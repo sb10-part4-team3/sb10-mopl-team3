@@ -26,6 +26,7 @@ class JwtProviderTest {
     private final JwtProperties jwtProperties = new JwtProperties(
             TEST_JWT_SECRET,
             Duration.ofHours(1),
+            Duration.ofDays(7),
             "mopl-test"
     );
 
@@ -59,6 +60,7 @@ class JwtProviderTest {
         JwtProperties expiredProperties = new JwtProperties(
                 TEST_JWT_SECRET,
                 Duration.ofSeconds(1),
+                Duration.ofDays(7),
                 "mopl-test"
         );
 

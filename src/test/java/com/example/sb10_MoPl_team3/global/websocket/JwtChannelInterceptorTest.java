@@ -34,7 +34,7 @@ class JwtChannelInterceptorTest {
             "dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtcHJvdmlkZXItdGVzdC1tdXN0LWJlLWxvbmc=";
 
     private final JwtProvider jwtProvider = new JwtProvider(
-            new JwtProperties(TEST_JWT_SECRET, Duration.ofHours(1), "mopl-test"),
+            new JwtProperties(TEST_JWT_SECRET, Duration.ofHours(1), Duration.ofDays(7), "mopl-test"),
             Clock.fixed(Instant.parse("2026-06-24T00:00:00Z"), ZoneOffset.UTC)
     );
     private final JwtChannelInterceptor interceptor = new JwtChannelInterceptor(jwtProvider);
