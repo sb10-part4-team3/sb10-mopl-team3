@@ -236,4 +236,137 @@ class AdminUserControllerTest {
 
         then(adminUserService).shouldHaveNoInteractions();
     }
+
+    @Test
+    @DisplayName("관리자는 사용자 계정을 잠글 수 있다")
+    void updateUserStatus_lock_success() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        UserStatusUpdateRequest request = new UserStatusUpdateRequest(true);
+
+        UserDto response = new UserDto(
+                userId,
+                Instant.parse("2026-06-28T00:00:00Z"),
+                "user@test.com",
+                "User",
+                null,
+                UserRole.USER,
+                true
+        );
+
+        given(adminUserService.updateUserStatus(any(UUID.class), any(UserStatusUpdateRequest.class)))
+                .willReturn(response);
+
+        mockMvc.perform(patch("/api/users/{userId}/status", userId)
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userId.toString()))
+                .andExpect(jsonPath("$.email").value("user@test.com"))
+                .andExpect(jsonPath("$.name").value("User"))
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.locked").value(true));
+
+        ArgumentCaptor<UUID> userIdCaptor = ArgumentCaptor.forClass(UUID.class);
+        ArgumentCaptor<UserStatusUpdateRequest> requestCaptor =
+                ArgumentCaptor.forClass(UserStatusUpdateRequest.class);
+
+        then(adminUserService).should()
+                .updateUserStatus(userIdCaptor.capture(), requestCaptor.capture());
+
+        assertThat(userIdCaptor.getValue()).isEqualTo(userId);
+        assertThat(requestCaptor.getValue().locked()).isTrue();
+    }
+
+    @Test
+    @DisplayName("관리자는 사용자 계정 잠금을 해제할 수 있다")
+    void updateUserStatus_unlock_success() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        UserStatusUpdateRequest request = new UserStatusUpdateRequest(false);
+
+        UserDto response = new UserDto(
+                userId,
+                Instant.parse("2026-06-28T00:00:00Z"),
+                "user@test.com",
+                "User",
+                null,
+                UserRole.USER,
+                false
+        );
+
+        given(adminUserService.updateUserStatus(any(UUID.class), any(UserStatusUpdateRequest.class)))
+                .willReturn(response);
+
+        mockMvc.perform(patch("/api/users/{userId}/status", userId)
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userId.toString()))
+                .andExpect(jsonPath("$.locked").value(false));
+
+        ArgumentCaptor<UserStatusUpdateRequest> requestCaptor =
+                ArgumentCaptor.forClass(UserStatusUpdateRequest.class);
+
+        then(adminUserService).should()
+                .updateUserStatus(any(UUID.class), requestCaptor.capture());
+
+        assertThat(requestCaptor.getValue().locked()).isFalse();
+    }
+
+    @Test
+    @DisplayName("일반 사용자는 사용자 계정 잠금 상태를 변경할 수 없다")
+    void updateUserStatus_forbidden() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        UserStatusUpdateRequest request = new UserStatusUpdateRequest(true);
+
+        mockMvc.perform(patch("/api/users/{userId}/status", userId)
+                        .with(user("user").roles("USER"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        then(adminUserService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 사용자 계정 잠금 상태를 변경할 수 없다")
+    void updateUserStatus_unauthenticated() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        UserStatusUpdateRequest request = new UserStatusUpdateRequest(true);
+
+        mockMvc.perform(patch("/api/users/{userId}/status", userId)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+
+        then(adminUserService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("잠금 여부 값이 없으면 계정 잠금 상태 변경 요청이 실패한다")
+    void updateUserStatus_invalidLocked() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/users/{userId}/status", userId)
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                          "locked": null
+                        }
+                        """))
+                .andExpect(status().isBadRequest());
+
+        then(adminUserService).shouldHaveNoInteractions();
+    }
 }
