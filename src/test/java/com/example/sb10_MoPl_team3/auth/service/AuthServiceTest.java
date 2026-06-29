@@ -15,6 +15,8 @@ import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -326,6 +328,45 @@ class AuthServiceTest {
 
         then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = UserStatus.class, names = {"LOCKED", "WITHDRAWN"})
+    @DisplayName("잠금 또는 탈퇴 계정은 refresh token으로 토큰을 재발급할 수 없다")
+    void reissueToken_invalidUserStatus(UserStatus status) {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+        String refreshToken = "refresh-token";
+
+        AuthSession authSession = AuthSession.create(
+                userId,
+                "refresh-token-hash",
+                now.plus(Duration.ofDays(7)),
+                now
+        );
+
+        User user = new User(
+                "user@test.com",
+                "Test User",
+                "encoded-password",
+                null,
+                UserRole.USER
+        );
+        ReflectionTestUtils.setField(user, "id", userId);
+        ReflectionTestUtils.setField(user, "status", status);
+
+        given(clock.instant()).willReturn(now);
+        given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
+        given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
+                .willReturn(Optional.of(authSession));
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.reissueToken(refreshToken))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        then(tokenService).should(never()).issueRefreshToken();
+        then(tokenService).should(never()).issueAccessToken(any(User.class), any());
+        then(authSessionRepository).should(never()).save(any());
     }
 
     @Test
