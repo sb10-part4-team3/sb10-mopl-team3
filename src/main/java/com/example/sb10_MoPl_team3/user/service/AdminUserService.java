@@ -8,8 +8,10 @@ import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.dto.request.UserRoleUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
+import com.example.sb10_MoPl_team3.user.dto.request.UserStatusUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -70,6 +72,24 @@ public class AdminUserService {
         user.changeRole(request.role());
 
         revokeUserSessions(userId);
+
+        return UserMapper.toDto(user);
+    }
+
+    @Transactional
+    public UserDto updateUserStatus(UUID userId, UserStatusUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        UserStatus status = request.locked()
+                ? UserStatus.LOCKED
+                : UserStatus.ACTIVE;
+
+        user.changeStatus(status);
+
+        if (status == UserStatus.LOCKED) {
+            revokeUserSessions(userId);
+        }
 
         return UserMapper.toDto(user);
     }
