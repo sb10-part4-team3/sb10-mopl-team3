@@ -1,9 +1,12 @@
 package com.example.sb10_MoPl_team3.user.service;
 
+import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
+import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.user.dto.request.UserRoleUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.entity.User;
@@ -18,8 +21,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,6 +38,12 @@ class AdminUserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private AuthSessionRepository authSessionRepository;
+
+    @Mock
+    private Clock clock;
 
     @InjectMocks
     private AdminUserService adminUserService;
@@ -201,6 +212,74 @@ class AdminUserServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("관리자는 사용자의 권한을 변경하고 해당 사용자의 세션을 모두 무효화한다")
+    void updateUserRole_success() {
+        // given
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-29T00:00:00Z");
+
+        User user = createUser(
+                userId,
+                "user@test.com",
+                "User",
+                UserRole.USER,
+                "2026-06-28T00:00:00Z"
+        );
+
+        AuthSession session1 = AuthSession.create(
+                userId,
+                "refresh-token-hash-1",
+                now.plusSeconds(3600),
+                now
+        );
+
+        AuthSession session2 = AuthSession.create(
+                userId,
+                "refresh-token-hash-2",
+                now.plusSeconds(3600),
+                now
+        );
+
+        UserRoleUpdateRequest request = new UserRoleUpdateRequest(UserRole.ADMIN);
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(authSessionRepository.findAllByUserId(userId)).willReturn(List.of(session1, session2));
+        given(clock.instant()).willReturn(now);
+
+        // when
+        UserDto response = adminUserService.updateUserRole(userId, request);
+
+        // then
+        assertThat(user.getRole()).isEqualTo(UserRole.ADMIN);
+        assertThat(response.role()).isEqualTo(UserRole.ADMIN);
+
+        assertThat(session1.isRevoked()).isTrue();
+        assertThat(session1.getRevokedAt()).isEqualTo(now);
+        assertThat(session2.isRevoked()).isTrue();
+        assertThat(session2.getRevokedAt()).isEqualTo(now);
+
+        then(userRepository).should().findById(userId);
+        then(authSessionRepository).should().findAllByUserId(userId);
+        then(authSessionRepository).should().saveAll(List.of(session1, session2));
+    }
+
+    @Test
+    @DisplayName("권한을 변경할 사용자가 없으면 예외가 발생한다")
+    void updateUserRole_userNotFound() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UserRoleUpdateRequest request = new UserRoleUpdateRequest(UserRole.ADMIN);
+
+        given(userRepository.findById(userId)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> adminUserService.updateUserRole(userId, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
     }
 
     private User createUser(
