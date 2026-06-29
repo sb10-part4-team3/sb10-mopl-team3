@@ -167,7 +167,11 @@ class ContentRepositoryCustomImplTest {
     List<Content> result = contentRepository.findContentsByCursor(pageRequest, null, null, null);
 
     // then
-    assertThat(result.get(0).getTitle()).isEqualTo("많은 시청자");
+    assertThat(result).hasSize(2);
+    assertThat(result)
+        .extracting(Content::getTitle)
+        .containsExactly("많은 시청자", "적은 시청자");
+
   }
 
   @Test
@@ -265,7 +269,8 @@ class ContentRepositoryCustomImplTest {
     CursorPageRequest secondPage = new CursorPageRequest(
         cursorItem.getCreatedAt().toString(), cursorItem.getId(), 2, "createdAt", "ASC"
     );
-    List<Content> secondResult = contentRepository.findContentsByCursor(secondPage, null, null, null);
+    List<Content> secondResult = contentRepository.findContentsByCursor(secondPage, null, null,
+        null);
 
     // then - 세번째만 나와야 함
     assertThat(secondResult).hasSize(1);
@@ -319,11 +324,65 @@ class ContentRepositoryCustomImplTest {
     CursorPageRequest secondPage = new CursorPageRequest(
         cursorItem.getCreatedAt().toString(), cursorItem.getId(), 2, "createdAt", "DESC"
     );
-    List<Content> secondResult = contentRepository.findContentsByCursor(secondPage, null, null, null);
+    List<Content> secondResult = contentRepository.findContentsByCursor(secondPage, null, null,
+        null);
 
     // then - DESC에서 두번째보다 더 과거인 첫번째만 나와야 함
     assertThat(secondResult).hasSize(1);
     assertThat(secondResult.get(0).getTitle()).isEqualTo("첫번째");
+  }
+
+  @Test
+  void findContentsByCursor_동일한_createdAt에서_id로_타이브레이크한다() {
+    // given - 두 콘텐츠의 createdAt을 완전히 동일하게 맞춤
+    Content contentA = Content.builder()
+        .type(ContentType.MOVIE)
+        .title("동시생성A")
+        .externalId("ext-201")
+        .source("MANUAL")
+        .build();
+    contentRepository.save(contentA);
+    em.flush();
+
+    Content contentB = Content.builder()
+        .type(ContentType.MOVIE)
+        .title("동시생성B")
+        .externalId("ext-202")
+        .source("MANUAL")
+        .build();
+    contentRepository.save(contentB);
+    em.flush();
+
+    Instant sameTime = Instant.now();
+    updateCreatedAt(contentA.getId(), sameTime);
+    updateCreatedAt(contentB.getId(), sameTime);
+    em.flush();
+    em.clear();
+
+    // DB에서 다시 조회해서 실제 id 순서를 확인 (UUID라 랜덤하지만, 둘 중 더 작은 게 먼저 나옴 - ASC 기준)
+    Content refreshedA = contentRepository.findById(contentA.getId()).orElseThrow();
+    Content refreshedB = contentRepository.findById(contentB.getId()).orElseThrow();
+
+    Content smaller = refreshedA.getId().compareTo(refreshedB.getId()) < 0 ? refreshedA : refreshedB;
+    Content larger = refreshedA.getId().compareTo(refreshedB.getId()) < 0 ? refreshedB : refreshedA;
+
+    // when - 1페이지: size=1, ASC → createdAt이 같으니 id가 더 작은 것부터 나와야 함
+    CursorPageRequest firstPage = new CursorPageRequest(null, null, 1, "createdAt", "ASC");
+    List<Content> firstResult = contentRepository.findContentsByCursor(firstPage, null, null, null);
+
+    // then - size+1=2개를 가져오되, 정렬은 id 보조키로 결정됨
+    assertThat(firstResult).hasSize(2);
+    assertThat(firstResult.get(0).getId()).isEqualTo(smaller.getId());
+
+    // when - smaller를 커서로 다음 페이지 요청 → createdAt이 같으므로 tieBreak(id > cursorId) 분기를 타야 함
+    CursorPageRequest secondPage = new CursorPageRequest(
+        smaller.getCreatedAt().toString(), smaller.getId(), 1, "createdAt", "ASC"
+    );
+    List<Content> secondResult = contentRepository.findContentsByCursor(secondPage, null, null, null);
+
+    // then - tieBreak 덕분에 larger만 나와야 함 (smaller 자신은 제외되고, 중복도 누락도 없어야 함)
+    assertThat(secondResult).hasSize(1);
+    assertThat(secondResult.get(0).getId()).isEqualTo(larger.getId());
   }
 
   private void updateCreatedAt(UUID id, Instant time) {
