@@ -5,13 +5,11 @@ import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.security.SecurityUtils;
-import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistCreateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistUpdateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.response.PlaylistDto;
 import com.example.sb10_MoPl_team3.playlist.entity.Playlist;
 import com.example.sb10_MoPl_team3.playlist.entity.PlaylistContent;
-import com.example.sb10_MoPl_team3.playlist.entity.PlaylistSubscriber;
 import com.example.sb10_MoPl_team3.playlist.enums.PlaylistStatus;
 import com.example.sb10_MoPl_team3.playlist.exception.PlaylistNotFoundException;
 import com.example.sb10_MoPl_team3.playlist.exception.PlaylistOwnerMismatchException;
@@ -106,17 +104,10 @@ public class PlaylistServiceImpl implements PlaylistService{
 
         User user = getUserOrThrow(requestUserId);
 
-        try {
-            playlistSubscriptionRepository.saveAndFlush(
-                    new PlaylistSubscriber(playlist, user)
-            );
-        } catch (DataIntegrityViolationException e) {
-            // 동시에 같은 사용자가 같은 플레이리스트를 구독했거나 이미 구독 중인 경우.
-            // 유니크 제약이 보장하므로 카운트는 증가시키지 않고 멱등 성공으로 처리한다.
-            if (playlistSubscriptionRepository.existsByPlaylistIdAndUserId(playlistId, requestUserId)) {
-                return;
-            }
-            throw e;
+        int inserted = playlistSubscriptionRepository.insertIfNotExists(playlist, user);
+
+        if (inserted == 0) {
+            return;
         }
 
         int updated = playlistRepository.increaseSubscriberCount(
