@@ -6,6 +6,7 @@ import com.example.sb10_MoPl_team3.content.dto.ContentUpdateRequest;
 import com.example.sb10_MoPl_team3.content.service.ContentService;
 import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +42,7 @@ public class ContentController {
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<ContentDto> create(
-      @RequestPart("request") ContentCreateRequest request,
+      @Valid @RequestPart("request") ContentCreateRequest request,
       @RequestPart(value = "thumbnail", required = false) MultipartFile thumbnail
   ){
     ContentDto dto = contentService.create(request, thumbnail);
