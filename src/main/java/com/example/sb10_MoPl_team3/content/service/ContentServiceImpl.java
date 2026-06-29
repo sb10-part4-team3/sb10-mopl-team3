@@ -102,7 +102,13 @@ public class ContentServiceImpl implements ContentService {
 
     content.update(request.title(), request.description());
 
-    List<String> tags = contentTagService.syncTags(content, request.tags());
+    List<String> tags;
+    if (request.tags() != null) {
+      tags = contentTagService.syncTags(content, request.tags());
+    } else {
+      tags = contentTagRepository.findTagNamesByContentId(contentId);
+    }
+
 
     ContentStats stats = contentStatsRepository.findById(contentId)
         .orElse(null);
@@ -110,6 +116,11 @@ public class ContentServiceImpl implements ContentService {
     return ContentMapper.toDto(content, stats, tags);
   }
 
+
+  // ContentStats는 Content soft delete 시 별도로 삭제하지 않고 그대로 유지한다.
+  // - ContentStats에는 deletedAt 컬럼이 없어 자체적인 soft delete가 불가능함
+  // - Content의 @SQLRestriction("deleted_at IS NULL")이 조회를 차단하므로,
+  //   ContentStats가 API 응답에 노출될 일은 없음 (Content를 거쳐서만 접근 가능한 구조)
   @Override
   @Transactional
   public void deleteContent(UUID contentId) {
@@ -188,7 +199,6 @@ public class ContentServiceImpl implements ContentService {
   }
 
   private ContentDto saveContent(ContentCreateRequest request, String thumbnailUrl) {
-    List<String> tags = request.tags() != null ? request.tags() : List.of(); // TODO 태그엔티티 생성후 수정 필요
 
     Content content = Content.builder()
         .type(request.type())
@@ -201,16 +211,26 @@ public class ContentServiceImpl implements ContentService {
 
     Content savedContent = contentRepository.save(content);
 
+    List<String> tags = contentTagService.syncTags(savedContent, request.tags());
+
+    ContentStats stats = ContentStats.builder()
+        .content(savedContent)
+        .averageRating(BigDecimal.ZERO)
+        .reviewCount(0)
+        .viewerCount(0)
+        .build();
+    contentStatsRepository.save(stats);
+
     return new ContentDto(
         savedContent.getId(),
         savedContent.getType(),
         savedContent.getTitle(),
         savedContent.getDescription(),
         savedContent.getThumbnailUrl(),
-        tags, // TODO 태그엔티티 생성후 수정 필요
-        0.0,
-        0,
-        0L
+        tags,
+        stats.getAverageRating().doubleValue(),
+        stats.getReviewCount(),
+        (long) stats.getViewerCount()
     );
   }
 }

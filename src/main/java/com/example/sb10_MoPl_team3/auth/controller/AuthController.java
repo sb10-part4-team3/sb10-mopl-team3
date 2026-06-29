@@ -11,10 +11,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -57,6 +58,7 @@ public class AuthController {
 
         AuthTokenResult result = authService.reissueToken(refreshToken);
         return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
                 .header(HttpHeaders.SET_COOKIE, createRefreshTokenCookie(result.refreshToken()).toString())
                 .body(result.jwtDto());
     }
@@ -75,6 +77,7 @@ public class AuthController {
     private ResponseEntity<JwtDto> issueToken(SignInRequest request) {
         AuthTokenResult result = authService.signIn(request);
         return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
                 .header(HttpHeaders.SET_COOKIE, createRefreshTokenCookie(result.refreshToken()).toString())
                 .body(result.jwtDto());
     }

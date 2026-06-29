@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.global.exception;
 
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.response.ErrorResponse;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Slf4j
@@ -60,6 +62,26 @@ public class GlobalExceptionHandler {
             AuthorizationDeniedException exception
     ) {
         ErrorResponse response = ErrorResponse.of(new BusinessException(ErrorCode.ACCESS_DENIED));
+        logWarn(response);
+        return ResponseEntity.status(response.status()).body(response);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingServletRequestParameterException(
+        MissingServletRequestParameterException exception
+    ) {
+        Map<String, Object> details = new HashMap<>();
+        details.put("parameter", exception.getParameterName());
+        details.put("requiredType", exception.getParameterType());
+
+        ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
+        ErrorResponse response = new ErrorResponse(
+            Instant.now(),
+            errorCode.name(),
+            errorCode.getMessage(),
+            details,
+            errorCode.getStatus().value()
+        );
         logWarn(response);
         return ResponseEntity.status(response.status()).body(response);
     }
