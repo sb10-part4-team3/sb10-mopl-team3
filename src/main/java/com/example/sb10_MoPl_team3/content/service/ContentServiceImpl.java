@@ -201,6 +201,14 @@ public class ContentServiceImpl implements ContentService {
 
     Content savedContent = contentRepository.save(content);
 
+    ContentStats stats = ContentStats.builder()
+        .content(savedContent)
+        .averageRating(BigDecimal.ZERO)
+        .reviewCount(0)
+        .viewerCount(0)
+        .build();
+    contentStatsRepository.save(stats);
+
     return new ContentDto(
         savedContent.getId(),
         savedContent.getType(),
@@ -208,9 +216,9 @@ public class ContentServiceImpl implements ContentService {
         savedContent.getDescription(),
         savedContent.getThumbnailUrl(),
         tags, // TODO 태그엔티티 생성후 수정 필요
-        0.0,
-        0,
-        0L
+        stats.getAverageRating().doubleValue(),
+        stats.getReviewCount(),
+        (long) stats.getViewerCount()
     );
   }
 }
