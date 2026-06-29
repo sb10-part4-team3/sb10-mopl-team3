@@ -6,6 +6,7 @@ import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.user.dto.request.UserLockUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserRoleUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
@@ -287,7 +288,7 @@ class AdminUserServiceTest {
 
     @Test
     @DisplayName("관리자는 사용자 계정을 잠글 수 있고 해당 사용자의 세션은 모두 무효화된다")
-    void updateUserStatus_lock_success() {
+    void updateUserLocked_lock_success() {
         // given
         UUID userId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-29T00:00:00Z");
@@ -314,14 +315,14 @@ class AdminUserServiceTest {
                 now
         );
 
-        UserStatusUpdateRequest request = new UserStatusUpdateRequest(true);
+        UserLockUpdateRequest request = new UserLockUpdateRequest(true);
 
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(authSessionRepository.findAllByUserId(userId)).willReturn(List.of(session1, session2));
         given(clock.instant()).willReturn(now);
 
         // when
-        UserDto response = adminUserService.updateUserStatus(userId, request);
+        UserDto response = adminUserService.updateUserLocked(userId, request);
 
         // then
         assertThat(user.getStatus()).isEqualTo(UserStatus.LOCKED);
@@ -339,7 +340,7 @@ class AdminUserServiceTest {
 
     @Test
     @DisplayName("관리자는 잠긴 사용자 계정의 잠금을 해제할 수 있다")
-    void updateUserStatus_unlock_success() {
+    void updateUserLocked_unlock_success() {
         // given
         UUID userId = UUID.randomUUID();
 
@@ -352,12 +353,12 @@ class AdminUserServiceTest {
         );
         ReflectionTestUtils.setField(user, "status", UserStatus.LOCKED);
 
-        UserStatusUpdateRequest request = new UserStatusUpdateRequest(false);
+        UserLockUpdateRequest request = new UserLockUpdateRequest(false);
 
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
 
         // when
-        UserDto response = adminUserService.updateUserStatus(userId, request);
+        UserDto response = adminUserService.updateUserLocked(userId, request);
 
         // then
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
@@ -370,15 +371,15 @@ class AdminUserServiceTest {
 
     @Test
     @DisplayName("상태를 변경할 사용자가 없으면 예외가 발생한다")
-    void updateUserStatus_userNotFound() {
+    void updateUserLocked_userNotFound() {
         // given
         UUID userId = UUID.randomUUID();
-        UserStatusUpdateRequest request = new UserStatusUpdateRequest(true);
+        UserLockUpdateRequest request = new UserLockUpdateRequest(true);
 
         given(userRepository.findById(userId)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> adminUserService.updateUserStatus(userId, request))
+        assertThatThrownBy(() -> adminUserService.updateUserLocked(userId, request))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);

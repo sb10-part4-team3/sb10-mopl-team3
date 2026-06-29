@@ -4,6 +4,7 @@ import com.example.sb10_MoPl_team3.global.config.SecurityConfig;
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
 import com.example.sb10_MoPl_team3.global.exception.GlobalExceptionHandler;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.user.dto.request.UserLockUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserRoleUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
@@ -239,10 +240,10 @@ class AdminUserControllerTest {
 
     @Test
     @DisplayName("관리자는 사용자 계정을 잠글 수 있다")
-    void updateUserStatus_lock_success() throws Exception {
+    void updateUserLocked_lock_success() throws Exception {
         UUID userId = UUID.randomUUID();
 
-        UserStatusUpdateRequest request = new UserStatusUpdateRequest(true);
+        UserLockUpdateRequest request = new UserLockUpdateRequest(true);
 
         UserDto response = new UserDto(
                 userId,
@@ -254,10 +255,10 @@ class AdminUserControllerTest {
                 true
         );
 
-        given(adminUserService.updateUserStatus(any(UUID.class), any(UserStatusUpdateRequest.class)))
+        given(adminUserService.updateUserLocked(any(UUID.class), any(UserLockUpdateRequest.class)))
                 .willReturn(response);
 
-        mockMvc.perform(patch("/api/users/{userId}/status", userId)
+        mockMvc.perform(patch("/api/users/{userId}/locked", userId)
                         .with(user("admin").roles("ADMIN"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -270,11 +271,11 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.locked").value(true));
 
         ArgumentCaptor<UUID> userIdCaptor = ArgumentCaptor.forClass(UUID.class);
-        ArgumentCaptor<UserStatusUpdateRequest> requestCaptor =
-                ArgumentCaptor.forClass(UserStatusUpdateRequest.class);
+        ArgumentCaptor<UserLockUpdateRequest> requestCaptor =
+                ArgumentCaptor.forClass(UserLockUpdateRequest.class);
 
         then(adminUserService).should()
-                .updateUserStatus(userIdCaptor.capture(), requestCaptor.capture());
+                .updateUserLocked(userIdCaptor.capture(), requestCaptor.capture());
 
         assertThat(userIdCaptor.getValue()).isEqualTo(userId);
         assertThat(requestCaptor.getValue().locked()).isTrue();
@@ -282,10 +283,10 @@ class AdminUserControllerTest {
 
     @Test
     @DisplayName("관리자는 사용자 계정 잠금을 해제할 수 있다")
-    void updateUserStatus_unlock_success() throws Exception {
+    void updateUserLocked_unlock_success() throws Exception {
         UUID userId = UUID.randomUUID();
 
-        UserStatusUpdateRequest request = new UserStatusUpdateRequest(false);
+        UserLockUpdateRequest request = new UserLockUpdateRequest(false);
 
         UserDto response = new UserDto(
                 userId,
@@ -297,10 +298,10 @@ class AdminUserControllerTest {
                 false
         );
 
-        given(adminUserService.updateUserStatus(any(UUID.class), any(UserStatusUpdateRequest.class)))
+        given(adminUserService.updateUserLocked(any(UUID.class), any(UserLockUpdateRequest.class)))
                 .willReturn(response);
 
-        mockMvc.perform(patch("/api/users/{userId}/status", userId)
+        mockMvc.perform(patch("/api/users/{userId}/locked", userId)
                         .with(user("admin").roles("ADMIN"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -309,23 +310,23 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.id").value(userId.toString()))
                 .andExpect(jsonPath("$.locked").value(false));
 
-        ArgumentCaptor<UserStatusUpdateRequest> requestCaptor =
-                ArgumentCaptor.forClass(UserStatusUpdateRequest.class);
+        ArgumentCaptor<UserLockUpdateRequest> requestCaptor =
+                ArgumentCaptor.forClass(UserLockUpdateRequest.class);
 
         then(adminUserService).should()
-                .updateUserStatus(any(UUID.class), requestCaptor.capture());
+                .updateUserLocked(any(UUID.class), requestCaptor.capture());
 
         assertThat(requestCaptor.getValue().locked()).isFalse();
     }
 
     @Test
     @DisplayName("일반 사용자는 사용자 계정 잠금 상태를 변경할 수 없다")
-    void updateUserStatus_forbidden() throws Exception {
+    void updateUserLocked_forbidden() throws Exception {
         UUID userId = UUID.randomUUID();
 
-        UserStatusUpdateRequest request = new UserStatusUpdateRequest(true);
+        UserLockUpdateRequest request = new UserLockUpdateRequest(true);
 
-        mockMvc.perform(patch("/api/users/{userId}/status", userId)
+        mockMvc.perform(patch("/api/users/{userId}/locked", userId)
                         .with(user("user").roles("USER"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -337,12 +338,12 @@ class AdminUserControllerTest {
 
     @Test
     @DisplayName("인증되지 않은 사용자는 사용자 계정 잠금 상태를 변경할 수 없다")
-    void updateUserStatus_unauthenticated() throws Exception {
+    void updateUserLocked_unauthenticated() throws Exception {
         UUID userId = UUID.randomUUID();
 
-        UserStatusUpdateRequest request = new UserStatusUpdateRequest(true);
+        UserLockUpdateRequest request = new UserLockUpdateRequest(true);
 
-        mockMvc.perform(patch("/api/users/{userId}/status", userId)
+        mockMvc.perform(patch("/api/users/{userId}/locked", userId)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -353,10 +354,10 @@ class AdminUserControllerTest {
 
     @Test
     @DisplayName("잠금 여부 값이 없으면 계정 잠금 상태 변경 요청이 실패한다")
-    void updateUserStatus_invalidLocked() throws Exception {
+    void updateUserLocked_invalidLocked() throws Exception {
         UUID userId = UUID.randomUUID();
 
-        mockMvc.perform(patch("/api/users/{userId}/status", userId)
+        mockMvc.perform(patch("/api/users/{userId}/locked", userId)
                         .with(user("admin").roles("ADMIN"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)

@@ -1,6 +1,7 @@
 package com.example.sb10_MoPl_team3.user.controller;
 
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
+import com.example.sb10_MoPl_team3.user.dto.request.UserLockUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserRoleUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
@@ -54,5 +55,14 @@ public class AdminUserController {
             @Valid @RequestBody UserRoleUpdateRequest request
     ) {
         return ResponseEntity.ok(adminUserService.updateUserRole(userId, request));
+    }
+
+    @PatchMapping("/{userId}/locked")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDto> updateUserLocked(
+            @PathVariable UUID userId,
+            @Valid @RequestBody UserLockUpdateRequest request
+    ) {
+        return ResponseEntity.ok(adminUserService.updateUserLocked(userId, request));
     }
 }
