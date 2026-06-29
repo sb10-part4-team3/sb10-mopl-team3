@@ -5,6 +5,7 @@ import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.entity.ContentStats;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.content.repository.ContentStatsRepository;
+import com.example.sb10_MoPl_team3.content.repository.ContentTagProjection;
 import com.example.sb10_MoPl_team3.content.repository.ContentTagRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
@@ -345,7 +346,7 @@ public class PlaylistServiceImpl implements PlaylistService{
         }
 
         List<PlaylistContent> playlistContents =
-                playlistContentRepository.findAllByPlaylistIdInOrderByCreatedAtAsc(playlistIds);
+                playlistContentRepository.findAllWithPlaylistAndContentByPlaylistIds(playlistIds);
 
         List<UUID> contentIds = playlistContents.stream()
                 .map(playlistContent -> playlistContent.getContent().getId())
@@ -353,8 +354,22 @@ public class PlaylistServiceImpl implements PlaylistService{
                 .toList();
 
         Map<UUID, ContentStats> statsByContentId =
-                contentStatsRepository.findByIdIn(contentIds).stream()
-                        .collect(Collectors.toMap(ContentStats::getId, Function.identity()));
+                contentIds.isEmpty()
+                        ? Map.of()
+                        : contentStatsRepository.findByIdIn(contentIds).stream()
+                                .collect(Collectors.toMap(ContentStats::getId, Function.identity()));
+
+        Map<UUID, List<String>> tagsByContentId =
+                contentIds.isEmpty()
+                        ? Map.of()
+                        : contentTagRepository.findTagsByContentIds(contentIds).stream()
+                                .collect(Collectors.groupingBy(
+                                        ContentTagProjection::contentId,
+                                        Collectors.mapping(
+                                                ContentTagProjection::tagName,
+                                                Collectors.toList()
+                                        )
+                                ));
 
         return playlistContents.stream()
                 .collect(Collectors.groupingBy(
@@ -363,8 +378,10 @@ public class PlaylistServiceImpl implements PlaylistService{
                                 playlistContent -> {
                                     Content content = playlistContent.getContent();
                                     ContentStats stats = statsByContentId.get(content.getId());
-                                    List<String> tags =
-                                            contentTagRepository.findTagNamesByContentId(content.getId());
+                                    List<String> tags = tagsByContentId.getOrDefault(
+                                            content.getId(),
+                                            List.of()
+                                    );
 
                                     return new ContentSummary(
                                             content.getId(),

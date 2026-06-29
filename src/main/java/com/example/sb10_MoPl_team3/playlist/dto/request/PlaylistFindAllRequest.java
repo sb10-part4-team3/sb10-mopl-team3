@@ -8,7 +8,7 @@ public record PlaylistFindAllRequest(
         UUID subscriberIdEqual,
         String cursor,
         UUID idAfter,
-        Integer limit,
+        int limit,
         String sortDirection,
         String sortBy
 ) {
