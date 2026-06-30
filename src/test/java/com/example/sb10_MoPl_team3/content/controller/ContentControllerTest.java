@@ -40,6 +40,13 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+/**
+ * ContentController 컨트롤러 슬라이스 테스트.
+ *
+ * <p>{@code @WebMvcTest}를 사용하므로 컨트롤러 레이어(요청 매핑, 직렬화, 보안 필터, 예외 처리)만 검증합니다.
+ * 서비스·레포지토리 계층을 포함한 전체 애플리케이션 컨텍스트가 필요한 경우
+ * {@code @SpringBootTest + @AutoConfigureMockMvc}로 전환해야 합니다.
+ */
 @WebMvcTest(ContentController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class})
 class ContentControllerTest {
@@ -278,10 +285,15 @@ class ContentControllerTest {
     }
 
     @Test
-    void findContents_필수_파라미터_누락_시_400_반환() throws Exception {
+    void findContents_필수_파라미터_누락_시_400과_INVALID_INPUT_VALUE_반환() throws Exception {
         mockMvc.perform(get("/api/contents")
                 .with(authentication(userAuth())))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"))
+            .andExpect(jsonPath("$.message").value(ErrorCode.INVALID_INPUT_VALUE.getMessage()))
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.timestamp").exists())
+            .andExpect(jsonPath("$.details.parameter").exists());
     }
 
     // ========================
