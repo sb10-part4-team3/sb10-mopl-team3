@@ -86,6 +86,7 @@ class PlaylistServiceImplTest {
 
     @AfterEach
     void tearDown() {
+        // SecurityUtils가 정적 SecurityContextHolder를 읽기 때문에 테스트 간 인증 상태를 격리한다.
         SecurityContextHolder.clearContext();
     }
 
@@ -105,6 +106,7 @@ class PlaylistServiceImplTest {
         PlaylistDto response = playlistService.create(new PlaylistCreateRequest("title", "description"));
 
         assertThat(response).isEqualTo(dto);
+        // 저장 전 엔티티 상태를 캡처해서 소유자와 ACTIVE 상태가 실제로 조립됐는지 검증한다.
         ArgumentCaptor<Playlist> playlistCaptor = ArgumentCaptor.forClass(Playlist.class);
         then(playlistRepository).should().save(playlistCaptor.capture());
         Playlist captured = playlistCaptor.getValue();
@@ -187,6 +189,7 @@ class PlaylistServiceImplTest {
         authenticate(requestUserId);
         given(playlistRepository.search(request))
                 .willReturn(new PlaylistRepositoryCustom.PlaylistSearchResult(List.of(playlist), 1L));
+        // 목록 응답은 구독 여부, 콘텐츠, 통계, 태그를 한 번씩 모아 DTO로 조립한다.
         given(playlistSubscriptionRepository.findSubscribedPlaylistIds(requestUserId, List.of(playlistId)))
                 .willReturn(Set.of(playlistId));
         given(playlistContentRepository.findAllWithPlaylistAndContentByPlaylistIds(List.of(playlistId)))
@@ -235,6 +238,7 @@ class PlaylistServiceImplTest {
         List<UUID> pagePlaylistIds = List.of(first.getId(), second.getId());
 
         authenticate(requestUserId);
+        // limit + 1개가 반환되면 extra는 잘라내고 현재 페이지의 마지막 항목으로 다음 커서를 만든다.
         given(playlistRepository.search(request))
                 .willReturn(new PlaylistRepositoryCustom.PlaylistSearchResult(
                         List.of(first, second, extra),
@@ -282,6 +286,7 @@ class PlaylistServiceImplTest {
         List<UUID> pagePlaylistIds = List.of(first.getId(), second.getId());
 
         authenticate(requestUserId);
+        // subscribeCount 정렬은 updatedAt 대신 마지막 응답 항목의 구독자 수를 커서 문자열로 사용한다.
         given(playlistRepository.search(request))
                 .willReturn(new PlaylistRepositoryCustom.PlaylistSearchResult(
                         List.of(first, second, extra),
@@ -343,6 +348,7 @@ class PlaylistServiceImplTest {
 
         playlistService.subscribe(playlistId);
 
+        // 이미 구독 중이면 insert가 0을 반환하고 구독자 수 증가는 수행하지 않는다.
         then(playlistRepository).should(never()).increaseSubscriberCount(any(), any());
     }
 
@@ -399,6 +405,7 @@ class PlaylistServiceImplTest {
 
         playlistService.unsubscribe(playlistId);
 
+        // 이미 구독 취소된 상태이면 삭제 수가 0이고 구독자 수 감소도 수행하지 않는다.
         then(playlistRepository).should(never()).decreaseSubscriberCount(any(), any());
     }
 
@@ -493,6 +500,7 @@ class PlaylistServiceImplTest {
     }
 
     private void authenticate(UUID userId) {
+        // 서비스가 SecurityUtils.getCurrentUserId()를 호출하므로 실제 인증 컨텍스트에 AuthUser를 심는다.
         AuthUser authUser = new AuthUser(userId, UserRole.USER, uuid(99));
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(authUser, null, authUser.authorities());
@@ -518,6 +526,7 @@ class PlaylistServiceImplTest {
                 .description(description)
                 .status(status)
                 .build();
+        // JPA가 채우는 식별자와 감사 시간을 단위 테스트에서 필요한 값으로 고정한다.
         ReflectionTestUtils.setField(playlist, "id", id);
         ReflectionTestUtils.setField(playlist, "createdAt", Instant.parse("2026-06-29T00:00:00Z"));
         ReflectionTestUtils.setField(playlist, "updatedAt", Instant.parse("2026-06-29T00:00:00Z"));
@@ -562,10 +571,12 @@ class PlaylistServiceImplTest {
     }
 
     private void setUpdatedAt(Playlist playlist, String updatedAt) {
+        // 커서 조립 분기를 검증하기 위해 updatedAt을 테스트별로 다르게 지정한다.
         ReflectionTestUtils.setField(playlist, "updatedAt", Instant.parse(updatedAt));
     }
 
     private void setSubscriberCount(Playlist playlist, int subscriberCount) {
+        // subscribeCount 정렬 커서가 마지막 응답 항목의 값을 쓰는지 확인하기 위해 명시적으로 지정한다.
         ReflectionTestUtils.setField(playlist, "subscriberCount", subscriberCount);
     }
 

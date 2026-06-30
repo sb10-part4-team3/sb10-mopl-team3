@@ -66,6 +66,7 @@ class ReviewServiceImplTest {
 
     @AfterEach
     void tearDown() {
+        // SecurityUtils가 정적 SecurityContextHolder를 읽기 때문에 테스트 간 인증 상태를 격리한다.
         SecurityContextHolder.clearContext();
     }
 
@@ -88,6 +89,7 @@ class ReviewServiceImplTest {
         ReviewDto response = reviewService.create(new ReviewCreateRequest(contentId, "great", 4.5));
 
         assertThat(response).isEqualTo(dto);
+        // 저장 전 엔티티 상태를 캡처해서 인증 사용자, 콘텐츠, ACTIVE 상태가 실제로 조립됐는지 검증한다.
         ArgumentCaptor<Review> reviewCaptor = ArgumentCaptor.forClass(Review.class);
         then(reviewRepository).should().save(reviewCaptor.capture());
         Review captured = reviewCaptor.getValue();
@@ -161,6 +163,7 @@ class ReviewServiceImplTest {
                 "ASCENDING",
                 "createdAt"
         );
+        // 서비스는 다음 페이지 존재 여부를 판단하려고 limit보다 1개 더 조회한다.
         given(reviewRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .willReturn(new PageImpl<>(List.of(first, second, extra)));
         given(reviewRepository.countByContent_IdAndStatus(contentId, ReviewStatus.ACTIVE))
@@ -172,6 +175,7 @@ class ReviewServiceImplTest {
 
         assertThat(response.data()).hasSize(2);
         assertThat(response.hasNext()).isTrue();
+        // extra는 응답에서 제외되고, 현재 페이지의 마지막 리뷰가 다음 커서가 된다.
         assertThat(response.nextCursor()).isEqualTo("2026-06-29T00:01:00Z");
         assertThat(response.nextIdAfter()).isEqualTo(second.getId());
         assertThat(response.totalCount()).isEqualTo(3L);
@@ -253,6 +257,7 @@ class ReviewServiceImplTest {
     }
 
     private void authenticate(UUID userId) {
+        // 서비스가 SecurityUtils.getCurrentUserId()를 호출하므로 실제 인증 컨텍스트에 AuthUser를 심는다.
         AuthUser authUser = new AuthUser(userId, UserRole.USER, uuid(99));
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(authUser, null, authUser.authorities());
@@ -308,6 +313,7 @@ class ReviewServiceImplTest {
     }
 
     private void setAudit(Review review, String createdAt) {
+        // BaseEntity 감사 필드는 JPA가 채우는 값이라 단위 테스트에서는 명시적으로 고정한다.
         ReflectionTestUtils.setField(review, "createdAt", Instant.parse(createdAt));
         ReflectionTestUtils.setField(review, "updatedAt", Instant.parse(createdAt));
     }
