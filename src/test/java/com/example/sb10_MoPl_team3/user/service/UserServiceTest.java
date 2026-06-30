@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.example.sb10_MoPl_team3.global.file.FileStorageService;
 import com.example.sb10_MoPl_team3.global.security.UserAuthorizationService;
+import com.example.sb10_MoPl_team3.global.security.exception.AccessDeniedBusinessException;
 import com.example.sb10_MoPl_team3.user.dto.request.UserUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import java.util.Optional;
 import java.util.UUID;
@@ -211,5 +213,62 @@ class UserServiceTest {
 
         then(userAuthorizationService).should().validateSelf(userId);
         then(fileStorageService).should(never()).upload(any());
+    }
+
+    @Test
+    @DisplayName("타인의 프로필 수정은 권한 검증에서 즉시 실패하고 조회와 업로드를 수행하지 않는다")
+    void updateUser_forbidden_shortCircuitsBeforeSideEffects() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UserUpdateRequest request = new UserUpdateRequest("변경된이름");
+        MockMultipartFile image = new MockMultipartFile(
+                "image",
+                "profile.png",
+                "image/png",
+                "image".getBytes()
+        );
+
+        willThrow(new AccessDeniedBusinessException())
+                .given(userAuthorizationService).validateSelf(userId);
+
+        // when & then
+        assertThatThrownBy(() -> userService.updateUser(userId, request, image))
+                .isInstanceOf(AccessDeniedBusinessException.class);
+
+        then(userRepository).shouldHaveNoInteractions();
+        then(fileStorageService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 업로드 후 DB 반영에 실패하면 업로드된 이미지를 삭제한다")
+    void updateUser_deleteUploadedImageWhenPersistenceFails() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UserUpdateRequest request = new UserUpdateRequest("변경된이름");
+        MockMultipartFile image = new MockMultipartFile(
+                "image",
+                "profile.png",
+                "image/png",
+                "image".getBytes()
+        );
+        User user = new User(
+                "user@test.com",
+                "기존이름",
+                "encoded-password",
+                "https://image.test/old.png",
+                UserRole.USER
+        );
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(fileStorageService.upload(image)).willReturn("https://image.test/new.png");
+        willThrow(new RuntimeException("flush failed"))
+                .given(userRepository).flush();
+
+        // when & then
+        assertThatThrownBy(() -> userService.updateUser(userId, request, image))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("flush failed");
+
+        then(fileStorageService).should().deleteByUrl("https://image.test/new.png");
     }
 }

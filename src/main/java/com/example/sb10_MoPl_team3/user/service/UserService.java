@@ -66,13 +66,23 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
-        String profileImageUrl = null;
-        if (image != null && !image.isEmpty()) {
-            profileImageUrl = fileStorageService.upload(image);
+        String uploadedProfileImageUrl = null;
+
+        try {
+            if (image != null && !image.isEmpty()) {
+                uploadedProfileImageUrl = fileStorageService.upload(image);
+            }
+
+            user.updateProfile(request.name(), uploadedProfileImageUrl);
+            userRepository.flush();
+
+            return UserMapper.toDto(user);
+        } catch (RuntimeException exception) {
+            if (uploadedProfileImageUrl != null) {
+                fileStorageService.deleteByUrl(uploadedProfileImageUrl);
+            }
+
+            throw exception;
         }
-
-        user.updateProfile(request.name(), profileImageUrl);
-
-        return UserMapper.toDto(user);
     }
 }

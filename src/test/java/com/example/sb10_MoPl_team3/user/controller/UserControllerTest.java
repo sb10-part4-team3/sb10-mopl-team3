@@ -353,4 +353,36 @@ class UserControllerTest {
 
         then(userService).shouldHaveNoInteractions();
     }
+
+    @Test
+    @DisplayName("프로필 수정 요청 값이 유효하지 않으면 400을 반환한다")
+    void updateUser_invalid() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        MockMultipartFile requestPart = new MockMultipartFile(
+                "request",
+                "",
+                "application/json",
+                """
+                {
+                  "name": ""
+                }
+                """.getBytes(StandardCharsets.UTF_8)
+        );
+
+        // when & then
+        mockMvc.perform(multipart("/api/users/{userId}", userId)
+                        .file(requestPart)
+                        .with(request -> {
+                            request.setMethod("PATCH");
+                            return request;
+                        })
+                        .with(user("user").roles("USER"))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+
+        then(userService).shouldHaveNoInteractions();
+    }
 }
