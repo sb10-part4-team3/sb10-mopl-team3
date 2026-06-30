@@ -32,7 +32,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.ArgumentMatchers.argThat;
 
 @ExtendWith(MockitoExtension.class)
 class WatchingSessionServiceImplTest {
@@ -134,7 +135,8 @@ class WatchingSessionServiceImplTest {
                 org.mockito.ArgumentMatchers.eq("시청"),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
-                any(Pageable.class)))
+                argThat((Pageable pageable) ->
+                        pageable.getPageNumber() == 0 && pageable.getPageSize() == 2)))
                 .willReturn(List.of(first, second));
         given(watchingSessionRepository.countByContent(contentId, "시청")).willReturn(2L);
         given(contentStatsRepository.findById(contentId)).willReturn(Optional.empty());
@@ -151,6 +153,80 @@ class WatchingSessionServiceImplTest {
         assertThat(result.totalCount()).isEqualTo(2L);
         assertThat(result.sortBy()).isEqualTo("createdAt");
         assertThat(result.sortDirection()).isEqualTo("DESCENDING");
+    }
+
+    @Test
+    @DisplayName("콘텐츠 요약 정보는 페이지 항목 수와 관계없이 한 번만 조회한다")
+    void findByContent_reusesContentSummary() {
+        UUID contentId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        Content content = content(contentId);
+        WatchingSession first = session(
+                "00000000-0000-0000-0000-000000000011",
+                "00000000-0000-0000-0000-000000000021",
+                "2026-06-30T02:00:00Z", content);
+        WatchingSession second = session(
+                "00000000-0000-0000-0000-000000000012",
+                "00000000-0000-0000-0000-000000000022",
+                "2026-06-30T01:00:00Z", content);
+        given(contentRepository.existsById(contentId)).willReturn(true);
+        given(watchingSessionRepository.findByContentDesc(
+                org.mockito.ArgumentMatchers.eq(contentId),
+                org.mockito.ArgumentMatchers.eq(""),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(),
+                argThat((Pageable pageable) ->
+                        pageable.getPageNumber() == 0 && pageable.getPageSize() == 21)))
+                .willReturn(List.of(first, second));
+        given(watchingSessionRepository.countByContent(contentId, "")).willReturn(2L);
+        given(contentStatsRepository.findById(contentId)).willReturn(Optional.empty());
+        given(contentTagRepository.findTagNamesByContentId(contentId)).willReturn(List.of("액션"));
+
+        var result = watchingSessionService.findByContent(new WatchingSessionFindAllRequest(
+                contentId, null, null, null, 20, "DESCENDING", "createdAt"));
+
+        assertThat(result.data()).hasSize(2);
+        assertThat(result.data()).allSatisfy(dto ->
+                assertThat(dto.content().tags()).containsExactly("액션"));
+        then(contentStatsRepository).should(times(1)).findById(contentId);
+        then(contentTagRepository).should(times(1)).findTagNamesByContentId(contentId);
+    }
+
+    @Test
+    @DisplayName("오름차순 요청은 ASC 조회 메서드와 limit + 1 페이지 크기를 사용한다")
+    void findByContent_ascending() {
+        UUID contentId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        UUID idAfter = UUID.fromString("00000000-0000-0000-0000-000000000010");
+        Instant cursor = Instant.parse("2026-06-30T00:00:00Z");
+        Content content = content(contentId);
+        WatchingSession session = session(
+                "00000000-0000-0000-0000-000000000011",
+                "00000000-0000-0000-0000-000000000021",
+                "2026-06-30T01:00:00Z", content);
+        given(contentRepository.existsById(contentId)).willReturn(true);
+        given(watchingSessionRepository.findByContentAsc(
+                org.mockito.ArgumentMatchers.eq(contentId),
+                org.mockito.ArgumentMatchers.eq(""),
+                org.mockito.ArgumentMatchers.eq(cursor),
+                org.mockito.ArgumentMatchers.eq(idAfter),
+                argThat((Pageable pageable) ->
+                        pageable.getPageNumber() == 0 && pageable.getPageSize() == 4)))
+                .willReturn(List.of(session));
+        given(watchingSessionRepository.countByContent(contentId, "")).willReturn(1L);
+        given(contentStatsRepository.findById(contentId)).willReturn(Optional.empty());
+        given(contentTagRepository.findTagNamesByContentId(contentId)).willReturn(List.of());
+
+        var result = watchingSessionService.findByContent(new WatchingSessionFindAllRequest(
+                contentId, null, cursor.toString(), idAfter, 3, "ASCENDING", "createdAt"));
+
+        assertThat(result.data()).extracting(dto -> dto.id()).containsExactly(session.getId());
+        assertThat(result.sortDirection()).isEqualTo("ASCENDING");
+        assertThat(result.hasNext()).isFalse();
+        then(watchingSessionRepository).should(never()).findByContentDesc(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test

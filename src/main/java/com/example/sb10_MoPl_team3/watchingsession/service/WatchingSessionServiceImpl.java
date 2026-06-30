@@ -103,7 +103,19 @@ public class WatchingSessionServiceImpl implements WatchingSessionService {
             nextIdAfter = last.getId();
         }
 
-        List<WatchingSessionDto> data = sessions.stream().map(this::toDto).toList();
+        List<WatchingSessionDto> data;
+        if (sessions.isEmpty()) {
+            data = List.of();
+        } else {
+            ContentSummary contentSummary = toContentSummary(sessions.get(0).getContent());
+            data = sessions.stream()
+                    .map(session -> WatchingSessionMapper.toDto(
+                            session,
+                            UserMapper.toSummary(session.getWatcher()),
+                            contentSummary
+                    ))
+                    .toList();
+        }
         long totalCount = watchingSessionRepository.countByContent(request.contentId(), watcherName);
         return new CursorResponseWatchingSessionDto(
                 data, nextCursor, nextIdAfter, hasNext, totalCount, sortBy, sortDirection
@@ -111,15 +123,16 @@ public class WatchingSessionServiceImpl implements WatchingSessionService {
     }
 
     private WatchingSessionDto toDto(WatchingSession watchingSession) {
-        Content content = watchingSession.getContent();
-        ContentStats stats = contentStatsRepository.findById(content.getId()).orElse(null);
-        List<String> tags = contentTagRepository.findTagNamesByContentId(content.getId());
-        ContentSummary contentSummary = ContentMapper.toSummary(content, stats, tags);
-
         return WatchingSessionMapper.toDto(
                 watchingSession,
                 UserMapper.toSummary(watchingSession.getWatcher()),
-                contentSummary
+                toContentSummary(watchingSession.getContent())
         );
+    }
+
+    private ContentSummary toContentSummary(Content content) {
+        ContentStats stats = contentStatsRepository.findById(content.getId()).orElse(null);
+        List<String> tags = contentTagRepository.findTagNamesByContentId(content.getId());
+        return ContentMapper.toSummary(content, stats, tags);
     }
 }

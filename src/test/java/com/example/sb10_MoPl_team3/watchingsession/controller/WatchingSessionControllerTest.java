@@ -178,13 +178,16 @@ class WatchingSessionControllerTest {
     void findWatchingSessionsByContent_invalidCursor() throws Exception {
         UUID requesterId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID contentId = UUID.fromString("00000000-0000-0000-0000-000000000021");
+        UUID idAfter = UUID.fromString("00000000-0000-0000-0000-000000000011");
         given(watchingSessionService.findByContent(argThat(request ->
-                "invalid-cursor".equals(request.cursor()))))
+                contentId.equals(request.contentId())
+                        && "invalid-cursor".equals(request.cursor())
+                        && idAfter.equals(request.idAfter()))))
                 .willThrow(new BusinessException(ErrorCode.INVALID_CURSOR));
 
         mockMvc.perform(get("/api/contents/{contentId}/watching-sessions", contentId)
                         .param("cursor", "invalid-cursor")
-                        .param("idAfter", "00000000-0000-0000-0000-000000000011")
+                        .param("idAfter", idAfter.toString())
                         .param("limit", "20")
                         .param("sortDirection", "DESCENDING")
                         .param("sortBy", "createdAt")

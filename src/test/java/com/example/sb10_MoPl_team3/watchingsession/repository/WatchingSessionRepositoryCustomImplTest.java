@@ -71,6 +71,42 @@ class WatchingSessionRepositoryCustomImplTest {
                 .isEqualTo(3L);
     }
 
+    @Test
+    @DisplayName("createdAt이 같은 세션은 idAfter를 타이브레이커로 사용해 다음 페이지로 이어진다")
+    void findByContentDesc_usesIdAfterWhenCreatedAtIsSame() {
+        Content content = saveContent("동일 시각 콘텐츠", "same-created-at");
+        User firstWatcher = saveUser("tie-first@test.com", "첫 번째");
+        User secondWatcher = saveUser("tie-second@test.com", "두 번째");
+        User olderWatcher = saveUser("tie-older@test.com", "이전 시청자");
+        Instant tiedAt = Instant.parse("2026-06-30T02:00:00Z");
+
+        WatchingSession firstTied = saveSession(firstWatcher, content, tiedAt.toString());
+        WatchingSession secondTied = saveSession(secondWatcher, content, tiedAt.toString());
+        WatchingSession older = saveSession(olderWatcher, content, "2026-06-30T01:00:00Z");
+        entityManager.flush();
+        entityManager.clear();
+
+        List<WatchingSession> firstPage = watchingSessionRepository.findByContentDesc(
+                content.getId(), null, null, null, PageRequest.of(0, 1));
+        WatchingSession pageCursor = firstPage.get(0);
+        List<WatchingSession> secondPage = watchingSessionRepository.findByContentDesc(
+                content.getId(), null, pageCursor.getCreatedAt(), pageCursor.getId(),
+                PageRequest.of(0, 2));
+
+        assertThat(firstPage).hasSize(1);
+        assertThat(List.of(firstTied.getId(), secondTied.getId()))
+                .contains(pageCursor.getId());
+        assertThat(secondPage).extracting(WatchingSession::getId)
+                .containsExactly(
+                        pageCursor.getId().equals(firstTied.getId())
+                                ? secondTied.getId()
+                                : firstTied.getId(),
+                        older.getId()
+                );
+        assertThat(secondPage).extracting(WatchingSession::getId)
+                .doesNotContain(pageCursor.getId());
+    }
+
     private User saveUser(String email, String name) {
         return userRepository.save(new User(email, name, "password", null, UserRole.USER));
     }
