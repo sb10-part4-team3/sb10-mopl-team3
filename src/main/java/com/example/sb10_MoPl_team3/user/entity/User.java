@@ -50,4 +50,14 @@ public class User extends BaseEntity {
     public void changeStatus(UserStatus status) {
         this.status = status;
     }
+
+    public void updateProfile(String name, String profileImageUrl) {
+        if (name != null) {
+            this.name = name;
+        }
+
+        if (profileImageUrl != null) {
+            this.profileImageUrl = profileImageUrl;
+        }
+    }
 }
