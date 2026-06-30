@@ -1,0 +1,166 @@
+package com.example.sb10_MoPl_team3.user.service;
+
+import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
+import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
+import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.user.dto.request.UserLockUpdateRequest;
+import com.example.sb10_MoPl_team3.user.dto.request.UserRoleUpdateRequest;
+import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
+import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
+import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.*;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class AdminUserService {
+
+    private static final String DEFAULT_SORT_BY = "createdAt";
+    private static final String DEFAULT_SORT_DIRECTION = "DESCENDING";
+    private static final Set<String> ALLOWED_SORT_BY = Set.of(
+            "name",
+            "email",
+            "createdAt",
+            "isLocked",
+            "role"
+    );
+
+    private final UserRepository userRepository;
+    private final AuthSessionRepository authSessionRepository;
+    private final Clock clock;
+
+    public CursorResponse<UserDto> findUsers(UserSearchCondition condition) {
+        String sortBy = normalizeSortBy(condition.sortBy());
+        String sortDirection = normalizeSortDirection(condition.sortDirection());
+        int limit = normalizeLimit(condition.limit());
+
+        UserSearchCondition normalizedCondition = new UserSearchCondition(
+                condition.emailLike(),
+                condition.roleEqual(),
+                condition.isLocked(),
+                condition.cursor(),
+                condition.idAfter(),
+                limit,
+                sortDirection,
+                sortBy
+        );
+
+        List<UserDto> fetched = userRepository.searchUsers(normalizedCondition, limit + 1)
+                .stream()
+                .map(UserMapper::toDto)
+                .toList();
+
+        long totalCount = userRepository.countUsers(normalizedCondition);
+
+        return CursorResponse.of(
+                fetched,
+                limit,
+                totalCount,
+                sortBy,
+                sortDirection,
+                userDto -> extractCursor(userDto, sortBy),
+                UserDto::id
+        );
+    }
+
+    @Transactional
+    public UserDto updateUserRole(UUID userId, UserRoleUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        user.changeRole(request.role());
+
+        revokeUserSessions(userId);
+
+        return UserMapper.toDto(user);
+    }
+
+    @Transactional
+    public UserDto updateUserLocked(UUID userId, UserLockUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        UserStatus status = request.locked()
+                ? UserStatus.LOCKED
+                : UserStatus.ACTIVE;
+
+        user.changeStatus(status);
+
+        if (status == UserStatus.LOCKED) {
+            revokeUserSessions(userId);
+        }
+
+        return UserMapper.toDto(user);
+    }
+
+    private void revokeUserSessions(UUID userId) {
+        Instant now = Instant.now(clock);
+
+        Iterable<AuthSession> sessions = authSessionRepository.findAllByUserId(userId);
+        List<AuthSession> revokedSessions = new ArrayList<>();
+
+        for (AuthSession session : sessions) {
+            session.revoke(now);
+            revokedSessions.add(session);
+        }
+
+        authSessionRepository.saveAll(revokedSessions);
+    }
+
+    private String normalizeSortBy(String sortBy) {
+        if (sortBy == null || sortBy.isBlank()) {
+            return DEFAULT_SORT_BY;
+        }
+
+        if (!ALLOWED_SORT_BY.contains(sortBy)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        return sortBy;
+    }
+
+    private String normalizeSortDirection(String sortDirection) {
+        if (sortDirection == null || sortDirection.isBlank()) {
+            return DEFAULT_SORT_DIRECTION;
+        }
+
+        String normalized = sortDirection.toUpperCase(Locale.ROOT);
+
+        return switch (normalized) {
+            case "ASC", "ASCENDING" -> "ASCENDING";
+            case "DESC", "DESCENDING" -> "DESCENDING";
+            default -> throw new BusinessException(ErrorCode.INVALID_SORT_DIRECTION);
+        };
+    }
+
+    private int normalizeLimit(Integer limit) {
+        if (limit == null || limit <= 0) {
+            return CursorPageRequest.DEFAULT_SIZE;
+        }
+
+        return Math.min(limit, CursorPageRequest.MAX_SIZE);
+    }
+
+    private String extractCursor(UserDto userDto, String sortBy) {
+        return switch (sortBy) {
+            case "name" -> userDto.name();
+            case "email" -> userDto.email();
+            case "createdAt" -> userDto.createdAt().toString();
+            case "isLocked" -> String.valueOf(userDto.locked());
+            case "role" -> userDto.role().name();
+            default -> throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        };
+    }
+}

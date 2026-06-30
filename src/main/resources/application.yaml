@@ -38,6 +38,12 @@ jwt:
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:7d}
   issuer: ${JWT_ISSUER:mopl}
 
+admin:
+  account:
+    email: ${ADMIN_EMAIL}
+    password: ${ADMIN_PASSWORD}
+    name: ${ADMIN_NAME:Admin}
+
 auth:
   refresh-token-cookie:
     secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
