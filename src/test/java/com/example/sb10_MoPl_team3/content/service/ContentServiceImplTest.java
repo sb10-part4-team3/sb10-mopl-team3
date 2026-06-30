@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
 import com.example.sb10_MoPl_team3.content.ContentType;
@@ -34,6 +35,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.web.multipart.MultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class ContentServiceImplTest {
@@ -74,7 +76,7 @@ class ContentServiceImplTest {
     }
 
     @Test
-    void create_썸네일_없이_등록하면_S3_업로드를_호출하지_않는다() {
+    void create_thumbnail이_null이면_S3_업로드를_호출하지_않는다() {
         ContentCreateRequest request = new ContentCreateRequest(
             ContentType.TV_SERIES, "드라마", null, List.of()
         );
@@ -87,6 +89,26 @@ class ContentServiceImplTest {
         given(contentTagService.syncTags(any(), any())).willReturn(List.of());
 
         contentService.create(request, null);
+
+        then(fileStorageService).should(never()).upload(any());
+    }
+
+    @Test
+    void create_thumbnail이_비어있으면_S3_업로드를_호출하지_않는다() {
+        ContentCreateRequest request = new ContentCreateRequest(
+            ContentType.TV_SERIES, "드라마", null, List.of()
+        );
+        MultipartFile emptyFile = mock(MultipartFile.class);
+        given(emptyFile.isEmpty()).willReturn(true);
+
+        given(contentRepository.save(any(Content.class))).willAnswer(inv -> {
+            Content c = inv.getArgument(0);
+            ReflectionTestUtils.setField(c, "id", UUID.randomUUID());
+            return c;
+        });
+        given(contentTagService.syncTags(any(), any())).willReturn(List.of());
+
+        contentService.create(request, emptyFile);
 
         then(fileStorageService).should(never()).upload(any());
     }
@@ -268,7 +290,8 @@ class ContentServiceImplTest {
 
         assertThat(result.data()).hasSize(2);
         assertThat(result.hasNext()).isTrue();
-        assertThat(result.nextCursor()).isNotNull();
+        assertThat(result.nextCursor()).isEqualTo(c2.getCreatedAt().toString());
+        assertThat(result.nextIdAfter()).isEqualTo(c2.getId());
     }
 
     // --- helpers ---
