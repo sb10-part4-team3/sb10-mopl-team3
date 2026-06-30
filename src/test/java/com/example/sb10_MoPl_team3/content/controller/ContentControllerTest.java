@@ -19,36 +19,39 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.dto.ContentDto;
 import com.example.sb10_MoPl_team3.content.service.ContentService;
-import com.example.sb10_MoPl_team3.global.config.SecurityConfig;
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
-import com.example.sb10_MoPl_team3.global.exception.GlobalExceptionHandler;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockPart;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
- * ContentController 컨트롤러 슬라이스 테스트.
+ * ContentController 통합 테스트.
  *
- * <p>{@code @WebMvcTest}를 사용하므로 컨트롤러 레이어(요청 매핑, 직렬화, 보안 필터, 예외 처리)만 검증합니다.
- * 서비스·레포지토리 계층을 포함한 전체 애플리케이션 컨텍스트가 필요한 경우
- * {@code @SpringBootTest + @AutoConfigureMockMvc}로 전환해야 합니다.
+ * <p>{@code @SpringBootTest}로 전체 애플리케이션 컨텍스트(보안 필터 체인, 예외 처리, 직렬화 등)를 로드하고
+ * {@code @AutoConfigureMockMvc}로 실제 HTTP 레이어를 MockMvc로 검증합니다.
+ * ContentService는 서비스 단위 테스트의 관심사이므로 목 처리합니다.
  */
-@WebMvcTest(ContentController.class)
-@Import({SecurityConfig.class, GlobalExceptionHandler.class})
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+@TestPropertySource(properties = "spring.batch.job.enabled=false")
 class ContentControllerTest {
 
     @Autowired private MockMvc mockMvc;
@@ -56,6 +59,7 @@ class ContentControllerTest {
 
     @MockitoBean private ContentService contentService;
     @MockitoBean private JwtProvider jwtProvider;
+    @MockitoBean private S3Client s3Client;
 
     private static final UUID CONTENT_ID = UUID.randomUUID();
 
