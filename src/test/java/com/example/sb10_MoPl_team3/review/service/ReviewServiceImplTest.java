@@ -187,6 +187,8 @@ class ReviewServiceImplTest {
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(3);
         assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
         assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt").isAscending()).isTrue();
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("id")).isNotNull();
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("id").isAscending()).isTrue();
     }
 
     @Test
