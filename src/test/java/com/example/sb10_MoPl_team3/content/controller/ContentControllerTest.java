@@ -24,6 +24,7 @@ import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -324,7 +325,7 @@ class ContentControllerTest {
     }
 
     private MockPart jsonPart(String name, String json) {
-        MockPart part = new MockPart(name, json.strip().getBytes());
+        MockPart part = new MockPart(name, json.strip().getBytes(StandardCharsets.UTF_8));
         part.getHeaders().setContentType(MediaType.APPLICATION_JSON);
         return part;
     }
