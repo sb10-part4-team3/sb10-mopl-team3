@@ -10,6 +10,9 @@ import com.example.sb10_MoPl_team3.playlist.exception.PlaylistNotFoundException;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -48,5 +51,22 @@ public class PlaylistContentRepositoryImpl implements PlaylistContentRepositoryC
 
         entityManager.persist(new PlaylistContent(lockedPlaylist, content));
         return 1;
+    }
+
+    @Override
+    public List<PlaylistContent> findAllWithPlaylistAndContentByPlaylistIds(Collection<UUID> playlistIds) {
+        QPlaylistContent playlistContent = QPlaylistContent.playlistContent;
+
+        return queryFactory
+                .selectFrom(playlistContent)
+                .join(playlistContent.playlist).fetchJoin()
+                .join(playlistContent.content).fetchJoin()
+                .where(playlistContent.playlist.id.in(playlistIds))
+                .orderBy(
+                        playlistContent.playlist.id.asc(),
+                        playlistContent.createdAt.asc(),
+                        playlistContent.id.asc()
+                )
+                .fetch();
     }
 }

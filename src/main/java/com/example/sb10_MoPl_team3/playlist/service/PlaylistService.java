@@ -1,8 +1,10 @@
 package com.example.sb10_MoPl_team3.playlist.service;
 
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistCreateRequest;
+import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistFindAllRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistUpdateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.response.PlaylistDto;
+import com.example.sb10_MoPl_team3.review.dto.response.CursorResponsePlaylistDto;
 
 import java.util.UUID;
 
@@ -15,6 +17,9 @@ public interface PlaylistService {
 
     // 플레이리스트 단건 조회
     public PlaylistDto findById(UUID playlistId);
+
+    // 플레이리스트 목록 조회
+    CursorResponsePlaylistDto<PlaylistDto> findAll(PlaylistFindAllRequest request);
 
     // 플레이리스트 구독
     public void subscribe(UUID playlistId);
