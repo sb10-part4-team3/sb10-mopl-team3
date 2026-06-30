@@ -152,19 +152,23 @@ class AdminUserServiceTest {
                 "createdAt"
         );
 
-        given(userRepository.searchUsers(condition, CursorPageRequest.DEFAULT_SIZE + 1))
+        given(userRepository.searchUsers(any(UserSearchCondition.class), eq(CursorPageRequest.DEFAULT_SIZE + 1)))
                 .willReturn(List.of());
 
-        given(userRepository.countUsers(condition))
+        given(userRepository.countUsers(any(UserSearchCondition.class)))
                 .willReturn(0L);
 
         // when
         adminUserService.findUsers(condition);
 
         // then
+        ArgumentCaptor<UserSearchCondition> conditionCaptor =
+                ArgumentCaptor.forClass(UserSearchCondition.class);
         ArgumentCaptor<Integer> limitCaptor = ArgumentCaptor.forClass(Integer.class);
-        then(userRepository).should().searchUsers(eq(condition), limitCaptor.capture());
 
+        then(userRepository).should().searchUsers(conditionCaptor.capture(), limitCaptor.capture());
+
+        assertThat(conditionCaptor.getValue().limit()).isEqualTo(CursorPageRequest.DEFAULT_SIZE);
         assertThat(limitCaptor.getValue()).isEqualTo(CursorPageRequest.DEFAULT_SIZE + 1);
     }
 
@@ -183,17 +187,59 @@ class AdminUserServiceTest {
                 "createdAt"
         );
 
-        given(userRepository.searchUsers(condition, CursorPageRequest.MAX_SIZE + 1))
+        given(userRepository.searchUsers(any(UserSearchCondition.class), eq(CursorPageRequest.MAX_SIZE + 1)))
                 .willReturn(List.of());
 
-        given(userRepository.countUsers(condition))
+        given(userRepository.countUsers(any(UserSearchCondition.class)))
                 .willReturn(0L);
 
         // when
         adminUserService.findUsers(condition);
 
         // then
-        then(userRepository).should().searchUsers(condition, CursorPageRequest.MAX_SIZE + 1);
+        ArgumentCaptor<UserSearchCondition> conditionCaptor =
+                ArgumentCaptor.forClass(UserSearchCondition.class);
+
+        then(userRepository).should().searchUsers(conditionCaptor.capture(), eq(CursorPageRequest.MAX_SIZE + 1));
+
+        assertThat(conditionCaptor.getValue().limit()).isEqualTo(CursorPageRequest.MAX_SIZE);
+    }
+
+    @Test
+    @DisplayName("정렬 조건을 정규화하여 저장소 조회에 사용한다")
+    void findUsers_normalizeSortCondition() {
+        // given
+        UserSearchCondition condition = new UserSearchCondition(
+                null,
+                null,
+                null,
+                null,
+                null,
+                20,
+                "asc",
+                ""
+        );
+
+        given(userRepository.searchUsers(any(UserSearchCondition.class), eq(21)))
+                .willReturn(List.of());
+
+        given(userRepository.countUsers(any(UserSearchCondition.class)))
+                .willReturn(0L);
+
+        // when
+        adminUserService.findUsers(condition);
+
+        // then
+        ArgumentCaptor<UserSearchCondition> conditionCaptor =
+                ArgumentCaptor.forClass(UserSearchCondition.class);
+
+        then(userRepository).should().searchUsers(conditionCaptor.capture(), eq(21));
+
+        UserSearchCondition normalizedCondition = conditionCaptor.getValue();
+
+        assertThat(normalizedCondition.sortBy()).isEqualTo("createdAt");
+        assertThat(normalizedCondition.sortDirection()).isEqualTo("ASCENDING");
+        assertThat(normalizedCondition.limit()).isEqualTo(20);
     }
 
     @Test

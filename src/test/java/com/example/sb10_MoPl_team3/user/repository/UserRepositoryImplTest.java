@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -104,6 +105,53 @@ class UserRepositoryImplTest {
 
         // then
         assertThat(result).containsExactly(cUser);
+    }
+
+    @Test
+    @DisplayName("정렬값이 같으면 보조 커서 idAfter 이후의 사용자 목록을 조회한다")
+    void searchUsers_cursorTieBreak() {
+        // given
+        saveUser("first@test.com", "Same Name", UserRole.USER, UserStatus.ACTIVE);
+        saveUser("second@test.com", "Same Name", UserRole.USER, UserStatus.ACTIVE);
+        saveUser("third@test.com", "Same Name", UserRole.USER, UserStatus.ACTIVE);
+
+        UserSearchCondition baseCondition = new UserSearchCondition(
+                null,
+                null,
+                null,
+                null,
+                null,
+                20,
+                "ASCENDING",
+                "name"
+        );
+
+        List<User> orderedUsers = userRepository.searchUsers(baseCondition, 21);
+        User cursorUser = orderedUsers.get(0);
+
+        List<UUID> expectedIds = orderedUsers.stream()
+                .skip(1)
+                .map(User::getId)
+                .toList();
+
+        UserSearchCondition condition = new UserSearchCondition(
+                null,
+                null,
+                null,
+                cursorUser.getName(),
+                cursorUser.getId(),
+                20,
+                "ASCENDING",
+                "name"
+        );
+
+        // when
+        List<User> result = userRepository.searchUsers(condition, 21);
+
+        // then
+        assertThat(result)
+                .extracting(User::getId)
+                .containsExactlyElementsOf(expectedIds);
     }
 
     @Test

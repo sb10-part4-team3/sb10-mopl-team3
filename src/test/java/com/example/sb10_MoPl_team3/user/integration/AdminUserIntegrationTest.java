@@ -81,12 +81,7 @@ class AdminUserIntegrationTest {
     @Test
     @DisplayName("관리자는 사용자 목록을 조회할 수 있다")
     void findUsers_admin_success() throws Exception {
-        String adminAccessToken = createUserAndSignIn(
-                "admin@test.com",
-                "Admin",
-                "password1!",
-                UserRole.ADMIN
-        );
+        String adminAccessToken = signInAdmin();
 
         userRepository.save(new User(
                 "user1@test.com",
@@ -138,12 +133,7 @@ class AdminUserIntegrationTest {
     @Test
     @DisplayName("관리자는 사용자 권한을 변경하고 해당 사용자의 세션을 무효화할 수 있다")
     void updateUserRole_admin_success() throws Exception {
-        String adminAccessToken = createUserAndSignIn(
-                "admin-role@test.com",
-                "Admin",
-                "password1!",
-                UserRole.ADMIN
-        );
+        String adminAccessToken = signInAdmin();
 
         User targetUser = userRepository.save(new User(
                 "target-role@test.com",
@@ -214,12 +204,7 @@ class AdminUserIntegrationTest {
     @Test
     @DisplayName("관리자는 사용자 계정을 잠그고 해당 사용자의 세션을 무효화할 수 있다")
     void updateUserLocked_admin_success() throws Exception {
-        String adminAccessToken = createUserAndSignIn(
-                "admin-lock@test.com",
-                "Admin",
-                "password1!",
-                UserRole.ADMIN
-        );
+        String adminAccessToken = signInAdmin();
 
         User targetUser = userRepository.save(new User(
                 "target-lock@test.com",
@@ -256,12 +241,7 @@ class AdminUserIntegrationTest {
     @Test
     @DisplayName("관리자는 사용자 계정 잠금을 해제할 수 있다")
     void updateUserUnlocked_admin_success() throws Exception {
-        String adminAccessToken = createUserAndSignIn(
-                "admin-unlock@test.com",
-                "Admin",
-                "password1!",
-                UserRole.ADMIN
-        );
+        String adminAccessToken = signInAdmin();
 
         User targetUser = userRepository.save(new User(
                 "target-unlock@test.com",
@@ -339,6 +319,10 @@ class AdminUserIntegrationTest {
         ));
 
         return signIn(email, password);
+    }
+
+    private String signInAdmin() throws Exception {
+        return signIn("admin@test.com", "adminPassword1!");
     }
 
     private String signIn(String email, String password) throws Exception {

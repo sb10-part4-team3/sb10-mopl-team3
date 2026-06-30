@@ -46,12 +46,23 @@ public class AdminUserService {
         String sortDirection = normalizeSortDirection(condition.sortDirection());
         int limit = normalizeLimit(condition.limit());
 
-        List<UserDto> fetched = userRepository.searchUsers(condition, limit + 1)
+        UserSearchCondition normalizedCondition = new UserSearchCondition(
+                condition.emailLike(),
+                condition.roleEqual(),
+                condition.isLocked(),
+                condition.cursor(),
+                condition.idAfter(),
+                limit,
+                sortDirection,
+                sortBy
+        );
+
+        List<UserDto> fetched = userRepository.searchUsers(normalizedCondition, limit + 1)
                 .stream()
                 .map(UserMapper::toDto)
                 .toList();
 
-        long totalCount = userRepository.countUsers(condition);
+        long totalCount = userRepository.countUsers(normalizedCondition);
 
         return CursorResponse.of(
                 fetched,

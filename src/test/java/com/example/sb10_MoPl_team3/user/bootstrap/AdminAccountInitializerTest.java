@@ -44,7 +44,7 @@ class AdminAccountInitializerTest {
                 properties
         );
 
-        given(userRepository.existsByEmail(properties.email())).willReturn(false);
+        given(userRepository.existsByRole(UserRole.ADMIN)).willReturn(false);
         given(passwordEncoder.encode(properties.password())).willReturn("encoded-admin-password");
 
         // when
@@ -68,7 +68,7 @@ class AdminAccountInitializerTest {
     void run_adminAlreadyExists() throws Exception {
         // given
         AdminAccountProperties properties = new AdminAccountProperties(
-                "admin@mopl.com",
+                "new-admin@mopl.com",
                 "adminPassword1!",
                 "Admin"
         );
@@ -79,7 +79,7 @@ class AdminAccountInitializerTest {
                 properties
         );
 
-        given(userRepository.existsByEmail(properties.email())).willReturn(true);
+        given(userRepository.existsByRole(UserRole.ADMIN)).willReturn(true);
 
         // when
         initializer.run(new DefaultApplicationArguments());

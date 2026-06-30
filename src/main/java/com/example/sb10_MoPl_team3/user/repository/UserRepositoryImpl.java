@@ -15,22 +15,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
 public class UserRepositoryImpl implements UserRepositoryCustom {
-
-    private static final String DEFAULT_SORT_BY = "createdAt";
-    private static final String DEFAULT_SORT_DIRECTION = "DESCENDING";
-    private static final Set<String> ALLOWED_SORT_BY = Set.of(
-            "name",
-            "email",
-            "createdAt",
-            "isLocked",
-            "role"
-    );
 
     private final EntityManager entityManager;
 
@@ -40,8 +29,8 @@ public class UserRepositoryImpl implements UserRepositoryCustom {
         CriteriaQuery<User> query = cb.createQuery(User.class);
         Root<User> root = query.from(User.class);
 
-        String sortBy = normalizeSortBy(condition.sortBy());
-        boolean ascending = isAscending(condition.sortDirection());
+        String sortBy = condition.sortBy();
+        boolean ascending = "ASCENDING".equals(condition.sortDirection());
 
         List<Predicate> predicates = buildFilterPredicates(cb, root, condition);
 
@@ -204,29 +193,4 @@ public class UserRepositoryImpl implements UserRepositoryCustom {
         throw new BusinessException(ErrorCode.INVALID_CURSOR);
     }
 
-    private String normalizeSortBy(String sortBy) {
-        if (sortBy == null || sortBy.isBlank()) {
-            return DEFAULT_SORT_BY;
-        }
-
-        if (!ALLOWED_SORT_BY.contains(sortBy)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-
-        return sortBy;
-    }
-
-    private boolean isAscending(String sortDirection) {
-        if (sortDirection == null || sortDirection.isBlank()) {
-            return "ASCENDING".equals(DEFAULT_SORT_DIRECTION);
-        }
-
-        String normalized = sortDirection.toUpperCase(Locale.ROOT);
-
-        return switch (normalized) {
-            case "ASC", "ASCENDING" -> true;
-            case "DESC", "DESCENDING" -> false;
-            default -> throw new BusinessException(ErrorCode.INVALID_SORT_DIRECTION);
-        };
-    }
 }

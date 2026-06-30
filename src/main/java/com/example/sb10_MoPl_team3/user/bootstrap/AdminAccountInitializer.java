@@ -22,7 +22,7 @@ public class AdminAccountInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (userRepository.existsByEmail(adminAccountProperties.email())) {
+        if (userRepository.existsByRole(UserRole.ADMIN)) {
             return;
         }
 
