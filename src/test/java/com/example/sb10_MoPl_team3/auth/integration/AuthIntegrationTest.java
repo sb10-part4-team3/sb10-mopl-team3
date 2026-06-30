@@ -104,6 +104,8 @@ class AuthIntegrationTest {
     @Test
     @DisplayName("이미 가입된 이메일로 회원가입하면 409를 반환한다")
     void signUp_duplicateEmail() throws Exception {
+        long beforeCount = userRepository.count();
+
         signUp("Test User", "duplicate@test.com", "password1!")
                 .andExpect(status().isCreated());
 
@@ -111,7 +113,7 @@ class AuthIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("DUPLICATE_EMAIL"));
 
-        assertThat(userRepository.count()).isEqualTo(1);
+        assertThat(userRepository.count()).isEqualTo(beforeCount + 1);
     }
 
     @Test
