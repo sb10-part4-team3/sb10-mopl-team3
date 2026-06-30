@@ -134,6 +134,8 @@ class ReviewServiceImplTest {
                 .isInstanceOfSatisfying(ReviewAuthorMismatchException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ACCESS_DENIED)
                 );
+        assertThat(review.getText()).isEqualTo("text");
+        assertThat(review.getRating()).isEqualTo(4.0);
         then(reviewMapper).should(never()).toDto(any());
     }
 
@@ -179,6 +181,8 @@ class ReviewServiceImplTest {
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         then(reviewRepository).should().findAll(any(Specification.class), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(3);
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt").isAscending()).isTrue();
     }
 
     @Test

@@ -211,6 +211,102 @@ class PlaylistServiceImplTest {
     }
 
     @Test
+    @DisplayName("findAll builds updatedAt cursor when result has next page")
+    void findAll_hasNextUpdatedAtCursor() {
+        UUID requestUserId = uuid(1);
+        User owner = user(uuid(2), "owner@test.com", "owner");
+        Playlist first = playlist(uuid(10), owner, "first", "description", PlaylistStatus.ACTIVE);
+        Playlist second = playlist(uuid(11), owner, "second", "description", PlaylistStatus.ACTIVE);
+        Playlist extra = playlist(uuid(12), owner, "extra", "description", PlaylistStatus.ACTIVE);
+        setUpdatedAt(first, "2026-06-29T00:00:00Z");
+        setUpdatedAt(second, "2026-06-29T00:01:00Z");
+        setUpdatedAt(extra, "2026-06-29T00:02:00Z");
+
+        PlaylistFindAllRequest request = new PlaylistFindAllRequest(
+                null,
+                null,
+                null,
+                null,
+                null,
+                2,
+                "ASCENDING",
+                "updatedAt"
+        );
+        List<UUID> pagePlaylistIds = List.of(first.getId(), second.getId());
+
+        authenticate(requestUserId);
+        given(playlistRepository.search(request))
+                .willReturn(new PlaylistRepositoryCustom.PlaylistSearchResult(
+                        List.of(first, second, extra),
+                        3L
+                ));
+        given(playlistSubscriptionRepository.findSubscribedPlaylistIds(requestUserId, pagePlaylistIds))
+                .willReturn(Set.of());
+        given(playlistContentRepository.findAllWithPlaylistAndContentByPlaylistIds(pagePlaylistIds))
+                .willReturn(List.of());
+
+        var response = playlistService.findAll(request);
+
+        assertThat(response.data()).extracting(PlaylistDto::id)
+                .containsExactly(first.getId(), second.getId());
+        assertThat(response.hasNext()).isTrue();
+        assertThat(response.nextCursor()).isEqualTo("2026-06-29T00:01:00Z");
+        assertThat(response.nextIdAfter()).isEqualTo(second.getId());
+        assertThat(response.totalCount()).isEqualTo(3L);
+        assertThat(response.sortBy()).isEqualTo("updatedAt");
+        assertThat(response.sortDirection()).isEqualTo("ASCENDING");
+    }
+
+    @Test
+    @DisplayName("findAll builds subscribeCount cursor when result has next page")
+    void findAll_hasNextSubscribeCountCursor() {
+        UUID requestUserId = uuid(1);
+        User owner = user(uuid(2), "owner@test.com", "owner");
+        Playlist first = playlist(uuid(10), owner, "first", "description", PlaylistStatus.ACTIVE);
+        Playlist second = playlist(uuid(11), owner, "second", "description", PlaylistStatus.ACTIVE);
+        Playlist extra = playlist(uuid(12), owner, "extra", "description", PlaylistStatus.ACTIVE);
+        setSubscriberCount(first, 10);
+        setSubscriberCount(second, 7);
+        setSubscriberCount(extra, 5);
+
+        PlaylistFindAllRequest request = new PlaylistFindAllRequest(
+                null,
+                null,
+                null,
+                null,
+                null,
+                2,
+                "DESCENDING",
+                "subscribeCount"
+        );
+        List<UUID> pagePlaylistIds = List.of(first.getId(), second.getId());
+
+        authenticate(requestUserId);
+        given(playlistRepository.search(request))
+                .willReturn(new PlaylistRepositoryCustom.PlaylistSearchResult(
+                        List.of(first, second, extra),
+                        3L
+                ));
+        given(playlistSubscriptionRepository.findSubscribedPlaylistIds(requestUserId, pagePlaylistIds))
+                .willReturn(Set.of(second.getId()));
+        given(playlistContentRepository.findAllWithPlaylistAndContentByPlaylistIds(pagePlaylistIds))
+                .willReturn(List.of());
+
+        var response = playlistService.findAll(request);
+
+        assertThat(response.data()).extracting(PlaylistDto::id)
+                .containsExactly(first.getId(), second.getId());
+        assertThat(response.data().get(0).subscriberCount()).isEqualTo(10L);
+        assertThat(response.data().get(1).subscriberCount()).isEqualTo(7L);
+        assertThat(response.data().get(1).subscribedByMe()).isTrue();
+        assertThat(response.hasNext()).isTrue();
+        assertThat(response.nextCursor()).isEqualTo("7");
+        assertThat(response.nextIdAfter()).isEqualTo(second.getId());
+        assertThat(response.sortBy()).isEqualTo("subscribeCount");
+        assertThat(response.sortDirection()).isEqualTo("DESCENDING");
+    }
+
+    @Test
     @DisplayName("subscribe inserts subscription and increases count")
     void subscribe_success() {
         UUID userId = uuid(1);
@@ -286,6 +382,24 @@ class PlaylistServiceImplTest {
         playlistService.unsubscribe(playlistId);
 
         then(playlistRepository).should().decreaseSubscriberCount(playlistId, PlaylistStatus.DELETED);
+    }
+
+    @Test
+    @DisplayName("unsubscribe is idempotent when subscription does not exist")
+    void unsubscribe_duplicate() {
+        UUID userId = uuid(1);
+        UUID playlistId = uuid(10);
+        Playlist playlist = playlist(playlistId, user(uuid(2), "owner@test.com", "owner"),
+                "title", "description", PlaylistStatus.ACTIVE);
+
+        authenticate(userId);
+        given(playlistRepository.findById(playlistId)).willReturn(Optional.of(playlist));
+        given(playlistSubscriptionRepository.deleteByPlaylistIdAndUserId(playlistId, userId))
+                .willReturn(0);
+
+        playlistService.unsubscribe(playlistId);
+
+        then(playlistRepository).should(never()).decreaseSubscriberCount(any(), any());
     }
 
     @Test
@@ -449,6 +563,10 @@ class PlaylistServiceImplTest {
 
     private void setUpdatedAt(Playlist playlist, String updatedAt) {
         ReflectionTestUtils.setField(playlist, "updatedAt", Instant.parse(updatedAt));
+    }
+
+    private void setSubscriberCount(Playlist playlist, int subscriberCount) {
+        ReflectionTestUtils.setField(playlist, "subscriberCount", subscriberCount);
     }
 
     private UUID uuid(int value) {
