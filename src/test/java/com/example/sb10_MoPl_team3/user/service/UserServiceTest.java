@@ -14,6 +14,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.example.sb10_MoPl_team3.global.file.FileStorageService;
+import com.example.sb10_MoPl_team3.global.security.UserAuthorizationService;
+import com.example.sb10_MoPl_team3.user.dto.request.UserUpdateRequest;
+import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
+import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
+import org.springframework.mock.web.MockMultipartFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -21,7 +27,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
-
+import java.util.Optional;
+import java.util.UUID;
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
@@ -30,6 +37,12 @@ class UserServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private FileStorageService fileStorageService;
+
+    @Mock
+    private UserAuthorizationService userAuthorizationService;
 
     @InjectMocks
     private UserService userService;
@@ -80,5 +93,123 @@ class UserServiceTest {
 
         then(passwordEncoder).should(never()).encode(any());
         then(userRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("사용자 ID로 사용자 상세 정보를 조회한다")
+    void findUser_success() {
+        // given
+        UUID userId = UUID.randomUUID();
+        User user = new User(
+                "user@test.com",
+                "홍길동",
+                "encoded-password",
+                "https://image.test/profile.png",
+                UserRole.USER
+        );
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+
+        // when
+        UserDto response = userService.findUser(userId);
+
+        // then
+        assertThat(response.email()).isEqualTo("user@test.com");
+        assertThat(response.name()).isEqualTo("홍길동");
+        assertThat(response.profileImageUrl()).isEqualTo("https://image.test/profile.png");
+        assertThat(response.role()).isEqualTo(UserRole.USER);
+        assertThat(response.locked()).isFalse();
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 사용자 ID로 조회하면 예외가 발생한다")
+    void findUser_notFound() {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        given(userRepository.findById(userId)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> userService.findUser(userId))
+                .isInstanceOf(UserNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("본인 프로필 이름을 수정한다")
+    void updateUser_nameOnly() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UserUpdateRequest request = new UserUpdateRequest("변경된이름");
+        User user = new User(
+                "user@test.com",
+                "기존이름",
+                "encoded-password",
+                "https://image.test/old.png",
+                UserRole.USER
+        );
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+
+        // when
+        UserDto response = userService.updateUser(userId, request, null);
+
+        // then
+        then(userAuthorizationService).should().validateSelf(userId);
+        then(fileStorageService).should(never()).upload(any());
+
+        assertThat(response.name()).isEqualTo("변경된이름");
+        assertThat(response.profileImageUrl()).isEqualTo("https://image.test/old.png");
+    }
+
+    @Test
+    @DisplayName("본인 프로필 이미지가 있으면 S3에 업로드하고 URL을 저장한다")
+    void updateUser_withImage() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UserUpdateRequest request = new UserUpdateRequest("변경된이름");
+        MockMultipartFile image = new MockMultipartFile(
+                "image",
+                "profile.png",
+                "image/png",
+                "image".getBytes()
+        );
+
+        User user = new User(
+                "user@test.com",
+                "기존이름",
+                "encoded-password",
+                "https://image.test/old.png",
+                UserRole.USER
+        );
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(fileStorageService.upload(image)).willReturn("https://image.test/new.png");
+
+        // when
+        UserDto response = userService.updateUser(userId, request, image);
+
+        // then
+        then(userAuthorizationService).should().validateSelf(userId);
+        then(fileStorageService).should().upload(image);
+
+        assertThat(response.name()).isEqualTo("변경된이름");
+        assertThat(response.profileImageUrl()).isEqualTo("https://image.test/new.png");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 사용자의 프로필을 수정하면 예외가 발생한다")
+    void updateUser_notFound() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UserUpdateRequest request = new UserUpdateRequest("변경된이름");
+
+        given(userRepository.findById(userId)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> userService.updateUser(userId, request, null))
+                .isInstanceOf(UserNotFoundException.class);
+
+        then(userAuthorizationService).should().validateSelf(userId);
+        then(fileStorageService).should(never()).upload(any());
     }
 }
