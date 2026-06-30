@@ -42,4 +42,12 @@ public class User extends BaseEntity {
         this.role = role;
         this.status = UserStatus.ACTIVE;
     }
+
+    public void changeRole(UserRole role) {
+        this.role = role;
+    }
+
+    public void changeStatus(UserStatus status) {
+        this.status = status;
+    }
 }

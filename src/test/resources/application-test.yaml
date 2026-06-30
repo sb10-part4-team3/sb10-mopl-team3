@@ -23,6 +23,12 @@ jwt:
   refresh-token-expiration: 7d
   issuer: mopl-test
 
+admin:
+  account:
+    email: admin@test.com
+    password: adminPassword1!
+    name: Admin
+
 auth:
   refresh-token-cookie:
     secure: false
