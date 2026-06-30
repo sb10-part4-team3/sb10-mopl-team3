@@ -1,6 +1,7 @@
 package com.example.sb10_MoPl_team3.user.repository;
 
 import com.example.sb10_MoPl_team3.global.config.JpaAuditingConfig;
+import com.example.sb10_MoPl_team3.global.config.QuerydslConfig;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
@@ -20,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
-@Import(JpaAuditingConfig.class)
+@Import({QuerydslConfig.class, JpaAuditingConfig.class})
 class UserRepositoryImplTest {
 
     @Autowired
