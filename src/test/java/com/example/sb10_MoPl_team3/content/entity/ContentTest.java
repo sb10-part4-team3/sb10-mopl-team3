@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.sb10_MoPl_team3.content.ContentType;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 
@@ -138,7 +139,12 @@ class ContentTest {
             .build();
 
         assertThatThrownBy(() -> content.update("   ", null))
-            .isInstanceOf(BusinessException.class);
+            .isInstanceOf(BusinessException.class)
+            .satisfies(ex -> {
+                BusinessException be = (BusinessException) ex;
+                assertThat(be.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+                assertThat(be.getMessage()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE.getMessage());
+            });
     }
 
     @Test
