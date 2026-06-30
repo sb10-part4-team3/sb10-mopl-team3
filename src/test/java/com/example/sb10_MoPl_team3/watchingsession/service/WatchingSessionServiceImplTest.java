@@ -230,6 +230,33 @@ class WatchingSessionServiceImplTest {
     }
 
     @Test
+    @DisplayName("조회 결과가 비어 있으면 빈 페이지를 반환하고 콘텐츠 요약을 조회하지 않는다")
+    void findByContent_emptyResult() {
+        UUID contentId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        given(contentRepository.existsById(contentId)).willReturn(true);
+        given(watchingSessionRepository.findByContentDesc(
+                org.mockito.ArgumentMatchers.eq(contentId),
+                org.mockito.ArgumentMatchers.eq(""),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(),
+                argThat((Pageable pageable) ->
+                        pageable.getPageNumber() == 0 && pageable.getPageSize() == 21)))
+                .willReturn(List.of());
+        given(watchingSessionRepository.countByContent(contentId, "")).willReturn(0L);
+
+        var result = watchingSessionService.findByContent(new WatchingSessionFindAllRequest(
+                contentId, null, null, null, 20, "DESCENDING", "createdAt"));
+
+        assertThat(result.data()).isEmpty();
+        assertThat(result.hasNext()).isFalse();
+        assertThat(result.nextCursor()).isNull();
+        assertThat(result.nextIdAfter()).isNull();
+        assertThat(result.totalCount()).isZero();
+        then(contentStatsRepository).shouldHaveNoInteractions();
+        then(contentTagRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("커서와 보조 커서 중 하나만 전달되면 INVALID_CURSOR 예외를 던진다")
     void findByContent_invalidCursorPair() {
         UUID contentId = UUID.fromString("00000000-0000-0000-0000-000000000002");
