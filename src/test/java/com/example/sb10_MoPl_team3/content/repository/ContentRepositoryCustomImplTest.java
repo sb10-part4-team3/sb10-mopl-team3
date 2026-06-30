@@ -606,7 +606,7 @@ class ContentRepositoryCustomImplTest {
     Content c1 = saveContent("액션1", "page-005");
     Content c2 = saveContent("액션2", "page-006");
     Content c3 = saveContent("액션3", "page-007");
-    Content noTag = saveContent("드라마", "page-008");   // 태그 없음 → 항상 제외
+    saveContent("드라마", "page-008");   // 태그 없음 → 항상 제외
 
     Tag actionTag = tagRepository.saveAndFlush(Tag.builder().name("액션페이지").build());
     contentTagRepository.saveAndFlush(new ContentTag(c1, actionTag));
