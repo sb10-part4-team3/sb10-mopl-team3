@@ -15,6 +15,7 @@ import com.example.sb10_MoPl_team3.watchingsession.entity.WatchingSession;
 import com.example.sb10_MoPl_team3.watchingsession.mapper.WatchingSessionMapper;
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class WatchingSessionServiceImpl implements WatchingSessionService {
     private final ContentTagRepository contentTagRepository;
 
     @Override
+    @Nullable
     public WatchingSessionDto findByWatcher(UUID watcherId) {
         if (!userRepository.existsById(watcherId)) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
