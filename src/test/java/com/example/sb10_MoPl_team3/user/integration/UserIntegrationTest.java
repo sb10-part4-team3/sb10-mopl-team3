@@ -277,6 +277,7 @@ class UserIntegrationTest {
         assertThat(withdrawnUser.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
 
         assertThat(authSessionRepository.findAllByUserId(userId))
+                .isNotEmpty()
                 .allSatisfy(session -> assertThat(session.isRevoked()).isTrue());
     }
 
@@ -311,7 +312,8 @@ class UserIntegrationTest {
                               "password": "%s"
                             }
                             """.formatted(email, password)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
     }
 
     @Test
