@@ -21,6 +21,8 @@ import com.example.sb10_MoPl_team3.user.dto.request.UserUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronizationUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -270,5 +272,50 @@ class UserServiceTest {
                 .hasMessage("flush failed");
 
         then(fileStorageService).should().deleteByUrl("https://image.test/new.png");
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 교체가 성공하면 커밋 후 기존 이미지를 삭제한다")
+    void updateUser_deletePreviousImageAfterCommit() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UserUpdateRequest request = new UserUpdateRequest("변경된이름");
+        MockMultipartFile image = new MockMultipartFile(
+                "image",
+                "profile.png",
+                "image/png",
+                "image".getBytes()
+        );
+
+        User user = new User(
+                "user@test.com",
+                "기존이름",
+                "encoded-password",
+                "https://image.test/old.png",
+                UserRole.USER
+        );
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(fileStorageService.upload(image)).willReturn("https://image.test/new.png");
+
+        TransactionSynchronizationManager.initSynchronization();
+
+        try {
+            // when
+            UserDto response = userService.updateUser(userId, request, image);
+
+            // then
+            assertThat(response.profileImageUrl()).isEqualTo("https://image.test/new.png");
+
+            then(fileStorageService).should(never())
+                    .deleteByUrl("https://image.test/old.png");
+
+            TransactionSynchronizationUtils.triggerAfterCommit();
+
+            then(fileStorageService).should()
+                    .deleteByUrl("https://image.test/old.png");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 }
