@@ -24,6 +24,10 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD}
 
+tmdb:
+  base-url: https://api.themoviedb.org/3
+  access-token: ${TMDB_ACCESS_TOKEN}
+
 aws:
   s3:
     bucket: ${AWS_S3_BUCKET}

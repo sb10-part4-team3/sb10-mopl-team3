@@ -91,4 +91,10 @@ public class Content extends BaseEntity {
     }
   }
 
+  public void syncFromExternal(String title, String description, String thumbnailUrl) {
+    this.title = title;
+    this.description = description;
+    this.thumbnailUrl = thumbnailUrl;
+  }
+
 }

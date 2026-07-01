@@ -1,0 +1,39 @@
+package com.example.sb10_MoPl_team3.content.entity;
+
+import static com.querydsl.core.types.PathMetadataFactory.*;
+
+import com.querydsl.core.types.dsl.*;
+
+import com.querydsl.core.types.PathMetadata;
+import javax.annotation.processing.Generated;
+import com.querydsl.core.types.Path;
+
+
+/**
+ * QTag is a Querydsl query type for Tag
+ */
+@Generated("com.querydsl.codegen.DefaultEntitySerializer")
+public class QTag extends EntityPathBase<Tag> {
+
+    private static final long serialVersionUID = 359007869L;
+
+    public static final QTag tag = new QTag("tag");
+
+    public final ComparablePath<java.util.UUID> id = createComparable("id", java.util.UUID.class);
+
+    public final StringPath name = createString("name");
+
+    public QTag(String variable) {
+        super(Tag.class, forVariable(variable));
+    }
+
+    public QTag(Path<? extends Tag> path) {
+        super(path.getType(), path.getMetadata());
+    }
+
+    public QTag(PathMetadata metadata) {
+        super(Tag.class, metadata);
+    }
+
+}
+
