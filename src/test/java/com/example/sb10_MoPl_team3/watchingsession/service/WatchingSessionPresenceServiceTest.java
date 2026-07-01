@@ -6,8 +6,8 @@ import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
-import com.example.sb10_MoPl_team3.user.repository.UserRepository;
-import com.example.sb10_MoPl_team3.watchingsession.entity.WatchingSession;
+import com.example.sb10_MoPl_team3.user.dto.response.UserSummary;
+import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionJoinResult;
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRedisRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,7 +19,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,7 +32,6 @@ class WatchingSessionPresenceServiceTest {
 
     @Mock WatchingSessionPersistenceService persistenceService;
     @Mock WatchingSessionRedisRepository redisRepository;
-    @Mock UserRepository userRepository;
     @InjectMocks WatchingSessionPresenceService presenceService;
 
     @Test
@@ -42,10 +40,11 @@ class WatchingSessionPresenceServiceTest {
         UUID contentId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID watcherId = UUID.fromString("00000000-0000-0000-0000-000000000002");
         User watcher = user(watcherId, "시청자");
-        given(persistenceService.join(contentId, watcherId)).willReturn(Optional.empty());
-        given(redisRepository.addWatcher(contentId, watcherId)).willReturn(true);
-        given(redisRepository.findWatcherIds(contentId)).willReturn(Set.of(watcherId));
-        given(userRepository.findAllById(Set.of(watcherId))).willReturn(List.of(watcher));
+        UserSummary summary = summary(watcher);
+        given(persistenceService.join(contentId, watcherId))
+                .willReturn(new WatchingSessionJoinResult(Optional.empty(), summary));
+        given(redisRepository.addWatcher(contentId, summary)).willReturn(true);
+        given(redisRepository.findWatchers(contentId)).willReturn(List.of(summary));
 
         var changes = presenceService.join(contentId, watcherId);
 
@@ -54,7 +53,7 @@ class WatchingSessionPresenceServiceTest {
         assertThat(changes.get(0).watchers()).extracting(w -> w.userId())
                 .containsExactly(watcherId);
         then(persistenceService).should().join(contentId, watcherId);
-        then(redisRepository).should().addWatcher(contentId, watcherId);
+        then(redisRepository).should().addWatcher(contentId, summary);
     }
 
     @Test
@@ -62,8 +61,7 @@ class WatchingSessionPresenceServiceTest {
     void leave_removesSessionAndReturnsWatchers() {
         UUID contentId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID watcherId = UUID.fromString("00000000-0000-0000-0000-000000000002");
-        given(redisRepository.findWatcherIds(contentId)).willReturn(Set.of());
-        given(userRepository.findAllById(Set.of())).willReturn(List.of());
+        given(redisRepository.findWatchers(contentId)).willReturn(List.of());
 
         var change = presenceService.leave(contentId, watcherId);
 
@@ -106,16 +104,17 @@ class WatchingSessionPresenceServiceTest {
         UUID contentId = UUID.randomUUID();
         UUID watcherId = UUID.randomUUID();
         User watcher = user(watcherId, "시청자");
-        given(persistenceService.join(contentId, watcherId)).willReturn(Optional.empty());
-        given(redisRepository.addWatcher(contentId, watcherId)).willReturn(false);
+        UserSummary summary = summary(watcher);
+        given(persistenceService.join(contentId, watcherId))
+                .willReturn(new WatchingSessionJoinResult(Optional.empty(), summary));
+        given(redisRepository.addWatcher(contentId, summary)).willReturn(false);
 
         var changes = presenceService.join(contentId, watcherId);
 
         assertThat(changes).isEmpty();
         then(persistenceService).should().join(contentId, watcherId);
-        then(redisRepository).should().addWatcher(contentId, watcherId);
-        then(redisRepository).should(never()).findWatcherIds(contentId);
-        then(userRepository).shouldHaveNoInteractions();
+        then(redisRepository).should().addWatcher(contentId, summary);
+        then(redisRepository).should(never()).findWatchers(contentId);
     }
 
     @Test
@@ -125,12 +124,12 @@ class WatchingSessionPresenceServiceTest {
         UUID nextId = UUID.randomUUID();
         UUID watcherId = UUID.randomUUID();
         User watcher = user(watcherId, "시청자");
-        given(persistenceService.join(nextId, watcherId)).willReturn(Optional.of(previousId));
-        given(redisRepository.addWatcher(nextId, watcherId)).willReturn(true);
-        given(redisRepository.findWatcherIds(previousId)).willReturn(Set.of());
-        given(redisRepository.findWatcherIds(nextId)).willReturn(Set.of(watcherId));
-        given(userRepository.findAllById(Set.of())).willReturn(List.of());
-        given(userRepository.findAllById(Set.of(watcherId))).willReturn(List.of(watcher));
+        UserSummary summary = summary(watcher);
+        given(persistenceService.join(nextId, watcherId))
+                .willReturn(new WatchingSessionJoinResult(Optional.of(previousId), summary));
+        given(redisRepository.addWatcher(nextId, summary)).willReturn(true);
+        given(redisRepository.findWatchers(previousId)).willReturn(List.of());
+        given(redisRepository.findWatchers(nextId)).willReturn(List.of(summary));
 
         var changes = presenceService.join(nextId, watcherId);
 
@@ -145,8 +144,7 @@ class WatchingSessionPresenceServiceTest {
     void leave_withoutSession() {
         UUID contentId = UUID.randomUUID();
         UUID watcherId = UUID.randomUUID();
-        given(redisRepository.findWatcherIds(contentId)).willReturn(Set.of());
-        given(userRepository.findAllById(Set.of())).willReturn(List.of());
+        given(redisRepository.findWatchers(contentId)).willReturn(List.of());
 
         var change = presenceService.leave(contentId, watcherId);
 
@@ -159,6 +157,10 @@ class WatchingSessionPresenceServiceTest {
         User user = new User(id + "@test.com", name, "password", null, UserRole.USER);
         ReflectionTestUtils.setField(user, "id", id);
         return user;
+    }
+
+    private UserSummary summary(User user) {
+        return new UserSummary(user.getId(), user.getName(), user.getProfileImageUrl());
     }
 
     private Content content(UUID id) {

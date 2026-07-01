@@ -7,6 +7,8 @@ import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import com.example.sb10_MoPl_team3.watchingsession.entity.WatchingSession;
+import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionJoinResult;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,7 +26,7 @@ public class WatchingSessionPersistenceService {
     private final ContentRepository contentRepository;
 
     @Transactional
-    public Optional<UUID> join(UUID contentId, UUID watcherId) {
+    public WatchingSessionJoinResult join(UUID contentId, UUID watcherId) {
         User watcher = userRepository.findById(watcherId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Content content = contentRepository.findById(contentId)
@@ -33,18 +35,18 @@ public class WatchingSessionPersistenceService {
         Optional<WatchingSession> existing = watchingSessionRepository.findByWatcherId(watcherId);
         if (existing.isEmpty()) {
             watchingSessionRepository.save(new WatchingSession(watcher, content));
-            return Optional.empty();
+            return result(Optional.empty(), watcher);
         }
 
         UUID previousContentId = existing.get().getContent().getId();
         if (previousContentId.equals(contentId)) {
-            return Optional.empty();
+            return result(Optional.empty(), watcher);
         }
 
         watchingSessionRepository.delete(existing.get());
         watchingSessionRepository.flush();
         watchingSessionRepository.save(new WatchingSession(watcher, content));
-        return Optional.of(previousContentId);
+        return result(Optional.of(previousContentId), watcher);
     }
 
     @Transactional
@@ -52,5 +54,9 @@ public class WatchingSessionPersistenceService {
         watchingSessionRepository.findByWatcherId(watcherId)
                 .filter(session -> session.getContent().getId().equals(contentId))
                 .ifPresent(watchingSessionRepository::delete);
+    }
+
+    private WatchingSessionJoinResult result(Optional<UUID> previousContentId, User watcher) {
+        return new WatchingSessionJoinResult(previousContentId, UserMapper.toSummary(watcher));
     }
 }

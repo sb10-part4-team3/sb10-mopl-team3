@@ -43,7 +43,9 @@ class WatchingSessionPersistenceServiceTest {
         given(contentRepository.findById(contentId)).willReturn(Optional.of(content(contentId)));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.empty());
 
-        assertThat(persistenceService.join(contentId, watcherId)).isEmpty();
+        var result = persistenceService.join(contentId, watcherId);
+        assertThat(result.previousContentId()).isEmpty();
+        assertThat(result.watcher().userId()).isEqualTo(watcherId);
         then(watchingSessionRepository).should().save(any(WatchingSession.class));
     }
 
@@ -58,7 +60,8 @@ class WatchingSessionPersistenceServiceTest {
         given(contentRepository.findById(nextId)).willReturn(Optional.of(content(nextId)));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(previous));
 
-        assertThat(persistenceService.join(nextId, watcherId)).contains(previousId);
+        assertThat(persistenceService.join(nextId, watcherId).previousContentId())
+                .contains(previousId);
         then(watchingSessionRepository).should().delete(previous);
         then(watchingSessionRepository).should().flush();
         then(watchingSessionRepository).should().save(any(WatchingSession.class));
@@ -74,7 +77,7 @@ class WatchingSessionPersistenceServiceTest {
         given(watchingSessionRepository.findByWatcherId(watcherId))
                 .willReturn(Optional.of(new WatchingSession(watcher, content(contentId))));
 
-        assertThat(persistenceService.join(contentId, watcherId)).isEmpty();
+        assertThat(persistenceService.join(contentId, watcherId).previousContentId()).isEmpty();
         then(watchingSessionRepository).should(never()).save(any());
         then(watchingSessionRepository).should(never()).delete(any());
     }
@@ -111,6 +114,21 @@ class WatchingSessionPersistenceServiceTest {
         persistenceService.leave(contentId, watcherId);
 
         then(watchingSessionRepository).should().delete(session);
+    }
+
+    @Test
+    void leave_doesNotDeleteSessionForDifferentContent() {
+        UUID watchingContentId = UUID.randomUUID();
+        UUID requestedContentId = UUID.randomUUID();
+        UUID watcherId = UUID.randomUUID();
+        WatchingSession session = new WatchingSession(
+                user(watcherId), content(watchingContentId));
+        given(watchingSessionRepository.findByWatcherId(watcherId))
+                .willReturn(Optional.of(session));
+
+        persistenceService.leave(requestedContentId, watcherId);
+
+        then(watchingSessionRepository).should(never()).delete(any());
     }
 
     private User user(UUID id) {
