@@ -19,22 +19,30 @@ public class TmdbGenreCache {
   private Map<Integer, String> movieGenres;
   private Map<Integer, String> tvGenres;
 
-  @PostConstruct
-  void init() {
-    this.movieGenres = toMap(tmdbApiClient.getMovieGenres());
-    this.tvGenres = toMap(tmdbApiClient.getTvGenres());
-  }
-
   public String getMovieGenreName(int genreId) {
-    return movieGenres.getOrDefault(genreId, "기타");
+    return getMovieGenres().getOrDefault(genreId, "기타");
   }
 
   public String getTvGenreName(int genreId) {
-    return tvGenres.getOrDefault(genreId, "기타");
+    return getTvGenres().getOrDefault(genreId, "기타");
+  }
+
+  private Map<Integer, String> getMovieGenres() {
+    if (movieGenres == null) {
+      movieGenres = toMap(tmdbApiClient.getMovieGenres());
+    }
+    return movieGenres;
+  }
+
+  private Map<Integer, String> getTvGenres() {
+    if (tvGenres == null) {
+      tvGenres = toMap(tmdbApiClient.getTvGenres());
+    }
+    return tvGenres;
   }
 
   private Map<Integer, String> toMap(TmdbGenreListResponse response) {
     return response.genres().stream()
-        .collect(Collectors.toMap(TmdbGenre::id, TmdbGenre::name));
+        .collect(Collectors.toMap(TmdbGenreListResponse.TmdbGenre::id, TmdbGenreListResponse.TmdbGenre::name));
   }
 }
