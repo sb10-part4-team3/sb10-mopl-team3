@@ -4,6 +4,7 @@ import com.example.sb10_MoPl_team3.user.dto.response.UserSummary;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -12,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Repository
 @RequiredArgsConstructor
 public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisRepository {
@@ -82,6 +84,7 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
         try {
             return Optional.of(objectMapper.readValue(value, UserSummary.class));
         } catch (JsonProcessingException exception) {
+            log.warn("Redis에 저장된 시청자 정보를 역직렬화할 수 없습니다: {}", value, exception);
             return Optional.empty();
         }
     }
