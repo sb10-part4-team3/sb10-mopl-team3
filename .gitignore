@@ -42,3 +42,5 @@ out/
 
 ### Frontend contract check ###
 /frontend/
+
+src/main/generated/
