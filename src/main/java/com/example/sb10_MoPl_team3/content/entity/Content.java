@@ -92,6 +92,9 @@ public class Content extends BaseEntity {
   }
 
   public void syncFromExternal(String title, String description, String thumbnailUrl) {
+    if (title == null || title.isBlank()) {
+      throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+    }
     this.title = title;
     this.description = description;
     this.thumbnailUrl = thumbnailUrl;

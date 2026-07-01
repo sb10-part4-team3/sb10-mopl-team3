@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.tmdb.mapper;
 
 import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.entity.Content;
+import com.example.sb10_MoPl_team3.tmdb.TmdbConstants;
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbMoviePopularResponse.TmdbMovieResult;
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbTvPopularResponse.TmdbTvResult;
 import org.springframework.stereotype.Component;
@@ -17,9 +18,9 @@ public class TmdbContentMapper {
         .type(ContentType.MOVIE)
         .title(result.title())
         .description(result.overview())
-        .thumbnailUrl(toFullImageUrl(result.posterPath()))
-        .externalId("MOVIE-" + result.id())
-        .source(SOURCE_TMDB)
+        .thumbnailUrl(TmdbConstants.toFullImageUrl(result.posterPath()))
+        .externalId(TmdbConstants.externalId("MOVIE", result.id()))
+        .source(TmdbConstants.SOURCE_TMDB)
         .build();
   }
 
@@ -28,9 +29,9 @@ public class TmdbContentMapper {
         .type(ContentType.TV_SERIES)
         .title(result.name())
         .description(result.overview())
-        .thumbnailUrl(toFullImageUrl(result.posterPath()))
-        .externalId("TV-" + result.id())
-        .source(SOURCE_TMDB)
+        .thumbnailUrl(TmdbConstants.toFullImageUrl(result.posterPath()))
+        .externalId(TmdbConstants.externalId("TV", result.id()))
+        .source(TmdbConstants.SOURCE_TMDB)
         .build();
   }
 

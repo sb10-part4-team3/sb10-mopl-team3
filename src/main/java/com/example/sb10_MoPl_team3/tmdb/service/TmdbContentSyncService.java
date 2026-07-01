@@ -3,6 +3,7 @@ package com.example.sb10_MoPl_team3.tmdb.service;
 import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.content.service.ContentTagService;
+import com.example.sb10_MoPl_team3.tmdb.TmdbConstants;
 import com.example.sb10_MoPl_team3.tmdb.cache.TmdbGenreCache;
 import com.example.sb10_MoPl_team3.tmdb.client.TmdbApiClient;
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbMoviePopularResponse;
@@ -10,8 +11,8 @@ import com.example.sb10_MoPl_team3.tmdb.dto.TmdbMoviePopularResponse.TmdbMovieRe
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbTvPopularResponse;
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbTvPopularResponse.TmdbTvResult;
 import com.example.sb10_MoPl_team3.tmdb.mapper.TmdbContentMapper;
-
 import java.util.List;
+import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,74 +24,79 @@ public class TmdbContentSyncService {
   private final TmdbApiClient tmdbApiClient;
   private final TmdbContentMapper tmdbContentMapper;
   private final ContentRepository contentRepository;
-  private final ContentTagService contentTagService;
   private final TmdbGenreCache tmdbGenreCache;
+  private final ContentTagService contentTagService;
 
   @Transactional
   public void syncPopularMovies(int page) {
     TmdbMoviePopularResponse response = tmdbApiClient.getPopularMovies(page);
 
     for (TmdbMovieResult result : response.results()) {
-      upsert(result);
+      upsertMovie(result);
     }
   }
 
   @Transactional
   public void syncPopularTvs(int page) {
     TmdbTvPopularResponse response = tmdbApiClient.getPopularTvs(page);
+
     for (TmdbTvResult result : response.results()) {
-      upsert(result);
+      upsertTv(result);
     }
   }
 
-  private void upsert(TmdbMovieResult result) {
-    String externalId = "MOVIE-" + result.id();
-    String source = "TMDB";
+  private void upsertMovie(TmdbMovieResult result) {
+    SyncPayload payload = new SyncPayload(
+        TmdbConstants.externalId("MOVIE", result.id()),
+        result.title(),
+        result.overview(),
+        result.posterPath(),
+        result.genreIds(),
+        tmdbGenreCache::getMovieGenreName,
+        () -> tmdbContentMapper.toContent(result)
+    );
+    upsert(payload);
+  }
 
-    Content content = contentRepository.findByExternalIdAndSource(externalId, source)
+  private void upsertTv(TmdbTvResult result) {
+    SyncPayload payload = new SyncPayload(
+        TmdbConstants.externalId("TV", result.id()),
+        result.name(),
+        result.overview(),
+        result.posterPath(),
+        result.genreIds(),
+        tmdbGenreCache::getTvGenreName,
+        () -> tmdbContentMapper.toContent(result)
+    );
+    upsert(payload);
+  }
+
+  private void upsert(SyncPayload payload) {
+    Content content = contentRepository.findByExternalIdAndSource(payload.externalId(), TmdbConstants.SOURCE_TMDB)
         .map(existing -> {
           existing.syncFromExternal(
-              result.title(),
-              result.overview(),
-              toFullImageUrl(result.posterPath())
+              payload.title(),
+              payload.overview(),
+              TmdbConstants.toFullImageUrl(payload.posterPath())
           );
           return existing;
         })
-        .orElseGet(() -> contentRepository.save(tmdbContentMapper.toContent(result)));
+        .orElseGet(() -> contentRepository.save(payload.newContentSupplier().get()));
 
-    List<String> tagNames = result.genreIds().stream()
-        .map(tmdbGenreCache::getMovieGenreName)
+    List<String> tagNames = payload.genreIds().stream()
+        .map(payload.genreResolver())
         .toList();
 
     contentTagService.syncTags(content, tagNames);
   }
 
-  private void upsert(TmdbTvResult result) {
-    String externalId = "TV-" + result.id();
-    String source = "TMDB";
-
-    Content content = contentRepository.findByExternalIdAndSource(externalId, source)
-        .map(existing -> {
-          existing.syncFromExternal(
-              result.name(),
-              result.overview(),
-              toFullImageUrl(result.posterPath())
-          );
-          return existing;
-        })
-        .orElseGet(() -> contentRepository.save(tmdbContentMapper.toContent(result)));
-
-    List<String> tagNames = result.genreIds().stream()
-        .map(tmdbGenreCache::getTvGenreName)
-        .toList();
-
-    contentTagService.syncTags(content, tagNames);
-  }
-
-  private String toFullImageUrl(String posterPath) {
-    if (posterPath == null || posterPath.isBlank()) {
-      return null;
-    }
-    return "https://image.tmdb.org/t/p/w500" + posterPath;
-  }
+  private record SyncPayload(
+      String externalId,
+      String title,
+      String overview,
+      String posterPath,
+      List<Integer> genreIds,
+      Function<Integer, String> genreResolver,
+      java.util.function.Supplier<Content> newContentSupplier
+  ) {}
 }
