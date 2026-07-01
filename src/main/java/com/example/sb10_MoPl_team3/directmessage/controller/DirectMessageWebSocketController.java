@@ -3,6 +3,8 @@ package com.example.sb10_MoPl_team3.directmessage.controller;
 import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageSendRequest;
 import com.example.sb10_MoPl_team3.directmessage.service.DirectMessageAsyncService;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.MessagingException;
@@ -12,6 +14,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
+import org.springframework.core.task.TaskRejectedException;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -33,10 +36,14 @@ public class DirectMessageWebSocketController {
             Authentication authentication
     ) {
         AuthUser authUser = extractAuthUser(authentication);
-        return directMessageAsyncService.saveAsync(
-                        conversationId, authUser.userId(), request.content())
-                .thenAccept(message -> messagingTemplate.convertAndSend(
-                        DESTINATION_FORMAT.formatted(conversationId), message));
+        try {
+            return directMessageAsyncService.saveAsync(
+                            conversationId, authUser.userId(), request.content())
+                    .thenAccept(message -> messagingTemplate.convertAndSend(
+                            DESTINATION_FORMAT.formatted(conversationId), message));
+        } catch (TaskRejectedException exception) {
+            throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE);
+        }
     }
 
     private AuthUser extractAuthUser(Authentication authentication) {

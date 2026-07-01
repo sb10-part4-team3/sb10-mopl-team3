@@ -33,23 +33,28 @@ public class DirectMessageAsyncService {
     ) {
         Conversation conversation = conversationRepository.findWithUsersById(conversationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND));
-        User sender = findParticipant(conversation, senderId);
-        User receiver = conversation.getUser1().getId().equals(senderId)
-                ? conversation.getUser2()
-                : conversation.getUser1();
+        MessageParticipants participants = resolveParticipants(conversation, senderId);
 
         DirectMessage saved = directMessageRepository.saveAndFlush(
-                new DirectMessage(conversation, sender, receiver, content));
+                new DirectMessage(
+                        conversation,
+                        participants.sender(),
+                        participants.receiver(),
+                        content
+                ));
         return CompletableFuture.completedFuture(DirectMessageMapper.toDto(saved));
     }
 
-    private User findParticipant(Conversation conversation, UUID senderId) {
+    private MessageParticipants resolveParticipants(Conversation conversation, UUID senderId) {
         if (conversation.getUser1().getId().equals(senderId)) {
-            return conversation.getUser1();
+            return new MessageParticipants(conversation.getUser1(), conversation.getUser2());
         }
         if (conversation.getUser2().getId().equals(senderId)) {
-            return conversation.getUser2();
+            return new MessageParticipants(conversation.getUser2(), conversation.getUser1());
         }
         throw new BusinessException(ErrorCode.ACCESS_DENIED);
+    }
+
+    private record MessageParticipants(User sender, User receiver) {
     }
 }

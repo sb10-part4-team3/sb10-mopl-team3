@@ -4,6 +4,8 @@ import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageDto;
 import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageSendRequest;
 import com.example.sb10_MoPl_team3.directmessage.service.DirectMessageAsyncService;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.dto.response.UserSummary;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import org.junit.jupiter.api.Test;
@@ -13,12 +15,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.MessagingException;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
@@ -78,6 +82,46 @@ class DirectMessageWebSocketControllerTest {
                 UUID.randomUUID(), new DirectMessageSendRequest("메시지"), authentication))
                 .isInstanceOf(MessagingException.class);
         then(asyncService).shouldHaveNoInteractions();
+        then(messagingTemplate).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("비동기 저장에 실패하면 쪽지를 브로커로 전송하지 않는다")
+    void send_doesNotBroadcastAsyncFailure() {
+        UUID conversationId = UUID.randomUUID();
+        UUID senderId = UUID.randomUUID();
+        AuthUser authUser = new AuthUser(senderId, UserRole.USER, null);
+        var authentication = new UsernamePasswordAuthenticationToken(
+                authUser, null, authUser.authorities());
+        given(asyncService.saveAsync(conversationId, senderId, "메시지"))
+                .willReturn(CompletableFuture.failedFuture(
+                        new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND)));
+
+        CompletableFuture<Void> result = controller.send(
+                conversationId, new DirectMessageSendRequest("메시지"), authentication);
+
+        assertThatThrownBy(result::join)
+                .isInstanceOf(CompletionException.class)
+                .hasCauseInstanceOf(BusinessException.class);
+        then(messagingTemplate).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("DM 비동기 executor가 포화되면 SERVICE_UNAVAILABLE 예외를 반환한다")
+    void send_rejectsWhenAsyncExecutorIsSaturated() {
+        UUID conversationId = UUID.randomUUID();
+        UUID senderId = UUID.randomUUID();
+        AuthUser authUser = new AuthUser(senderId, UserRole.USER, null);
+        var authentication = new UsernamePasswordAuthenticationToken(
+                authUser, null, authUser.authorities());
+        given(asyncService.saveAsync(conversationId, senderId, "메시지"))
+                .willThrow(new TaskRejectedException("executor saturated"));
+
+        assertThatThrownBy(() -> controller.send(
+                conversationId, new DirectMessageSendRequest("메시지"), authentication))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.SERVICE_UNAVAILABLE);
         then(messagingTemplate).shouldHaveNoInteractions();
     }
 }
