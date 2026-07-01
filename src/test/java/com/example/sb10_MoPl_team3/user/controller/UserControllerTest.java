@@ -20,6 +20,8 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
+import com.example.sb10_MoPl_team3.user.dto.request.UserPasswordUpdateRequest;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -37,6 +39,7 @@ import static org.mockito.BDDMockito.then;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 
 @WebMvcTest(UserController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class})
@@ -382,6 +385,150 @@ class UserControllerTest {
                         })
                         .with(user("user").roles("USER"))
                         .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+
+        then(userService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("인증된 사용자는 본인 비밀번호를 변경할 수 있다")
+    void changePassword_success() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        // when & then
+        mockMvc.perform(patch("/api/users/{userId}/password", userId)
+                        .contentType(APPLICATION_JSON)
+                        .with(user("user").roles("USER"))
+                        .with(csrf())
+                        .content("""
+                            {
+                              "currentPassword": "currentPassword1!",
+                              "newPassword": "newPassword1!"
+                            }
+                            """))
+                .andExpect(status().isNoContent());
+
+        then(userService).should()
+                .changePassword(eq(userId), any(UserPasswordUpdateRequest.class));
+    }
+
+    @Test
+    @DisplayName("현재 비밀번호가 일치하지 않으면 401을 반환한다")
+    void changePassword_wrongCurrentPassword() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        willThrow(new InvalidCredentialException())
+                .given(userService)
+                .changePassword(eq(userId), any(UserPasswordUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(patch("/api/users/{userId}/password", userId)
+                        .contentType(APPLICATION_JSON)
+                        .with(user("user").roles("USER"))
+                        .with(csrf())
+                        .content("""
+                            {
+                              "currentPassword": "wrongPassword1!",
+                              "newPassword": "newPassword1!"
+                            }
+                            """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
+
+        then(userService).should()
+                .changePassword(eq(userId), any(UserPasswordUpdateRequest.class));
+    }
+
+    @Test
+    @DisplayName("본인이 아닌 사용자의 비밀번호를 변경하려 하면 403을 반환한다")
+    void changePassword_forbidden() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        willThrow(new AccessDeniedBusinessException())
+                .given(userService)
+                .changePassword(eq(userId), any(UserPasswordUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(patch("/api/users/{userId}/password", userId)
+                        .contentType(APPLICATION_JSON)
+                        .with(user("user").roles("USER"))
+                        .with(csrf())
+                        .content("""
+                            {
+                              "currentPassword": "currentPassword1!",
+                              "newPassword": "newPassword1!"
+                            }
+                            """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+
+        then(userService).should()
+                .changePassword(eq(userId), any(UserPasswordUpdateRequest.class));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 비밀번호를 변경할 수 없다")
+    void changePassword_unauthenticated() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        // when & then
+        mockMvc.perform(patch("/api/users/{userId}/password", userId)
+                        .contentType(APPLICATION_JSON)
+                        .with(csrf())
+                        .content("""
+                            {
+                              "currentPassword": "currentPassword1!",
+                              "newPassword": "newPassword1!"
+                            }
+                            """))
+                .andExpect(status().isUnauthorized());
+
+        then(userService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("CSRF 토큰 없이 비밀번호를 변경하면 403을 반환한다")
+    void changePassword_withoutCsrf() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        // when & then
+        mockMvc.perform(patch("/api/users/{userId}/password", userId)
+                        .contentType(APPLICATION_JSON)
+                        .with(user("user").roles("USER"))
+                        .content("""
+                            {
+                              "currentPassword": "currentPassword1!",
+                              "newPassword": "newPassword1!"
+                            }
+                            """))
+                .andExpect(status().isForbidden());
+
+        then(userService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("비밀번호 변경 요청 값이 유효하지 않으면 400을 반환한다")
+    void changePassword_invalid() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        // when & then
+        mockMvc.perform(patch("/api/users/{userId}/password", userId)
+                        .contentType(APPLICATION_JSON)
+                        .with(user("user").roles("USER"))
+                        .with(csrf())
+                        .content("""
+                            {
+                              "currentPassword": "",
+                              "newPassword": ""
+                            }
+                            """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
 
