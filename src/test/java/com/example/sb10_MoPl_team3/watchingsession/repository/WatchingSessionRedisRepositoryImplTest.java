@@ -1,14 +1,15 @@
 package com.example.sb10_MoPl_team3.watchingsession.repository;
 
-import org.junit.jupiter.api.DisplayName;
+import com.example.sb10_MoPl_team3.user.dto.response.UserSummary;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.SetOperations;
+import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
-import java.util.Set;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,151 +20,89 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class WatchingSessionRedisRepositoryImplTest {
 
-    @Mock
-    private StringRedisTemplate redisTemplate;
-
-    @Mock
-    private SetOperations<String, String> setOperations;
+    @Mock StringRedisTemplate redisTemplate;
+    @Mock HashOperations<String, Object, Object> hashOperations;
 
     @Test
-    @DisplayName("콘텐츠별 현재 시청자 ID를 Redis Set에 추가한다")
-    void addWatcher() {
-        WatchingSessionRedisRepositoryImpl repository = repository();
+    void addWatcher_storesUserSummaryInHash() throws Exception {
+        var repository = repository();
+        UUID contentId = UUID.randomUUID();
+        UserSummary watcher = new UserSummary(UUID.randomUUID(), "홍길동", "profile");
+        String json = new ObjectMapper().writeValueAsString(watcher);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(hashOperations.putIfAbsent(key(contentId), watcher.userId().toString(), json))
+                .thenReturn(true);
+
+        assertThat(repository.addWatcher(contentId, watcher)).isTrue();
+    }
+
+    @Test
+    void addWatcher_refreshesSummaryWithoutReportingListChange() throws Exception {
+        var repository = repository();
+        UUID contentId = UUID.randomUUID();
+        UserSummary watcher = new UserSummary(UUID.randomUUID(), "변경된 이름", null);
+        String json = new ObjectMapper().writeValueAsString(watcher);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(hashOperations.putIfAbsent(key(contentId), watcher.userId().toString(), json))
+                .thenReturn(false);
+
+        assertThat(repository.addWatcher(contentId, watcher)).isFalse();
+        verify(hashOperations).put(key(contentId), watcher.userId().toString(), json);
+    }
+
+    @Test
+    void removeWatcher_deletesHashField() {
+        var repository = repository();
         UUID contentId = UUID.randomUUID();
         UUID watcherId = UUID.randomUUID();
-        String key = key(contentId);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(hashOperations.delete(key(contentId), watcherId.toString())).thenReturn(1L);
 
-        when(redisTemplate.opsForSet()).thenReturn(setOperations);
-        when(setOperations.add(key, watcherId.toString())).thenReturn(1L);
-
-        boolean added = repository.addWatcher(contentId, watcherId);
-
-        assertThat(added).isTrue();
+        assertThat(repository.removeWatcher(contentId, watcherId)).isTrue();
     }
 
     @Test
-    @DisplayName("이미 추가된 시청자 ID를 다시 추가하면 false를 반환한다")
-    void addDuplicateWatcher() {
-        WatchingSessionRedisRepositoryImpl repository = repository();
+    void findWatchers_deserializesSummariesAndIgnoresCorruptedValues() throws Exception {
+        var repository = repository();
         UUID contentId = UUID.randomUUID();
-        UUID watcherId = UUID.randomUUID();
-        String key = key(contentId);
+        UserSummary watcher = new UserSummary(UUID.randomUUID(), "홍길동", null);
+        String json = new ObjectMapper().writeValueAsString(watcher);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(hashOperations.values(key(contentId))).thenReturn(List.of(json, "invalid-json"));
 
-        when(redisTemplate.opsForSet()).thenReturn(setOperations);
-        when(setOperations.add(key, watcherId.toString())).thenReturn(0L);
-
-        boolean added = repository.addWatcher(contentId, watcherId);
-
-        assertThat(added).isFalse();
+        assertThat(repository.findWatchers(contentId)).containsExactly(watcher);
     }
 
     @Test
-    @DisplayName("콘텐츠별 현재 시청자 ID를 Redis Set에서 제거한다")
-    void removeWatcher() {
-        WatchingSessionRedisRepositoryImpl repository = repository();
+    void countWatchers_usesHashSize() {
+        var repository = repository();
         UUID contentId = UUID.randomUUID();
-        UUID watcherId = UUID.randomUUID();
-        String key = key(contentId);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(hashOperations.size(key(contentId))).thenReturn(3L);
 
-        when(redisTemplate.opsForSet()).thenReturn(setOperations);
-        when(setOperations.remove(key, watcherId.toString())).thenReturn(1L);
-
-        boolean removed = repository.removeWatcher(contentId, watcherId);
-
-        assertThat(removed).isTrue();
+        assertThat(repository.countWatchers(contentId)).isEqualTo(3L);
     }
 
     @Test
-    @DisplayName("콘텐츠별 현재 시청자 ID 목록을 조회한다")
-    void findWatcherIds() {
-        WatchingSessionRedisRepositoryImpl repository = repository();
+    void deleteByContentId_deletesKey() {
+        var repository = repository();
         UUID contentId = UUID.randomUUID();
-        UUID firstWatcherId = UUID.randomUUID();
-        UUID secondWatcherId = UUID.randomUUID();
-        String key = key(contentId);
-
-        when(redisTemplate.opsForSet()).thenReturn(setOperations);
-        when(setOperations.members(key)).thenReturn(
-                Set.of(firstWatcherId.toString(), secondWatcherId.toString())
-        );
-
-        Set<UUID> watcherIds = repository.findWatcherIds(contentId);
-
-        assertThat(watcherIds).containsExactlyInAnyOrder(firstWatcherId, secondWatcherId);
-    }
-
-    @Test
-    @DisplayName("Redis에 시청자 ID 목록이 없으면 빈 Set을 반환한다")
-    void findWatcherIdsEmpty() {
-        WatchingSessionRedisRepositoryImpl repository = repository();
-        UUID contentId = UUID.randomUUID();
-        String key = key(contentId);
-
-        when(redisTemplate.opsForSet()).thenReturn(setOperations);
-        when(setOperations.members(key)).thenReturn(null);
-
-        Set<UUID> watcherIds = repository.findWatcherIds(contentId);
-
-        assertThat(watcherIds).isEmpty();
-    }
-
-    @Test
-    @DisplayName("Redis에 손상된 시청자 ID 값이 있으면 제외하고 조회한다")
-    void findWatcherIdsIgnoreInvalidValue() {
-        WatchingSessionRedisRepositoryImpl repository = repository();
-        UUID contentId = UUID.randomUUID();
-        UUID watcherId = UUID.randomUUID();
-        String key = key(contentId);
-
-        when(redisTemplate.opsForSet()).thenReturn(setOperations);
-        when(setOperations.members(key)).thenReturn(Set.of(watcherId.toString(), "invalid-watcher-id"));
-
-        Set<UUID> watcherIds = repository.findWatcherIds(contentId);
-
-        assertThat(watcherIds).containsExactly(watcherId);
-    }
-
-    @Test
-    @DisplayName("콘텐츠별 현재 시청자 수를 Redis SCARD로 조회한다")
-    void countWatchers() {
-        WatchingSessionRedisRepositoryImpl repository = repository();
-        UUID contentId = UUID.randomUUID();
-        String key = key(contentId);
-
-        when(redisTemplate.opsForSet()).thenReturn(setOperations);
-        when(setOperations.size(key)).thenReturn(3L);
-
-        long count = repository.countWatchers(contentId);
-
-        assertThat(count).isEqualTo(3L);
-    }
-
-    @Test
-    @DisplayName("콘텐츠별 현재 시청자 목록을 삭제한다")
-    void deleteByContentId() {
-        WatchingSessionRedisRepositoryImpl repository = repository();
-        UUID contentId = UUID.randomUUID();
-
         repository.deleteByContentId(contentId);
-
         verify(redisTemplate).delete(key(contentId));
     }
 
     @Test
-    @DisplayName("필수 ID가 null이면 예외가 발생한다")
-    void nullId() {
-        WatchingSessionRedisRepositoryImpl repository = repository();
-
-        assertThatThrownBy(() -> repository.countWatchers(null))
+    void nullId_throwsException() {
+        assertThatThrownBy(() -> repository().countWatchers(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("id는 필수입니다.");
     }
 
     private WatchingSessionRedisRepositoryImpl repository() {
-        return new WatchingSessionRedisRepositoryImpl(redisTemplate);
+        return new WatchingSessionRedisRepositoryImpl(redisTemplate, new ObjectMapper());
     }
 
     private String key(UUID contentId) {
-        return "watching-sessions:contents:%s:watchers".formatted(contentId);
+        return "watching-sessions:contents:%s:watcher-summaries".formatted(contentId);
     }
 }
