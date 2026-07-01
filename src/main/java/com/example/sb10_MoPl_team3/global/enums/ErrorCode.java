@@ -6,8 +6,6 @@ import org.springframework.http.HttpStatus;
 @Getter
 public enum ErrorCode {
 
-    FOLLOW_NOT_FOUND(HttpStatus.NOT_FOUND, "Follow not found."),
-
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "입력값이 올바르지 않습니다."),
     INVALID_PARAMETER_TYPE(HttpStatus.BAD_REQUEST, "요청 파라미터 타입이 올바르지 않습니다."),
     INVALID_CURSOR(HttpStatus.BAD_REQUEST, "커서 값이 올바르지 않습니다."),
@@ -31,7 +29,10 @@ public enum ErrorCode {
     CONVERSATION_NOT_FOUND(HttpStatus.NOT_FOUND, "대화방을 찾을 수 없습니다."),
 
     // 플레이리스트
-    PLAYLIST_NOT_FOUND(HttpStatus.NOT_FOUND, "플레이리스트를 찾을 수 없습니다.");
+    PLAYLIST_NOT_FOUND(HttpStatus.NOT_FOUND, "플레이리스트를 찾을 수 없습니다."),
+
+    // 팔로우
+    FOLLOW_NOT_FOUND(HttpStatus.NOT_FOUND, "팔로우를 찾을 수 없습니다."),;
 
 
     private final HttpStatus status;

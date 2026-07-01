@@ -68,7 +68,8 @@ public class FollowServiceImpl implements FollowService {
                     Map.of(
                             "followerId", followerId,
                             "followeeId", followeeId
-                    )
+                    ),
+                    exception
             );
         }
     }

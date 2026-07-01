@@ -122,12 +122,15 @@ class FollowServiceImplTest {
                 .willReturn(Optional.empty());
         given(userRepository.findById(followerId)).willReturn(Optional.of(follower));
         given(userRepository.findById(followeeId)).willReturn(Optional.of(followee));
+        DataIntegrityViolationException cause =
+                new DataIntegrityViolationException("uk_follower_followee");
         given(followRepository.saveAndFlush(any(Follow.class)))
-                .willThrow(new DataIntegrityViolationException("uk_follower_followee"));
+                .willThrow(cause);
 
         assertThatThrownBy(() -> followService.create(followerId, new FollowRequest(followeeId)))
                 .isInstanceOfSatisfying(BusinessException.class, exception -> {
                     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+                    assertThat(exception.getCause()).isSameAs(cause);
                     assertThat(exception.getDetails())
                             .containsEntry("followerId", followerId)
                             .containsEntry("followeeId", followeeId);
