@@ -10,8 +10,10 @@ import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,7 +42,7 @@ public class FollowServiceImpl implements FollowService {
     @Override
     public void cancel(UUID followerId, UUID followId) {
         Follow follow = followRepository.findById(followId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
+                .orElseThrow(() -> new BusinessException(ErrorCode.FOLLOW_NOT_FOUND));
 
         if (!follow.getFollower().getId().equals(followerId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
@@ -58,7 +60,17 @@ public class FollowServiceImpl implements FollowService {
                 .followee(followee)
                 .build();
 
-        return followMapper.toDto(followRepository.save(follow));
+        try {
+            return followMapper.toDto(followRepository.saveAndFlush(follow));
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_INPUT_VALUE,
+                    Map.of(
+                            "followerId", followerId,
+                            "followeeId", followeeId
+                    )
+            );
+        }
     }
 
     private User getUserOrThrow(UUID userId) {

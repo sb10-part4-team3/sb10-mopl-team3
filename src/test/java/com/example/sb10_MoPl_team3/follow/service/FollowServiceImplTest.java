@@ -27,6 +27,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,14 +60,14 @@ class FollowServiceImplTest {
                 .willReturn(Optional.empty());
         given(userRepository.findById(followerId)).willReturn(Optional.of(follower));
         given(userRepository.findById(followeeId)).willReturn(Optional.of(followee));
-        given(followRepository.save(any(Follow.class))).willReturn(saved);
+        given(followRepository.saveAndFlush(any(Follow.class))).willReturn(saved);
         given(followMapper.toDto(saved)).willReturn(dto);
 
         FollowDto response = followService.create(followerId, new FollowRequest(followeeId));
 
         assertThat(response).isEqualTo(dto);
         ArgumentCaptor<Follow> followCaptor = ArgumentCaptor.forClass(Follow.class);
-        then(followRepository).should().save(followCaptor.capture());
+        then(followRepository).should().saveAndFlush(followCaptor.capture());
         assertThat(followCaptor.getValue().getFollower()).isEqualTo(follower);
         assertThat(followCaptor.getValue().getFollowee()).isEqualTo(followee);
     }
@@ -92,7 +93,7 @@ class FollowServiceImplTest {
 
         assertThat(response).isEqualTo(dto);
         then(userRepository).should(never()).findById(any());
-        then(followRepository).should(never()).save(any());
+        then(followRepository).should(never()).saveAndFlush(any());
     }
 
     @Test
@@ -106,7 +107,33 @@ class FollowServiceImplTest {
                 );
 
         then(followRepository).should(never()).findByFollower_IdAndFollowee_Id(any(), any());
-        then(followRepository).should(never()).save(any());
+        then(followRepository).should(never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("create converts duplicate key race into business exception")
+    void create_duplicateRace() {
+        UUID followerId = uuid(1);
+        UUID followeeId = uuid(2);
+        User follower = user(followerId, "follower@test.com", "follower");
+        User followee = user(followeeId, "followee@test.com", "followee");
+
+        given(followRepository.findByFollower_IdAndFollowee_Id(followerId, followeeId))
+                .willReturn(Optional.empty());
+        given(userRepository.findById(followerId)).willReturn(Optional.of(follower));
+        given(userRepository.findById(followeeId)).willReturn(Optional.of(followee));
+        given(followRepository.saveAndFlush(any(Follow.class)))
+                .willThrow(new DataIntegrityViolationException("uk_follower_followee"));
+
+        assertThatThrownBy(() -> followService.create(followerId, new FollowRequest(followeeId)))
+                .isInstanceOfSatisfying(BusinessException.class, exception -> {
+                    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+                    assertThat(exception.getDetails())
+                            .containsEntry("followerId", followerId)
+                            .containsEntry("followeeId", followeeId);
+                });
+
+        then(followMapper).should(never()).toDto(any());
     }
 
     @Test
@@ -124,7 +151,7 @@ class FollowServiceImplTest {
         assertThatThrownBy(() -> followService.create(followerId, new FollowRequest(followeeId)))
                 .isInstanceOf(UserNotFoundException.class);
 
-        then(followRepository).should(never()).save(any());
+        then(followRepository).should(never()).saveAndFlush(any());
     }
 
     @Test
@@ -178,7 +205,7 @@ class FollowServiceImplTest {
 
         assertThatThrownBy(() -> followService.cancel(followerId, followId))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE)
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FOLLOW_NOT_FOUND)
                 );
 
         then(followRepository).should(never()).delete(any());
