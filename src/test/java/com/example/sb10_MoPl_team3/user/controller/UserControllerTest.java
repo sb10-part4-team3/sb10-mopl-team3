@@ -18,6 +18,8 @@ import com.example.sb10_MoPl_team3.user.dto.request.UserUpdateRequest;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
+import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -382,6 +384,68 @@ class UserControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+
+        then(userService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("인증된 사용자는 본인 계정을 탈퇴할 수 있다")
+    void withdrawUser_success() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        // when & then
+        mockMvc.perform(delete("/api/users/{userId}", userId)
+                        .with(user("user").roles("USER"))
+                        .with(csrf()))
+                .andExpect(status().isNoContent());
+
+        then(userService).should().withdrawUser(userId);
+    }
+
+    @Test
+    @DisplayName("본인이 아닌 사용자의 계정을 탈퇴하려 하면 403을 반환한다")
+    void withdrawUser_forbidden() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        willThrow(new AccessDeniedBusinessException())
+                .given(userService).withdrawUser(userId);
+
+        // when & then
+        mockMvc.perform(delete("/api/users/{userId}", userId)
+                        .with(user("user").roles("USER"))
+                        .with(csrf()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+
+        then(userService).should().withdrawUser(userId);
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 계정을 탈퇴할 수 없다")
+    void withdrawUser_unauthenticated() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        // when & then
+        mockMvc.perform(delete("/api/users/{userId}", userId)
+                        .with(csrf()))
+                .andExpect(status().isUnauthorized());
+
+        then(userService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("CSRF 토큰 없이 계정을 탈퇴하면 403을 반환한다")
+    void withdrawUser_withoutCsrf() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        // when & then
+        mockMvc.perform(delete("/api/users/{userId}", userId)
+                        .with(user("user").roles("USER")))
+                .andExpect(status().isForbidden());
 
         then(userService).shouldHaveNoInteractions();
     }
