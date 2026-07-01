@@ -1,6 +1,8 @@
 package com.example.sb10_MoPl_team3.watchingsession.websocket;
 
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.dto.response.UserSummary;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChange;
@@ -28,6 +30,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @ExtendWith(MockitoExtension.class)
 class WatchingSessionWebSocketListenerTest {
@@ -91,6 +94,36 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleSubscribe(new SessionSubscribeEvent(this, message));
 
         then(presenceService).shouldHaveNoInteractions();
+        then(messagingTemplate).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("입장 처리에 실패하면 presence를 등록하지 않아 연결 종료 시 퇴장 처리하지 않는다")
+    void handleSubscribe_joinFailureDoesNotLeaveGhostPresence() {
+        UUID contentId = UUID.randomUUID();
+        UUID watcherId = UUID.randomUUID();
+        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, null);
+        var authentication = new UsernamePasswordAuthenticationToken(
+                authUser, null, authUser.authorities());
+        given(presenceService.join(contentId, watcherId))
+                .willThrow(new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
+
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        accessor.setDestination("/sub/contents/" + contentId + "/watch");
+        accessor.setSessionId("failed-session");
+        accessor.setSubscriptionId("failed-subscription");
+        accessor.setUser(authentication);
+        accessor.setLeaveMutable(true);
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+        assertThatThrownBy(() -> listener.handleSubscribe(
+                new SessionSubscribeEvent(this, message, authentication)))
+                .isInstanceOf(BusinessException.class);
+
+        SessionDisconnectEvent disconnectEvent = mock(SessionDisconnectEvent.class);
+        listener.handleDisconnect(disconnectEvent);
+
+        then(presenceService).should(never()).leave(contentId, watcherId);
         then(messagingTemplate).shouldHaveNoInteractions();
     }
 

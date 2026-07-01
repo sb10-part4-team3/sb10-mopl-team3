@@ -44,8 +44,9 @@ public class WatchingSessionWebSocketListener {
 
         SubscriptionKey key = new SubscriptionKey(
                 accessor.getSessionId(), accessor.getSubscriptionId());
+        var changes = presenceService.join(contentId, authUser.userId());
         presences.put(key, new Presence(contentId, authUser.userId()));
-        presenceService.join(contentId, authUser.userId()).forEach(this::publish);
+        changes.forEach(this::publish);
     }
 
     @EventListener
