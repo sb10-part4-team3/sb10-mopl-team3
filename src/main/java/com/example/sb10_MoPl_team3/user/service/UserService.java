@@ -1,10 +1,17 @@
 package com.example.sb10_MoPl_team3.user.service;
 
-import com.example.sb10_MoPl_team3.user.exception.DuplicatedEmailException;
+import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
+import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.global.file.FileStorageService;
+import com.example.sb10_MoPl_team3.global.security.UserAuthorizationService;
 import com.example.sb10_MoPl_team3.user.dto.request.UserCreateRequest;
+import com.example.sb10_MoPl_team3.user.dto.request.UserUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
+import com.example.sb10_MoPl_team3.user.exception.DuplicatedEmailException;
+import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,14 +19,14 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.example.sb10_MoPl_team3.global.file.FileStorageService;
-import com.example.sb10_MoPl_team3.global.security.UserAuthorizationService;
-import com.example.sb10_MoPl_team3.user.dto.request.UserUpdateRequest;
-import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import static org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK;
@@ -33,6 +40,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final FileStorageService fileStorageService;
     private final UserAuthorizationService userAuthorizationService;
+    private final AuthSessionRepository authSessionRepository;
+    private final Clock clock;
 
     @Transactional
     public UserDto createUser(UserCreateRequest request) {
@@ -47,7 +56,6 @@ public class UserService {
                 null,
                 UserRole.USER
         );
-
 
         try {
             return UserMapper.toDto(userRepository.save(user));
@@ -93,6 +101,18 @@ public class UserService {
         }
     }
 
+    @Transactional
+    public void withdrawUser(UUID userId) {
+        userAuthorizationService.validateSelf(userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        user.changeStatus(UserStatus.WITHDRAWN);
+
+        revokeUserSessions(userId);
+    }
+
     private void registerProfileImageCleanup(
             String previousProfileImageUrl,
             String uploadedProfileImageUrl
@@ -114,6 +134,20 @@ public class UserService {
                 }
             }
         });
+    }
+
+    private void revokeUserSessions(UUID userId) {
+        Instant now = Instant.now(clock);
+
+        Iterable<AuthSession> sessions = authSessionRepository.findAllByUserId(userId);
+        List<AuthSession> revokedSessions = new ArrayList<>();
+
+        for (AuthSession session : sessions) {
+            session.revoke(now);
+            revokedSessions.add(session);
+        }
+
+        authSessionRepository.saveAll(revokedSessions);
     }
 
     private void deletePreviousProfileImage(

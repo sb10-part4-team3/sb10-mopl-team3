@@ -23,6 +23,8 @@ import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionSynchronizationUtils;
+import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
+import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,6 +35,10 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.List;
+
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
@@ -47,6 +53,12 @@ class UserServiceTest {
 
     @Mock
     private UserAuthorizationService userAuthorizationService;
+
+    @Mock
+    private AuthSessionRepository authSessionRepository;
+
+    @Mock
+    private Clock clock;
 
     @InjectMocks
     private UserService userService;
@@ -317,5 +329,88 @@ class UserServiceTest {
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }
+    }
+
+    @Test
+    @DisplayName("본인 계정을 탈퇴하면 상태를 WITHDRAWN으로 변경하고 모든 세션을 무효화한다")
+    void withdrawUser_success() {
+        // given
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-07-01T00:00:00Z");
+
+        User user = new User(
+                "user@test.com",
+                "User",
+                "encoded-password",
+                null,
+                UserRole.USER
+        );
+
+        AuthSession session1 = AuthSession.create(
+                userId,
+                "refresh-token-hash-1",
+                now.plusSeconds(3600),
+                now
+        );
+
+        AuthSession session2 = AuthSession.create(
+                userId,
+                "refresh-token-hash-2",
+                now.plusSeconds(3600),
+                now
+        );
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(authSessionRepository.findAllByUserId(userId)).willReturn(List.of(session1, session2));
+        given(clock.instant()).willReturn(now);
+
+        // when
+        userService.withdrawUser(userId);
+
+        // then
+        then(userAuthorizationService).should().validateSelf(userId);
+        then(userRepository).should().findById(userId);
+        then(authSessionRepository).should().findAllByUserId(userId);
+        then(authSessionRepository).should().saveAll(List.of(session1, session2));
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
+
+        assertThat(session1.isRevoked()).isTrue();
+        assertThat(session1.getRevokedAt()).isEqualTo(now);
+        assertThat(session2.isRevoked()).isTrue();
+        assertThat(session2.getRevokedAt()).isEqualTo(now);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 사용자를 탈퇴하려 하면 예외가 발생한다")
+    void withdrawUser_notFound() {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        given(userRepository.findById(userId)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> userService.withdrawUser(userId))
+                .isInstanceOf(UserNotFoundException.class);
+
+        then(userAuthorizationService).should().validateSelf(userId);
+        then(authSessionRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("타인의 계정 탈퇴는 권한 검증에서 즉시 실패하고 조회와 세션 무효화를 수행하지 않는다")
+    void withdrawUser_forbidden_shortCircuitsBeforeSideEffects() {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        willThrow(new AccessDeniedBusinessException())
+                .given(userAuthorizationService).validateSelf(userId);
+
+        // when & then
+        assertThatThrownBy(() -> userService.withdrawUser(userId))
+                .isInstanceOf(AccessDeniedBusinessException.class);
+
+        then(userRepository).shouldHaveNoInteractions();
+        then(authSessionRepository).shouldHaveNoInteractions();
     }
 }
