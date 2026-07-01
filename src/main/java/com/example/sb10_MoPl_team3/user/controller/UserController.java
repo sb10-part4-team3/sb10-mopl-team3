@@ -49,4 +49,12 @@ public class UserController {
         UserDto response = userService.updateUser(userId, request, image);
         return ResponseEntity.ok(response);
     }
+
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<Void> withdrawUser(
+            @PathVariable UUID userId
+    ) {
+        userService.withdrawUser(userId);
+        return ResponseEntity.noContent().build();
+    }
 }
