@@ -19,10 +19,16 @@ import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
+import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
+import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
-import static org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +39,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final FileStorageService fileStorageService;
     private final UserAuthorizationService userAuthorizationService;
+    private final AuthSessionRepository authSessionRepository;
+    private final Clock clock;
 
     @Transactional
     public UserDto createUser(UserCreateRequest request) {
@@ -84,12 +92,25 @@ public class UserService {
 
             return UserMapper.toDto(user);
         } catch (RuntimeException exception) {
-            if (uploadedProfileImageUrl != null) {
+            if (uploadedProfileImageUrl != null
+                    && !TransactionSynchronizationManager.isSynchronizationActive()) {
                 fileStorageService.deleteByUrl(uploadedProfileImageUrl);
             }
 
             throw exception;
         }
+    }
+
+    @Transactional
+    public void withdrawUser(UUID userId) {
+        userAuthorizationService.validateSelf(userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        user.changeStatus(UserStatus.WITHDRAWN);
+
+        revokeUserSessions(userId);
     }
 
     private void registerProfileImageCleanup(
@@ -113,6 +134,20 @@ public class UserService {
                 }
             }
         });
+    }
+
+    private void revokeUserSessions(UUID userId) {
+        Instant now = Instant.now(clock);
+
+        Iterable<AuthSession> sessions = authSessionRepository.findAllByUserId(userId);
+        List<AuthSession> revokedSessions = new ArrayList<>();
+
+        for (AuthSession session : sessions) {
+            session.revoke(now);
+            revokedSessions.add(session);
+        }
+
+        authSessionRepository.saveAll(revokedSessions);
     }
 
     private void deletePreviousProfileImage(
