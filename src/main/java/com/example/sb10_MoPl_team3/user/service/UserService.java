@@ -1,10 +1,17 @@
 package com.example.sb10_MoPl_team3.user.service;
 
-import com.example.sb10_MoPl_team3.user.exception.DuplicatedEmailException;
+import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
+import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.global.file.FileStorageService;
+import com.example.sb10_MoPl_team3.global.security.UserAuthorizationService;
 import com.example.sb10_MoPl_team3.user.dto.request.UserCreateRequest;
+import com.example.sb10_MoPl_team3.user.dto.request.UserUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
+import com.example.sb10_MoPl_team3.user.exception.DuplicatedEmailException;
+import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,16 +19,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.example.sb10_MoPl_team3.global.file.FileStorageService;
-import com.example.sb10_MoPl_team3.global.security.UserAuthorizationService;
-import com.example.sb10_MoPl_team3.user.dto.request.UserUpdateRequest;
-import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
-import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
-import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
-import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import static org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK;
 
 @Service
 @RequiredArgsConstructor
@@ -55,7 +56,6 @@ public class UserService {
                 null,
                 UserRole.USER
         );
-
 
         try {
             return UserMapper.toDto(userRepository.save(user));
