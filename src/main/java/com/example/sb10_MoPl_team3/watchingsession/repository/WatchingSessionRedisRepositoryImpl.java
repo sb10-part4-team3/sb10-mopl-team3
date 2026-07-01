@@ -84,7 +84,12 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
         try {
             return Optional.of(objectMapper.readValue(value, UserSummary.class));
         } catch (JsonProcessingException exception) {
-            log.warn("Redis에 저장된 시청자 정보를 역직렬화할 수 없습니다: {}", value, exception);
+            log.warn(
+                    "Redis에 저장된 시청자 정보를 역직렬화할 수 없습니다. payloadLength="
+                             value.length()
+                             ", payloadFingerprint="
+                             Integer.toHexString(value.hashCode()),
+                    exception);
             return Optional.empty();
         }
     }
