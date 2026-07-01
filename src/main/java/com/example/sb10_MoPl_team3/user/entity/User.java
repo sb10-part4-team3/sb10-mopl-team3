@@ -51,6 +51,10 @@ public class User extends BaseEntity {
         this.status = status;
     }
 
+    public void changePassword(String password) {
+        this.password = password;
+    }
+
     public void updateProfile(String name, String profileImageUrl) {
         if (name != null) {
             this.name = name;
