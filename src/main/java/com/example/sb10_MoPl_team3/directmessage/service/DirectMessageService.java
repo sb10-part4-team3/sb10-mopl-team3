@@ -3,7 +3,6 @@ package com.example.sb10_MoPl_team3.directmessage.service;
 import com.example.sb10_MoPl_team3.conversation.entity.Conversation;
 import com.example.sb10_MoPl_team3.conversation.repository.ConversationRepository;
 import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageDto;
-import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageReadStatusChange;
 import com.example.sb10_MoPl_team3.directmessage.dto.response.CursorResponseDirectMessageDto;
 import com.example.sb10_MoPl_team3.directmessage.entity.DirectMessage;
 import com.example.sb10_MoPl_team3.directmessage.mapper.DirectMessageMapper;
@@ -28,7 +27,7 @@ public class DirectMessageService {
     private final ConversationRepository conversationRepository;
 
     @Transactional
-    public DirectMessageReadStatusChange read(
+    public void read(
             UUID requestUserId,
             UUID conversationId,
             UUID directMessageId
@@ -47,13 +46,6 @@ public class DirectMessageService {
         }
 
         directMessage.markAsRead(Instant.now());
-        return new DirectMessageReadStatusChange(
-                conversationId,
-                directMessageId,
-                requestUserId,
-                directMessage.isRead(),
-                directMessage.getReadAt()
-        );
     }
 
     @Transactional(readOnly = true)

@@ -13,7 +13,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageDto;
-import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageReadStatusChange;
 import com.example.sb10_MoPl_team3.directmessage.dto.response.CursorResponseDirectMessageDto;
 import com.example.sb10_MoPl_team3.directmessage.service.DirectMessageService;
 import com.example.sb10_MoPl_team3.global.config.SecurityConfig;
@@ -32,8 +31,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.messaging.MessagingException;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -50,9 +47,6 @@ class DirectMessageControllerTest {
 
     @MockitoBean
     private JwtProvider jwtProvider;
-
-    @MockitoBean
-    private SimpMessagingTemplate messagingTemplate;
 
     @Test
     @DisplayName("과거 쪽지 목록 조회 요청이 유효하면 커서 응답을 반환한다")
@@ -205,16 +199,11 @@ class DirectMessageControllerTest {
     }
 
     @Test
-    @DisplayName("DM 읽음 처리 후 대화방 구독 채널로 상태 변경을 전송한다")
+    @DisplayName("DM 읽음 처리 요청이 유효하면 200을 반환한다")
     void read_success() throws Exception {
         UUID requestUserId = UUID.randomUUID();
         UUID conversationId = UUID.randomUUID();
         UUID directMessageId = UUID.randomUUID();
-        DirectMessageReadStatusChange change = new DirectMessageReadStatusChange(
-                conversationId, directMessageId, requestUserId, true,
-                Instant.parse("2026-07-02T00:00:00Z"));
-        given(directMessageService.read(requestUserId, conversationId, directMessageId))
-                .willReturn(change);
 
         mockMvc.perform(post(
                         "/api/conversations/{conversationId}/direct-messages/{directMessageId}/read",
@@ -223,18 +212,19 @@ class DirectMessageControllerTest {
                         .with(authentication(authToken(requestUserId))))
                 .andExpect(status().isOk());
 
-        then(messagingTemplate).should().convertAndSend(
-                "/sub/conversations/" + conversationId + "/direct-messages", change);
+        then(directMessageService).should()
+                .read(requestUserId, conversationId, directMessageId);
     }
 
     @Test
-    @DisplayName("DM 읽음 처리에 실패하면 상태 변경을 전송하지 않는다")
-    void read_failureDoesNotBroadcast() throws Exception {
+    @DisplayName("DM 읽음 처리 권한이 없으면 403을 반환한다")
+    void read_forbidden() throws Exception {
         UUID requestUserId = UUID.randomUUID();
         UUID conversationId = UUID.randomUUID();
         UUID directMessageId = UUID.randomUUID();
-        given(directMessageService.read(requestUserId, conversationId, directMessageId))
-                .willThrow(new BusinessException(ErrorCode.ACCESS_DENIED));
+        willThrow(new BusinessException(ErrorCode.ACCESS_DENIED))
+                .given(directMessageService)
+                .read(requestUserId, conversationId, directMessageId);
 
         mockMvc.perform(post(
                         "/api/conversations/{conversationId}/direct-messages/{directMessageId}/read",
@@ -242,34 +232,6 @@ class DirectMessageControllerTest {
                         .with(csrf())
                         .with(authentication(authToken(requestUserId))))
                 .andExpect(status().isForbidden());
-
-        then(messagingTemplate).shouldHaveNoInteractions();
-    }
-
-    @Test
-    @DisplayName("DM 읽음 상태 브로드캐스트가 실패해도 읽음 처리 응답은 성공한다")
-    void read_broadcastFailureReturnsSuccess() throws Exception {
-        UUID requestUserId = UUID.randomUUID();
-        UUID conversationId = UUID.randomUUID();
-        UUID directMessageId = UUID.randomUUID();
-        DirectMessageReadStatusChange change = new DirectMessageReadStatusChange(
-                conversationId, directMessageId, requestUserId, true,
-                Instant.parse("2026-07-02T00:00:00Z"));
-        String destination = "/sub/conversations/" + conversationId + "/direct-messages";
-        given(directMessageService.read(requestUserId, conversationId, directMessageId))
-                .willReturn(change);
-        willThrow(new MessagingException("브로커 전송 실패"))
-                .given(messagingTemplate)
-                .convertAndSend(destination, change);
-
-        mockMvc.perform(post(
-                        "/api/conversations/{conversationId}/direct-messages/{directMessageId}/read",
-                        conversationId, directMessageId)
-                        .with(csrf())
-                        .with(authentication(authToken(requestUserId))))
-                .andExpect(status().isOk());
-
-        then(messagingTemplate).should().convertAndSend(destination, change);
     }
 
     private UsernamePasswordAuthenticationToken authToken(UUID userId) {

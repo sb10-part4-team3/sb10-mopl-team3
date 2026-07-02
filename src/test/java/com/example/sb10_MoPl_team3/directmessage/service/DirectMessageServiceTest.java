@@ -324,7 +324,7 @@ class DirectMessageServiceTest {
     }
 
     @Test
-    @DisplayName("DM 수신자가 메시지를 읽으면 읽음 상태와 시각을 반환한다")
+    @DisplayName("DM 수신자가 메시지를 읽으면 읽음 상태와 시각을 저장한다")
     void read_success() {
         UUID senderId = UUID.randomUUID();
         UUID receiverId = UUID.randomUUID();
@@ -340,12 +340,10 @@ class DirectMessageServiceTest {
         given(directMessageRepository.findByIdAndConversationId(messageId, conversationId))
                 .willReturn(Optional.of(message));
 
-        var result = directMessageService.read(receiverId, conversationId, messageId);
+        directMessageService.read(receiverId, conversationId, messageId);
 
-        assertThat(result.read()).isTrue();
-        assertThat(result.readAt()).isNotNull();
-        assertThat(result.readerId()).isEqualTo(receiverId);
         assertThat(message.isRead()).isTrue();
+        assertThat(message.getReadAt()).isNotNull();
     }
 
     @Test
