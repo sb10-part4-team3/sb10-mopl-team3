@@ -323,6 +323,74 @@ class DirectMessageServiceTest {
         );
     }
 
+    @Test
+    @DisplayName("DM 수신자가 메시지를 읽으면 읽음 상태와 시각을 저장한다")
+    void read_success() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        User sender = user(senderId, "sender@test.com", "발신자");
+        User receiver = user(receiverId, "receiver@test.com", "수신자");
+        Conversation conversation = conversation(conversationId, sender, receiver);
+        DirectMessage message = directMessage(
+                messageId, conversation, sender, receiver, "메시지", Instant.now());
+        given(conversationRepository.findWithUsersById(conversationId))
+                .willReturn(Optional.of(conversation));
+        given(directMessageRepository.findByIdAndConversationId(messageId, conversationId))
+                .willReturn(Optional.of(message));
+
+        directMessageService.read(receiverId, conversationId, messageId);
+
+        assertThat(message.isRead()).isTrue();
+        assertThat(message.getReadAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("DM 발신자는 자신의 메시지를 읽음 처리할 수 없다")
+    void read_senderCannotMarkAsRead() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        User sender = user(senderId, "sender@test.com", "발신자");
+        User receiver = user(receiverId, "receiver@test.com", "수신자");
+        Conversation conversation = conversation(conversationId, sender, receiver);
+        DirectMessage message = directMessage(
+                messageId, conversation, sender, receiver, "메시지", Instant.now());
+        given(conversationRepository.findWithUsersById(conversationId))
+                .willReturn(Optional.of(conversation));
+        given(directMessageRepository.findByIdAndConversationId(messageId, conversationId))
+                .willReturn(Optional.of(message));
+
+        assertThatThrownBy(() -> directMessageService.read(
+                senderId, conversationId, messageId))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ACCESS_DENIED));
+        assertThat(message.isRead()).isFalse();
+    }
+
+    @Test
+    @DisplayName("대화방에 없는 DM은 읽음 처리할 수 없다")
+    void read_messageNotFound() {
+        UUID receiverId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        User receiver = user(receiverId, "receiver@test.com", "수신자");
+        Conversation conversation = conversation(
+                conversationId, user(UUID.randomUUID(), "sender@test.com", "발신자"), receiver);
+        given(conversationRepository.findWithUsersById(conversationId))
+                .willReturn(Optional.of(conversation));
+        given(directMessageRepository.findByIdAndConversationId(messageId, conversationId))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> directMessageService.read(
+                receiverId, conversationId, messageId))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode())
+                                .isEqualTo(ErrorCode.DIRECT_MESSAGE_NOT_FOUND));
+    }
+
     private User user(UUID id, String email, String name) {
         User user = new User(email, name, "password", null, UserRole.USER);
         ReflectionTestUtils.setField(user, "id", id);
