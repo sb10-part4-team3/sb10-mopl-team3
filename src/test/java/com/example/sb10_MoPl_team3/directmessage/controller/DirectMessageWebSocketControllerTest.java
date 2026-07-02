@@ -14,7 +14,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.messaging.MessagingException;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -68,7 +67,9 @@ class DirectMessageWebSocketControllerTest {
     void send_rejectsUnauthenticatedRequest() {
         assertThatThrownBy(() -> controller.send(
                 UUID.randomUUID(), new DirectMessageSendRequest("메시지"), null))
-                .isInstanceOf(MessagingException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_CREDENTIAL);
         then(asyncService).shouldHaveNoInteractions();
         then(messagingTemplate).shouldHaveNoInteractions();
     }
@@ -81,7 +82,9 @@ class DirectMessageWebSocketControllerTest {
 
         assertThatThrownBy(() -> controller.send(
                 UUID.randomUUID(), new DirectMessageSendRequest("메시지"), authentication))
-                .isInstanceOf(MessagingException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_CREDENTIAL);
         then(asyncService).shouldHaveNoInteractions();
         then(messagingTemplate).shouldHaveNoInteractions();
     }

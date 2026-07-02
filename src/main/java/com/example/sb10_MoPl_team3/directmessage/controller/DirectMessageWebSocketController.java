@@ -7,7 +7,6 @@ import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -48,7 +47,7 @@ public class DirectMessageWebSocketController {
 
     private AuthUser extractAuthUser(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof AuthUser authUser)) {
-            throw new MessagingException("인증된 사용자만 쪽지를 전송할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIAL);
         }
         return authUser;
     }
