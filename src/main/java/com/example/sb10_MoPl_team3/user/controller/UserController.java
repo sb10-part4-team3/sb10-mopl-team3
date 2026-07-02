@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.example.sb10_MoPl_team3.user.dto.request.UserUpdateRequest;
 import org.springframework.web.multipart.MultipartFile;
+import com.example.sb10_MoPl_team3.user.dto.request.UserPasswordUpdateRequest;
 
 import java.util.UUID;
 
@@ -48,6 +49,15 @@ public class UserController {
     ) {
         UserDto response = userService.updateUser(userId, request, image);
         return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{userId}/password")
+    public ResponseEntity<Void> changePassword(
+            @PathVariable UUID userId,
+            @Valid @RequestBody UserPasswordUpdateRequest request
+    ) {
+        userService.changePassword(userId, request);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{userId}")

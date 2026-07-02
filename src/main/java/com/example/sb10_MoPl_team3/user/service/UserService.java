@@ -22,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
+import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
+import com.example.sb10_MoPl_team3.user.dto.request.UserPasswordUpdateRequest;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -99,6 +101,16 @@ public class UserService {
 
             throw exception;
         }
+    }
+
+    @Transactional
+    public void changePassword(UUID userId, UserPasswordUpdateRequest request) {
+        userAuthorizationService.validateSelf(userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        user.changePassword(passwordEncoder.encode(request.password()));
     }
 
     @Transactional
