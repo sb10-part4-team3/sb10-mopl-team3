@@ -44,17 +44,7 @@ public class FollowServiceImpl implements FollowService {
                 .orElseGet(() -> createOrFindFollow(followerId, followeeId));
     }
 
-    @Override
-    public void cancel(UUID followerId, UUID followId) {
-        Follow follow = followRepository.findById(followId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.FOLLOW_NOT_FOUND));
 
-        if (!follow.getFollower().getId().equals(followerId)) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED);
-        }
-
-        followRepository.delete(follow);
-    }
 
     private FollowCreateResult createOrFindFollow(UUID followerId, UUID followeeId) {
         try {
