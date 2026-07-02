@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -120,8 +121,13 @@ class DirectMessageWebSocketControllerTest {
         assertThatThrownBy(() -> controller.send(
                 conversationId, new DirectMessageSendRequest("메시지"), authentication))
                 .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.INTERNAL_SERVER_ERROR);
+                .satisfies(exception -> {
+                    BusinessException businessException = (BusinessException) exception;
+                    assertThat(businessException.getErrorCode())
+                            .isEqualTo(ErrorCode.INTERNAL_SERVER_ERROR);
+                    assertThat(businessException.getCause())
+                            .isInstanceOf(TaskRejectedException.class);
+                });
         then(messagingTemplate).shouldHaveNoInteractions();
     }
 }

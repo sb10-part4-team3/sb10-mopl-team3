@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.global.websocket;
 
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.response.ErrorResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -11,19 +12,23 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
 @ControllerAdvice
+@Slf4j
 public class WebSocketExceptionHandler {
 
     @MessageExceptionHandler(Throwable.class)
     @SendToUser(destinations = "/queue/errors", broadcast = false)
     public ErrorResponse handle(Throwable exception) {
         Throwable cause = unwrap(exception);
+        ErrorResponse response;
         if (cause instanceof BusinessException businessException) {
-            return ErrorResponse.of(businessException);
+            response = ErrorResponse.of(businessException);
+        } else if (cause instanceof MethodArgumentNotValidException validationException) {
+            response = ErrorResponse.of(validationException);
+        } else {
+            response = ErrorResponse.of(asException(cause));
         }
-        if (cause instanceof MethodArgumentNotValidException validationException) {
-            return ErrorResponse.of(validationException);
-        }
-        return ErrorResponse.of(asException(cause));
+        log(response, cause);
+        return response;
     }
 
     private Throwable unwrap(Throwable exception) {
@@ -39,5 +44,19 @@ public class WebSocketExceptionHandler {
         return throwable instanceof Exception exception
                 ? exception
                 : new RuntimeException(throwable);
+    }
+
+    private void log(ErrorResponse response, Throwable cause) {
+        if (response.status() >= 500) {
+            log.error(
+                    "WebSocket 처리 실패: code={}, message={}, details={}",
+                    response.code(), response.message(), response.details(), cause
+            );
+        } else {
+            log.warn(
+                    "WebSocket 요청 거부: code={}, message={}, details={}",
+                    response.code(), response.message(), response.details()
+            );
+        }
     }
 }

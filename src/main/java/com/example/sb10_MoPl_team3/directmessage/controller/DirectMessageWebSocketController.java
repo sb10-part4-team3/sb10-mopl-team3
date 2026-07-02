@@ -42,7 +42,7 @@ public class DirectMessageWebSocketController {
                     .thenAccept(message -> messagingTemplate.convertAndSend(
                             DESTINATION_FORMAT.formatted(conversationId), message));
         } catch (TaskRejectedException exception) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, exception);
         }
     }
 

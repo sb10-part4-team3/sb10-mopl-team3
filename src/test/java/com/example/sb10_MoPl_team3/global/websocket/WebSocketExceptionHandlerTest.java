@@ -5,12 +5,17 @@ import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.simp.annotation.SendToUser;
+import org.springframework.core.MethodParameter;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.lang.reflect.Method;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 class WebSocketExceptionHandlerTest {
 
@@ -52,6 +57,32 @@ class WebSocketExceptionHandlerTest {
 
         assertThat(response.code()).isEqualTo("INTERNAL_SERVER_ERROR");
         assertThat(response.status()).isEqualTo(500);
+    }
+
+    @Test
+    @DisplayName("WebSocket payload 검증 실패를 필드 상세 정보가 포함된 입력 오류로 변환한다")
+    void handle_methodArgumentNotValidException() {
+        Object target = new Object();
+        BeanPropertyBindingResult bindingResult =
+                new BeanPropertyBindingResult(target, "directMessageSendRequest");
+        bindingResult.addError(new FieldError(
+                "directMessageSendRequest",
+                "content",
+                null,
+                false,
+                new String[]{"NotBlank"},
+                null,
+                "쪽지 내용은 필수입니다."
+        ));
+        MethodArgumentNotValidException exception = new MethodArgumentNotValidException(
+                mock(MethodParameter.class), bindingResult);
+
+        var response = handler.handle(exception);
+
+        assertThat(response.code()).isEqualTo("INVALID_INPUT_VALUE");
+        assertThat(response.status()).isEqualTo(400);
+        assertThat(response.details())
+                .containsEntry("content", "쪽지 내용은 필수입니다.");
     }
 
     @Test
