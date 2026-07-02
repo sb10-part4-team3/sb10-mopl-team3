@@ -7,16 +7,19 @@ import com.example.sb10_MoPl_team3.directmessage.service.DirectMessageService;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.MessagingException;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/conversations/{conversationId}/direct-messages")
@@ -33,10 +36,19 @@ public class DirectMessageController {
     ) {
         DirectMessageReadStatusChange change = directMessageService.read(
                 authUser.userId(), conversationId, directMessageId);
-        messagingTemplate.convertAndSend(
-                "/sub/conversations/%s/direct-messages".formatted(conversationId),
-                change
-        );
+        try {
+            messagingTemplate.convertAndSend(
+                    "/sub/conversations/%s/direct-messages".formatted(conversationId),
+                    change
+            );
+        } catch (MessagingException e) {
+            log.warn(
+                    "DM 읽음 상태 브로드캐스트 실패: conversationId={}, directMessageId={}",
+                    conversationId,
+                    directMessageId,
+                    e
+            );
+        }
         return ResponseEntity.ok().build();
     }
 

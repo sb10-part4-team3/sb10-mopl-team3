@@ -3,6 +3,8 @@ package com.example.sb10_MoPl_team3.directmessage.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -30,11 +32,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.messaging.MessagingException;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import static org.mockito.BDDMockito.then;
 
 @WebMvcTest(DirectMessageController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class})
@@ -242,6 +244,32 @@ class DirectMessageControllerTest {
                 .andExpect(status().isForbidden());
 
         then(messagingTemplate).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("DM 읽음 상태 브로드캐스트가 실패해도 읽음 처리 응답은 성공한다")
+    void read_broadcastFailureReturnsSuccess() throws Exception {
+        UUID requestUserId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        UUID directMessageId = UUID.randomUUID();
+        DirectMessageReadStatusChange change = new DirectMessageReadStatusChange(
+                conversationId, directMessageId, requestUserId, true,
+                Instant.parse("2026-07-02T00:00:00Z"));
+        String destination = "/sub/conversations/" + conversationId + "/direct-messages";
+        given(directMessageService.read(requestUserId, conversationId, directMessageId))
+                .willReturn(change);
+        willThrow(new MessagingException("브로커 전송 실패"))
+                .given(messagingTemplate)
+                .convertAndSend(destination, change);
+
+        mockMvc.perform(post(
+                        "/api/conversations/{conversationId}/direct-messages/{directMessageId}/read",
+                        conversationId, directMessageId)
+                        .with(csrf())
+                        .with(authentication(authToken(requestUserId))))
+                .andExpect(status().isOk());
+
+        then(messagingTemplate).should().convertAndSend(destination, change);
     }
 
     private UsernamePasswordAuthenticationToken authToken(UUID userId) {
