@@ -60,8 +60,8 @@ public class FollowServiceImpl implements FollowService {
         try {
             return new FollowCreateResult(createNewFollow(followerId, followeeId), true);
         } catch (DataIntegrityViolationException exception) {
-            // A concurrent request may insert the same follow after the first lookup.
-            // Treat that unique-key race as an idempotent success by returning the row it created.
+            // 최초 조회 이후 다른 동시 요청이 같은 팔로우를 먼저 저장했을 수 있다.
+            // 이 unique-key 경쟁은 기존 row를 반환해 멱등 성공으로 처리한다.
             return findFollow(followerId, followeeId)
                     .map(follow -> new FollowCreateResult(follow, false))
                     .orElseThrow(() -> new BusinessException(
@@ -77,7 +77,7 @@ public class FollowServiceImpl implements FollowService {
 
     private FollowDto createNewFollow(UUID followerId, UUID followeeId) {
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        // Isolate the insert attempt so a duplicate-key rollback does not poison the outer flow.
+        // 중복 키 rollback이 바깥 흐름을 오염시키지 않도록 insert 시도를 별도 트랜잭션으로 격리한다.
         transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 
         return transactionTemplate.execute(status -> {
