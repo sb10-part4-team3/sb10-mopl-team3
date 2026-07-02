@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -303,6 +304,38 @@ class JwtAuthenticationFilterTest {
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
 
+        verify(filterChain, never()).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("세션 검증이 실패하면 401을 반환하고 다음 필터로 진행하지 않는다")
+    void invalidSession() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        String token = "valid-access-token";
+
+        JwtClaims claims = new JwtClaims(
+                userId,
+                UserRole.USER,
+                JwtTokenType.ACCESS,
+                sessionId,
+                Instant.parse("2026-06-24T00:00:00Z"),
+                Instant.parse("2026-06-24T01:00:00Z")
+        );
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtProvider.parseAccessToken(token)).thenReturn(claims);
+        doThrow(new IllegalArgumentException("Auth session is revoked"))
+                .when(jwtSessionValidator)
+                .validate(claims);
+
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(filterChain, never()).doFilter(request, response);
     }
 
