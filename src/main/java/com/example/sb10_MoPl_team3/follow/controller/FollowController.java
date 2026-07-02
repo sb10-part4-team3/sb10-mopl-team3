@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.follow.controller;
 
 import com.example.sb10_MoPl_team3.follow.dto.FollowDto;
 import com.example.sb10_MoPl_team3.follow.dto.FollowRequest;
+import com.example.sb10_MoPl_team3.follow.service.FollowCreateResult;
 import com.example.sb10_MoPl_team3.follow.service.FollowService;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import jakarta.validation.Valid;
@@ -29,8 +30,9 @@ public class FollowController {
             @AuthenticationPrincipal AuthUser authUser,
             @Valid @RequestBody FollowRequest request
     ) {
-        FollowDto response = followService.create(authUser.userId(), request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        FollowCreateResult result = followService.create(authUser.userId(), request);
+        HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(result.follow());
     }
 
     @DeleteMapping("/{followId}")

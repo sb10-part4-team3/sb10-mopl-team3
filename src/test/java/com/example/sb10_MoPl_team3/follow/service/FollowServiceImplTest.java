@@ -29,6 +29,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 @ExtendWith(MockitoExtension.class)
 class FollowServiceImplTest {
@@ -41,6 +43,9 @@ class FollowServiceImplTest {
 
     @Mock
     private FollowMapper followMapper;
+
+    @Mock
+    private PlatformTransactionManager transactionManager;
 
     @InjectMocks
     private FollowServiceImpl followService;
@@ -60,12 +65,14 @@ class FollowServiceImplTest {
                 .willReturn(Optional.empty());
         given(userRepository.findById(followerId)).willReturn(Optional.of(follower));
         given(userRepository.findById(followeeId)).willReturn(Optional.of(followee));
+        stubTransaction();
         given(followRepository.saveAndFlush(any(Follow.class))).willReturn(saved);
         given(followMapper.toDto(saved)).willReturn(dto);
 
-        FollowDto response = followService.create(followerId, new FollowRequest(followeeId));
+        FollowCreateResult response = followService.create(followerId, new FollowRequest(followeeId));
 
-        assertThat(response).isEqualTo(dto);
+        assertThat(response.follow()).isEqualTo(dto);
+        assertThat(response.created()).isTrue();
         ArgumentCaptor<Follow> followCaptor = ArgumentCaptor.forClass(Follow.class);
         then(followRepository).should().saveAndFlush(followCaptor.capture());
         assertThat(followCaptor.getValue().getFollower()).isEqualTo(follower);
@@ -89,9 +96,10 @@ class FollowServiceImplTest {
                 .willReturn(Optional.of(existing));
         given(followMapper.toDto(existing)).willReturn(dto);
 
-        FollowDto response = followService.create(followerId, new FollowRequest(followeeId));
+        FollowCreateResult response = followService.create(followerId, new FollowRequest(followeeId));
 
-        assertThat(response).isEqualTo(dto);
+        assertThat(response.follow()).isEqualTo(dto);
+        assertThat(response.created()).isFalse();
         then(userRepository).should(never()).findById(any());
         then(followRepository).should(never()).saveAndFlush(any());
     }
@@ -111,21 +119,49 @@ class FollowServiceImplTest {
     }
 
     @Test
-    @DisplayName("create converts duplicate key race into business exception")
+    @DisplayName("create returns existing follow after duplicate key race")
     void create_duplicateRace() {
+        UUID followerId = uuid(1);
+        UUID followeeId = uuid(2);
+        UUID followId = uuid(10);
+        User follower = user(followerId, "follower@test.com", "follower");
+        User followee = user(followeeId, "followee@test.com", "followee");
+        Follow existing = follow(followId, follower, followee);
+        FollowDto dto = new FollowDto(followId, followeeId, followerId);
+
+        given(followRepository.findByFollower_IdAndFollowee_Id(followerId, followeeId))
+                .willReturn(Optional.empty())
+                .willReturn(Optional.of(existing));
+        given(userRepository.findById(followerId)).willReturn(Optional.of(follower));
+        given(userRepository.findById(followeeId)).willReturn(Optional.of(followee));
+        stubTransaction();
+        given(followRepository.saveAndFlush(any(Follow.class)))
+                .willThrow(new DataIntegrityViolationException("uk_follower_followee"));
+        given(followMapper.toDto(existing)).willReturn(dto);
+
+        FollowCreateResult response = followService.create(followerId, new FollowRequest(followeeId));
+
+        assertThat(response.follow()).isEqualTo(dto);
+        assertThat(response.created()).isFalse();
+    }
+
+    @Test
+    @DisplayName("create preserves duplicate key cause when existing follow cannot be found")
+    void create_duplicateRaceWithoutExistingFollow() {
         UUID followerId = uuid(1);
         UUID followeeId = uuid(2);
         User follower = user(followerId, "follower@test.com", "follower");
         User followee = user(followeeId, "followee@test.com", "followee");
 
         given(followRepository.findByFollower_IdAndFollowee_Id(followerId, followeeId))
+                .willReturn(Optional.empty())
                 .willReturn(Optional.empty());
         given(userRepository.findById(followerId)).willReturn(Optional.of(follower));
         given(userRepository.findById(followeeId)).willReturn(Optional.of(followee));
         DataIntegrityViolationException cause =
                 new DataIntegrityViolationException("uk_follower_followee");
-        given(followRepository.saveAndFlush(any(Follow.class)))
-                .willThrow(cause);
+        stubTransaction();
+        given(followRepository.saveAndFlush(any(Follow.class))).willThrow(cause);
 
         assertThatThrownBy(() -> followService.create(followerId, new FollowRequest(followeeId)))
                 .isInstanceOfSatisfying(BusinessException.class, exception -> {
@@ -135,8 +171,6 @@ class FollowServiceImplTest {
                             .containsEntry("followerId", followerId)
                             .containsEntry("followeeId", followeeId);
                 });
-
-        then(followMapper).should(never()).toDto(any());
     }
 
     @Test
@@ -149,6 +183,7 @@ class FollowServiceImplTest {
         given(followRepository.findByFollower_IdAndFollowee_Id(followerId, followeeId))
                 .willReturn(Optional.empty());
         given(userRepository.findById(followerId)).willReturn(Optional.of(follower));
+        stubTransaction();
         given(userRepository.findById(followeeId)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> followService.create(followerId, new FollowRequest(followeeId)))
@@ -227,6 +262,11 @@ class FollowServiceImplTest {
         User user = new User(email, name, "password", null, UserRole.USER);
         ReflectionTestUtils.setField(user, "id", id);
         return user;
+    }
+
+    private void stubTransaction() {
+        given(transactionManager.getTransaction(any()))
+                .willReturn(new SimpleTransactionStatus());
     }
 
     private UUID uuid(int value) {
