@@ -20,7 +20,6 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
 import com.example.sb10_MoPl_team3.user.dto.request.UserPasswordUpdateRequest;
 
 import java.nio.charset.StandardCharsets;
@@ -404,39 +403,10 @@ class UserControllerTest {
                         .with(csrf())
                         .content("""
                             {
-                              "currentPassword": "currentPassword1!",
-                              "newPassword": "newPassword1!"
+                              "password": "newPassword1!"
                             }
                             """))
                 .andExpect(status().isNoContent());
-
-        then(userService).should()
-                .changePassword(eq(userId), any(UserPasswordUpdateRequest.class));
-    }
-
-    @Test
-    @DisplayName("현재 비밀번호가 일치하지 않으면 401을 반환한다")
-    void changePassword_wrongCurrentPassword() throws Exception {
-        // given
-        UUID userId = UUID.randomUUID();
-
-        willThrow(new InvalidCredentialException())
-                .given(userService)
-                .changePassword(eq(userId), any(UserPasswordUpdateRequest.class));
-
-        // when & then
-        mockMvc.perform(patch("/api/users/{userId}/password", userId)
-                        .contentType(APPLICATION_JSON)
-                        .with(user("user").roles("USER"))
-                        .with(csrf())
-                        .content("""
-                            {
-                              "currentPassword": "wrongPassword1!",
-                              "newPassword": "newPassword1!"
-                            }
-                            """))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
 
         then(userService).should()
                 .changePassword(eq(userId), any(UserPasswordUpdateRequest.class));
@@ -459,8 +429,7 @@ class UserControllerTest {
                         .with(csrf())
                         .content("""
                             {
-                              "currentPassword": "currentPassword1!",
-                              "newPassword": "newPassword1!"
+                              "password": "newPassword1!"
                             }
                             """))
                 .andExpect(status().isForbidden())
@@ -482,8 +451,7 @@ class UserControllerTest {
                         .with(csrf())
                         .content("""
                             {
-                              "currentPassword": "currentPassword1!",
-                              "newPassword": "newPassword1!"
+                              "password": "newPassword1!"
                             }
                             """))
                 .andExpect(status().isUnauthorized());
@@ -503,8 +471,7 @@ class UserControllerTest {
                         .with(user("user").roles("USER"))
                         .content("""
                             {
-                              "currentPassword": "currentPassword1!",
-                              "newPassword": "newPassword1!"
+                              "password": "newPassword1!"
                             }
                             """))
                 .andExpect(status().isForbidden());
@@ -525,8 +492,7 @@ class UserControllerTest {
                         .with(csrf())
                         .content("""
                             {
-                              "currentPassword": "",
-                              "newPassword": ""
+                              "password": ""
                             }
                             """))
                 .andExpect(status().isBadRequest())

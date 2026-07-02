@@ -279,10 +279,9 @@ class UserIntegrationTest {
                         .contentType(APPLICATION_JSON)
                         .content("""
                             {
-                              "currentPassword": "%s",
-                              "newPassword": "%s"
+                              "password": "%s"
                             }
-                            """.formatted(currentPassword, newPassword)))
+                            """.formatted(newPassword)))
                 .andExpect(status().isNoContent());
 
         // then
@@ -307,49 +306,6 @@ class UserIntegrationTest {
                               "password": "%s"
                             }
                             """.formatted(email, newPassword)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty());
-    }
-
-    @Test
-    @DisplayName("현재 비밀번호가 일치하지 않으면 비밀번호를 변경할 수 없다")
-    void changePassword_wrongCurrentPassword() throws Exception {
-        // given
-        String email = "password-wrong@test.com";
-        String currentPassword = "password1!";
-
-        String accessToken = createUserAndSignIn(
-                email,
-                "Password User",
-                currentPassword,
-                UserRole.USER
-        );
-
-        UUID userId = jwtProvider.parseAccessToken(accessToken).userId();
-
-        // when & then
-        mockMvc.perform(patch("/api/users/{userId}/password", userId)
-                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                            {
-                              "currentPassword": "wrongPassword1!",
-                              "newPassword": "newPassword1!"
-                            }
-                            """))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
-
-        mockMvc.perform(post("/api/auth/sign-in")
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                            {
-                              "email": "%s",
-                              "password": "%s"
-                            }
-                            """.formatted(email, currentPassword)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty());
     }
@@ -380,8 +336,7 @@ class UserIntegrationTest {
                         .contentType(APPLICATION_JSON)
                         .content("""
                             {
-                              "currentPassword": "password1!",
-                              "newPassword": "newPassword1!"
+                              "password": "newPassword1!"
                             }
                             """))
                 .andExpect(status().isForbidden())
@@ -407,8 +362,7 @@ class UserIntegrationTest {
                         .contentType(APPLICATION_JSON)
                         .content("""
                             {
-                              "currentPassword": "password1!",
-                              "newPassword": "newPassword1!"
+                              "password": "newPassword1!"
                             }
                             """))
                 .andExpect(status().isForbidden());

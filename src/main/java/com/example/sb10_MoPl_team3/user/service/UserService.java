@@ -110,11 +110,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
-        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
-            throw new InvalidCredentialException();
-        }
-
-        user.changePassword(passwordEncoder.encode(request.newPassword()));
+        user.changePassword(passwordEncoder.encode(request.password()));
     }
 
     @Transactional
