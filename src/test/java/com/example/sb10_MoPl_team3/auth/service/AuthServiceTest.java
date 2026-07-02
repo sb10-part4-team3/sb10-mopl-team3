@@ -180,7 +180,6 @@ class AuthServiceTest {
 
         then(passwordEncoder).should(never()).matches(any(), any());
         then(tokenService).should(never()).issueRefreshToken();
-        then(tokenService).should(never()).issueAccessToken(any(User.class));
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
     }
@@ -198,7 +197,6 @@ class AuthServiceTest {
                 .isInstanceOf(InvalidCredentialException.class);
 
         then(tokenService).should(never()).issueRefreshToken();
-        then(tokenService).should(never()).issueAccessToken(any(User.class));
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
     }
@@ -217,7 +215,6 @@ class AuthServiceTest {
 
         then(passwordEncoder).should(never()).matches(any(), any());
         then(tokenService).should(never()).issueRefreshToken();
-        then(tokenService).should(never()).issueAccessToken(any(User.class));
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
     }
@@ -236,7 +233,6 @@ class AuthServiceTest {
 
         then(passwordEncoder).should(never()).matches(any(), any());
         then(tokenService).should(never()).issueRefreshToken();
-        then(tokenService).should(never()).issueAccessToken(any(User.class));
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
     }

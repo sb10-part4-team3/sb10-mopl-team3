@@ -43,11 +43,8 @@ public class JwtProvider {
                 .expiration(Date.from(expiresAt))
                 .claim(CLAIM_ROLE, role.name())
                 .claim(CLAIM_TYPE, JwtTokenType.ACCESS.name())
+                .claim(CLAIM_SESSION_ID, sessionId.toString())
                 .signWith(secretKey);
-
-        if (sessionId != null) {
-            builder.claim(CLAIM_SESSION_ID, sessionId.toString());
-        }
 
         return builder.compact();
     }
