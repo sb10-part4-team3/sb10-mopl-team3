@@ -8,6 +8,7 @@ import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.exception.GlobalExceptionHandler;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
 import com.example.sb10_MoPl_team3.user.dto.response.UserSummary;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionDto;
@@ -46,6 +47,9 @@ class WatchingSessionControllerTest {
 
     @MockitoBean
     private JwtProvider jwtProvider;
+
+    @MockitoBean
+    private JwtSessionValidator jwtSessionValidator;
 
     @Test
     @DisplayName("특정 사용자의 실시간 시청 세션을 WatchingSessionDto로 반환한다")

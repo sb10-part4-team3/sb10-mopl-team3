@@ -33,6 +33,9 @@ class JwtAuthenticationFilterTest {
     private JwtProvider jwtProvider;
 
     @Mock
+    private JwtSessionValidator jwtSessionValidator;
+
+    @Mock
     private FilterChain filterChain;
 
     @InjectMocks

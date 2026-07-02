@@ -107,7 +107,7 @@ class JwtChannelInterceptorTest {
 
         assertThatThrownBy(() -> interceptor.preSend(message, channel))
                 .isInstanceOf(MessagingException.class)
-                .hasMessage("?뱀냼耳??몄쬆???ㅽ뙣?덉뒿?덈떎.");
+                .hasCauseInstanceOf(IllegalArgumentException.class);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         assertThat(accessor.getUser()).isNull();
     }

@@ -17,6 +17,7 @@ import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.exception.GlobalExceptionHandler;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
 import com.example.sb10_MoPl_team3.user.dto.response.UserSummary;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import java.time.Instant;
@@ -43,6 +44,9 @@ class DirectMessageControllerTest {
 
     @MockitoBean
     private JwtProvider jwtProvider;
+
+    @MockitoBean
+    private JwtSessionValidator jwtSessionValidator;
 
     @Test
     @DisplayName("과거 쪽지 목록 조회 요청이 유효하면 커서 응답을 반환한다")
