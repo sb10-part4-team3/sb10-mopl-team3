@@ -39,6 +39,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -251,6 +252,119 @@ class UserIntegrationTest {
                             return request;
                         })
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("인증된 사용자는 본인 비밀번호를 변경할 수 있고 새 비밀번호로 로그인할 수 있다")
+    void changePassword_success() throws Exception {
+        // given
+        String email = "password-change@test.com";
+        String currentPassword = "password1!";
+        String newPassword = "newPassword1!";
+
+        String accessToken = createUserAndSignIn(
+                email,
+                "Password User",
+                currentPassword,
+                UserRole.USER
+        );
+
+        UUID userId = jwtProvider.parseAccessToken(accessToken).userId();
+
+        // when
+        mockMvc.perform(patch("/api/users/{userId}/password", userId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                            {
+                              "password": "%s"
+                            }
+                            """.formatted(newPassword)))
+                .andExpect(status().isNoContent());
+
+        // then
+        mockMvc.perform(post("/api/auth/sign-in")
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "%s",
+                              "password": "%s"
+                            }
+                            """.formatted(email, currentPassword)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
+
+        mockMvc.perform(post("/api/auth/sign-in")
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "%s",
+                              "password": "%s"
+                            }
+                            """.formatted(email, newPassword)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("다른 사용자의 비밀번호는 변경할 수 없다")
+    void changePassword_forbidden() throws Exception {
+        // given
+        User targetUser = userRepository.save(new User(
+                "password-target@test.com",
+                "Target User",
+                passwordEncoder.encode("password1!"),
+                null,
+                UserRole.USER
+        ));
+
+        String accessToken = createUserAndSignIn(
+                "password-other@test.com",
+                "Other User",
+                "password1!",
+                UserRole.USER
+        );
+
+        // when & then
+        mockMvc.perform(patch("/api/users/{userId}/password", targetUser.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                            {
+                              "password": "newPassword1!"
+                            }
+                            """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    @DisplayName("CSRF 토큰 없이 비밀번호를 변경할 수 없다")
+    void changePassword_withoutCsrf() throws Exception {
+        // given
+        String accessToken = createUserAndSignIn(
+                "password-csrf@test.com",
+                "Password User",
+                "password1!",
+                UserRole.USER
+        );
+
+        UUID userId = jwtProvider.parseAccessToken(accessToken).userId();
+
+        // when & then
+        mockMvc.perform(patch("/api/users/{userId}/password", userId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                            {
+                              "password": "newPassword1!"
+                            }
+                            """))
                 .andExpect(status().isForbidden());
     }
 

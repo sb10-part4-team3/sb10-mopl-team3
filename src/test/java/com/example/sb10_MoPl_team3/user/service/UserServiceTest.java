@@ -25,6 +25,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionSynchronizationUtils;
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.user.dto.request.UserPasswordUpdateRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -412,5 +413,74 @@ class UserServiceTest {
 
         then(userRepository).shouldHaveNoInteractions();
         then(authSessionRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("현재 비밀번호가 일치하면 새 비밀번호로 변경한다")
+    void changePassword_success() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UserPasswordUpdateRequest request =
+                new UserPasswordUpdateRequest("newPassword1!");
+
+        User user = new User(
+                "user@test.com",
+                "User",
+                "encoded-current-password",
+                null,
+                UserRole.USER
+        );
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(passwordEncoder.encode(request.password()))
+                .willReturn("encoded-new-password");
+
+        // when
+        userService.changePassword(userId, request);
+
+        // then
+        then(userAuthorizationService).should().validateSelf(userId);
+        then(userRepository).should().findById(userId);
+        then(passwordEncoder).should()
+                .encode(request.password());
+
+        assertThat(user.getPassword()).isEqualTo("encoded-new-password");
+    }
+
+    @Test
+    @DisplayName("비밀번호 변경 대상 사용자가 존재하지 않으면 예외가 발생한다")
+    void changePassword_notFound() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UserPasswordUpdateRequest request =
+                new UserPasswordUpdateRequest("newPassword1!");
+
+        given(userRepository.findById(userId)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> userService.changePassword(userId, request))
+                .isInstanceOf(UserNotFoundException.class);
+
+        then(userAuthorizationService).should().validateSelf(userId);
+        then(passwordEncoder).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("본인이 아닌 사용자의 비밀번호를 변경하려 하면 예외가 발생하고 조회하지 않는다")
+    void changePassword_forbidden_shortCircuitsBeforeSideEffects() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UserPasswordUpdateRequest request =
+                new UserPasswordUpdateRequest("newPassword1!");
+
+        willThrow(new AccessDeniedBusinessException())
+                .given(userAuthorizationService).validateSelf(userId);
+
+        // when & then
+        assertThatThrownBy(() -> userService.changePassword(userId, request))
+                .isInstanceOf(AccessDeniedBusinessException.class);
+
+        then(userRepository).shouldHaveNoInteractions();
+        then(passwordEncoder).shouldHaveNoInteractions();
     }
 }
