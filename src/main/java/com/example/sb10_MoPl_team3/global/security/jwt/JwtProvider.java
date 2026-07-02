@@ -11,6 +11,7 @@ import javax.crypto.SecretKey;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Date;
+import java.util.Objects;
 import java.util.UUID;
 
 @Component
@@ -31,6 +32,7 @@ public class JwtProvider {
     }
 
     public String generateAccessToken(UUID userId, UserRole role, UUID sessionId) {
+        Objects.requireNonNull(sessionId, "sessionId must not be null");
         Instant issuedAt = Instant.now(clock);
         Instant expiresAt = issuedAt.plus(jwtProperties.accessTokenExpiration());
 
