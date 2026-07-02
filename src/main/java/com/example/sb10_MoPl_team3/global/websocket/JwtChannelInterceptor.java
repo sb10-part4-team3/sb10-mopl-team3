@@ -3,6 +3,7 @@ package com.example.sb10_MoPl_team3.global.websocket;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.Message;
@@ -25,6 +26,7 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtProvider jwtProvider;
+    private final JwtSessionValidator jwtSessionValidator;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -60,6 +62,7 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
     private void authenticate(StompHeaderAccessor accessor) {
         try {
             JwtClaims claims = jwtProvider.parseAccessToken(extractAccessToken(accessor));
+            jwtSessionValidator.validate(claims);
             AuthUser authUser = AuthUser.from(claims);
 
             UsernamePasswordAuthenticationToken authentication =

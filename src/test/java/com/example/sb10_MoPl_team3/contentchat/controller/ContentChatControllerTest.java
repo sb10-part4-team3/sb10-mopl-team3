@@ -45,7 +45,7 @@ class ContentChatControllerTest {
         UUID contentId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID senderId = UUID.fromString("00000000-0000-0000-0000-000000000002");
         UUID messageId = UUID.fromString("00000000-0000-0000-0000-000000000003");
-        AuthUser authUser = new AuthUser(senderId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(senderId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
         ContentChatDto message = new ContentChatDto(
@@ -100,7 +100,7 @@ class ContentChatControllerTest {
     void sendMessage_serviceFailure() {
         UUID contentId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID senderId = UUID.fromString("00000000-0000-0000-0000-000000000002");
-        AuthUser authUser = new AuthUser(senderId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(senderId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
         given(contentChatService.createMessage(contentId, senderId, "메시지"))

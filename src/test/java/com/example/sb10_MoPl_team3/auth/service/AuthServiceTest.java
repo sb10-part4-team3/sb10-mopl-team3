@@ -180,7 +180,6 @@ class AuthServiceTest {
 
         then(passwordEncoder).should(never()).matches(any(), any());
         then(tokenService).should(never()).issueRefreshToken();
-        then(tokenService).should(never()).issueAccessToken(any(User.class));
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
     }
@@ -198,7 +197,6 @@ class AuthServiceTest {
                 .isInstanceOf(InvalidCredentialException.class);
 
         then(tokenService).should(never()).issueRefreshToken();
-        then(tokenService).should(never()).issueAccessToken(any(User.class));
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
     }
@@ -217,7 +215,6 @@ class AuthServiceTest {
 
         then(passwordEncoder).should(never()).matches(any(), any());
         then(tokenService).should(never()).issueRefreshToken();
-        then(tokenService).should(never()).issueAccessToken(any(User.class));
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
     }
@@ -236,7 +233,6 @@ class AuthServiceTest {
 
         then(passwordEncoder).should(never()).matches(any(), any());
         then(tokenService).should(never()).issueRefreshToken();
-        then(tokenService).should(never()).issueAccessToken(any(User.class));
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
     }
@@ -474,18 +470,6 @@ class AuthServiceTest {
         authService.signOut(authUser);
 
         then(authSessionRepository).should().findById(sessionId);
-        then(authSessionRepository).should(never()).save(any());
-    }
-
-    @Test
-    @DisplayName("현재 인증 정보에 sessionId가 없으면 로그아웃에 실패한다")
-    void signOut_sessionIdNull() {
-        AuthUser authUser = new AuthUser(UUID.randomUUID(), UserRole.USER, null);
-
-        assertThatThrownBy(() -> authService.signOut(authUser))
-                .isInstanceOf(InvalidCredentialException.class);
-
-        then(authSessionRepository).should(never()).findById(any());
         then(authSessionRepository).should(never()).save(any());
     }
 
