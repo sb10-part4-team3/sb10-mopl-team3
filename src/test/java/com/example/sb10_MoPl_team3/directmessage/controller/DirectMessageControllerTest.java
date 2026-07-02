@@ -4,11 +4,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageDto;
+import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageReadStatusChange;
 import com.example.sb10_MoPl_team3.directmessage.dto.response.CursorResponseDirectMessageDto;
 import com.example.sb10_MoPl_team3.directmessage.service.DirectMessageService;
 import com.example.sb10_MoPl_team3.global.config.SecurityConfig;
@@ -30,6 +33,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import static org.mockito.BDDMockito.then;
 
 @WebMvcTest(DirectMessageController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class})
@@ -43,6 +48,9 @@ class DirectMessageControllerTest {
 
     @MockitoBean
     private JwtProvider jwtProvider;
+
+    @MockitoBean
+    private SimpMessagingTemplate messagingTemplate;
 
     @Test
     @DisplayName("과거 쪽지 목록 조회 요청이 유효하면 커서 응답을 반환한다")
@@ -192,6 +200,48 @@ class DirectMessageControllerTest {
                 .param("sortDirection", "DESCENDING")
                 .param("sortBy", "createdAt"))
             .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("DM 읽음 처리 후 대화방 구독 채널로 상태 변경을 전송한다")
+    void read_success() throws Exception {
+        UUID requestUserId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        UUID directMessageId = UUID.randomUUID();
+        DirectMessageReadStatusChange change = new DirectMessageReadStatusChange(
+                conversationId, directMessageId, requestUserId, true,
+                Instant.parse("2026-07-02T00:00:00Z"));
+        given(directMessageService.read(requestUserId, conversationId, directMessageId))
+                .willReturn(change);
+
+        mockMvc.perform(post(
+                        "/api/conversations/{conversationId}/direct-messages/{directMessageId}/read",
+                        conversationId, directMessageId)
+                        .with(csrf())
+                        .with(authentication(authToken(requestUserId))))
+                .andExpect(status().isOk());
+
+        then(messagingTemplate).should().convertAndSend(
+                "/sub/conversations/" + conversationId + "/direct-messages", change);
+    }
+
+    @Test
+    @DisplayName("DM 읽음 처리에 실패하면 상태 변경을 전송하지 않는다")
+    void read_failureDoesNotBroadcast() throws Exception {
+        UUID requestUserId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        UUID directMessageId = UUID.randomUUID();
+        given(directMessageService.read(requestUserId, conversationId, directMessageId))
+                .willThrow(new BusinessException(ErrorCode.ACCESS_DENIED));
+
+        mockMvc.perform(post(
+                        "/api/conversations/{conversationId}/direct-messages/{directMessageId}/read",
+                        conversationId, directMessageId)
+                        .with(csrf())
+                        .with(authentication(authToken(requestUserId))))
+                .andExpect(status().isForbidden());
+
+        then(messagingTemplate).shouldHaveNoInteractions();
     }
 
     private UsernamePasswordAuthenticationToken authToken(UUID userId) {
