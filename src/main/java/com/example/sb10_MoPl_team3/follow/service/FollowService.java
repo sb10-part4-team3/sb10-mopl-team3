@@ -7,5 +7,5 @@ public interface FollowService {
 
     FollowCreateResult create(UUID followerId, FollowRequest request);
 
-
+    void cancel(UUID followerId, UUID followId);
 }

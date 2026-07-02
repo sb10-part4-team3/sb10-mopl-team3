@@ -35,5 +35,12 @@ public class FollowController {
         return ResponseEntity.status(status).body(result.follow());
     }
 
-
+    @DeleteMapping("/{followId}")
+    public ResponseEntity<Void> cancelFollow(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable UUID followId
+    ) {
+        followService.cancel(authUser.userId(), followId);
+        return ResponseEntity.noContent().build();
+    }
 }

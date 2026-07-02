@@ -44,12 +44,24 @@ public class FollowServiceImpl implements FollowService {
                 .orElseGet(() -> createOrFindFollow(followerId, followeeId));
     }
 
+    @Override
+    public void cancel(UUID followerId, UUID followId) {
+        Follow follow = followRepository.findById(followId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.FOLLOW_NOT_FOUND));
 
+        if (!follow.getFollower().getId().equals(followerId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+
+        followRepository.delete(follow);
+    }
 
     private FollowCreateResult createOrFindFollow(UUID followerId, UUID followeeId) {
         try {
             return new FollowCreateResult(createNewFollow(followerId, followeeId), true);
         } catch (DataIntegrityViolationException exception) {
+            // A concurrent request may insert the same follow after the first lookup.
+            // Treat that unique-key race as an idempotent success by returning the row it created.
             return findFollow(followerId, followeeId)
                     .map(follow -> new FollowCreateResult(follow, false))
                     .orElseThrow(() -> new BusinessException(
@@ -65,6 +77,7 @@ public class FollowServiceImpl implements FollowService {
 
     private FollowDto createNewFollow(UUID followerId, UUID followeeId) {
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        // Isolate the insert attempt so a duplicate-key rollback does not poison the outer flow.
         transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 
         return transactionTemplate.execute(status -> {
