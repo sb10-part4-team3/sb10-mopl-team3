@@ -33,7 +33,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
 @ExtendWith(MockitoExtension.class)
-class FollowServiceImplTest {
+class FollowServiceTest {
 
     @Mock
     private FollowRepository followRepository;
