@@ -33,6 +33,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.RequestBuilder;
 
 @WebMvcTest(FollowController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class})
@@ -105,9 +106,7 @@ class FollowControllerTest {
         UUID followerId = uuid(1);
         UUID followId = uuid(10);
 
-        mockMvc.perform(delete("/api/follows/{followId}", followId)
-                        .with(authentication(authToken(followerId)))
-                        .with(csrf()))
+        mockMvc.perform(cancelFollowRequest(followerId, followId))
                 .andExpect(status().isNoContent());
 
         then(followService).should().cancel(followerId, followId);
@@ -123,9 +122,7 @@ class FollowControllerTest {
                 .when(followService)
                 .cancel(requesterId, followId);
 
-        mockMvc.perform(delete("/api/follows/{followId}", followId)
-                        .with(authentication(authToken(requesterId)))
-                        .with(csrf()))
+        mockMvc.perform(cancelFollowRequest(requesterId, followId))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
     }
@@ -140,11 +137,15 @@ class FollowControllerTest {
                 .when(followService)
                 .cancel(requesterId, followId);
 
-        mockMvc.perform(delete("/api/follows/{followId}", followId)
-                        .with(authentication(authToken(requesterId)))
-                        .with(csrf()))
+        mockMvc.perform(cancelFollowRequest(requesterId, followId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("FOLLOW_NOT_FOUND"));
+    }
+
+    private RequestBuilder cancelFollowRequest(UUID requesterId, UUID followId) {
+        return delete("/api/follows/{followId}", followId)
+                .with(authentication(authToken(requesterId)))
+                .with(csrf());
     }
 
     private UsernamePasswordAuthenticationToken authToken(UUID userId) {
