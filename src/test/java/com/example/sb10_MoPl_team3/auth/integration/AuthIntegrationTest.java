@@ -161,6 +161,51 @@ class AuthIntegrationTest {
     }
 
     @Test
+    @DisplayName("이미 로그인된 계정이 다시 로그인하면 기존 세션을 무효화하고 새 세션만 유지한다")
+    void signIn_revokesExistingSessions() throws Exception {
+        // given
+        signUp("Test User", "single-session@test.com", "password1!")
+                .andExpect(status().isCreated());
+
+        MvcResult firstSignInResult = signIn("single-session@test.com", "password1!")
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode firstJsonNode = objectMapper.readTree(firstSignInResult.getResponse().getContentAsString());
+        String firstAccessToken = firstJsonNode.get("accessToken").asText();
+        Cookie firstRefreshTokenCookie = firstSignInResult.getResponse().getCookie("REFRESH_TOKEN");
+
+        JwtClaims firstClaims = jwtProvider.parseAccessToken(firstAccessToken);
+
+        MvcResult secondSignInResult = signIn("single-session@test.com", "password1!")
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode secondJsonNode = objectMapper.readTree(secondSignInResult.getResponse().getContentAsString());
+        String secondAccessToken = secondJsonNode.get("accessToken").asText();
+
+        JwtClaims secondClaims = jwtProvider.parseAccessToken(secondAccessToken);
+
+        // then
+        AuthSession firstSession = authSessionRepository.findById(firstClaims.sessionId()).orElseThrow();
+        AuthSession secondSession = authSessionRepository.findById(secondClaims.sessionId()).orElseThrow();
+
+        assertThat(firstSession.isRevoked()).isTrue();
+        assertThat(firstSession.getRevokedAt()).isNotNull();
+
+        assertThat(secondSession.isRevoked()).isFalse();
+        assertThat(secondSession.getRevokedAt()).isNull();
+
+        assertThat(firstRefreshTokenCookie).isNotNull();
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .with(csrf())
+                        .cookie(firstRefreshTokenCookie))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
+    }
+
+    @Test
     @DisplayName("잠긴 계정은 로그인할 수 없다")
     void signIn_lockedUser() throws Exception {
         User user = new User(

@@ -27,6 +27,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -78,6 +79,7 @@ class AuthServiceTest {
         given(tokenService.issueRefreshToken()).willReturn("refresh-token");
         given(tokenService.hashRefreshToken("refresh-token")).willReturn("refresh-token-hash");
         given(tokenService.issueAccessToken(any(User.class), any(UUID.class))).willReturn("access-token");
+        given(authSessionRepository.findAllByUserId(userId)).willReturn(List.of());
 
         AuthTokenResult response = authService.signIn(request);
 
@@ -88,6 +90,7 @@ class AuthServiceTest {
 
         ArgumentCaptor<AuthSession> authSessionCaptor = ArgumentCaptor.forClass(AuthSession.class);
         then(authSessionRepository).should().save(authSessionCaptor.capture());
+        then(authSessionRepository).should().findAllByUserId(userId);
 
         AuthSession savedAuthSession = authSessionCaptor.getValue();
         assertThat(savedAuthSession.getId()).isNotNull();
@@ -102,6 +105,67 @@ class AuthServiceTest {
         then(tokenService).should().issueRefreshToken();
         then(tokenService).should().hashRefreshToken("refresh-token");
         then(tokenService).should().issueAccessToken(user, savedAuthSession.getId());
+    }
+
+    @Test
+    @DisplayName("이미 로그인된 계정이 다시 로그인하면 기존 세션을 모두 무효화하고 새 세션을 생성한다")
+    void signIn_revokesExistingSessions() {
+        // given
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-26T00:00:00Z");
+        Duration refreshTokenExpiration = Duration.ofDays(7);
+        SignInRequest request = new SignInRequest("user@test.com", "password1!");
+
+        User user = new User("user@test.com", "User", "encoded-password", null, UserRole.USER);
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        AuthSession existingSession1 = AuthSession.create(
+                userId,
+                "old-refresh-token-hash-1",
+                now.plus(refreshTokenExpiration),
+                now.minus(Duration.ofHours(1))
+        );
+        AuthSession existingSession2 = AuthSession.create(
+                userId,
+                "old-refresh-token-hash-2",
+                now.plus(refreshTokenExpiration),
+                now.minus(Duration.ofMinutes(30))
+        );
+
+        given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
+        given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(true);
+        given(clock.instant()).willReturn(now);
+        given(jwtProperties.refreshTokenExpiration()).willReturn(refreshTokenExpiration);
+        given(authSessionRepository.findAllByUserId(userId))
+                .willReturn(List.of(existingSession1, existingSession2));
+        given(tokenService.issueRefreshToken()).willReturn("new-refresh-token");
+        given(tokenService.hashRefreshToken("new-refresh-token")).willReturn("new-refresh-token-hash");
+        given(tokenService.issueAccessToken(any(User.class), any(UUID.class))).willReturn("new-access-token");
+
+        // when
+        AuthTokenResult response = authService.signIn(request);
+
+        // then
+        assertThat(response.jwtDto().accessToken()).isEqualTo("new-access-token");
+        assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
+
+        assertThat(existingSession1.isRevoked()).isTrue();
+        assertThat(existingSession1.getRevokedAt()).isEqualTo(now);
+        assertThat(existingSession2.isRevoked()).isTrue();
+        assertThat(existingSession2.getRevokedAt()).isEqualTo(now);
+
+        then(authSessionRepository).should().findAllByUserId(userId);
+        then(authSessionRepository).should().saveAll(any());
+
+        ArgumentCaptor<AuthSession> authSessionCaptor = ArgumentCaptor.forClass(AuthSession.class);
+        then(authSessionRepository).should().save(authSessionCaptor.capture());
+
+        AuthSession newSession = authSessionCaptor.getValue();
+        assertThat(newSession.getUserId()).isEqualTo(userId);
+        assertThat(newSession.getRefreshTokenHash()).isEqualTo("new-refresh-token-hash");
+        assertThat(newSession.isRevoked()).isFalse();
+
+        then(tokenService).should().issueAccessToken(user, newSession.getId());
     }
 
     @Test

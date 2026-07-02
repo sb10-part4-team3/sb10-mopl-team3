@@ -18,8 +18,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +50,8 @@ public class AuthService {
             throw new InvalidCredentialException();
 
         Instant now = Instant.now(clock);
+        revokeExistingSessions(user.getId(), now);
+
         String refreshToken = tokenService.issueRefreshToken();
         String refreshTokenHash = tokenService.hashRefreshToken(refreshToken);
 
@@ -123,5 +129,19 @@ public class AuthService {
 
         authSession.revoke(Instant.now(clock));
         authSessionRepository.save(authSession);
+    }
+
+    private void revokeExistingSessions(UUID userId, Instant now) {
+        Iterable<AuthSession> sessions = authSessionRepository.findAllByUserId(userId);
+        List<AuthSession> revokedSessions = new ArrayList<>();
+
+        for (AuthSession session : sessions) {
+            session.revoke(now);
+            revokedSessions.add(session);
+        }
+
+        if (!revokedSessions.isEmpty()) {
+            authSessionRepository.saveAll(revokedSessions);
+        }
     }
 }
