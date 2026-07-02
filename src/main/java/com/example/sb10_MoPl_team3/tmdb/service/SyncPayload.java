@@ -10,7 +10,6 @@ record SyncPayload(
     String title,
     String overview,
     String posterPath,
-    List<Integer> genreIds,
-    Function<Integer, String> genreResolver,
+    List<String> genreNames,
     Supplier<Content> newContentSupplier
 ) {}

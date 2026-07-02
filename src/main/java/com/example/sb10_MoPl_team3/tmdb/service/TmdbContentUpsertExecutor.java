@@ -4,7 +4,6 @@ import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.content.service.ContentTagService;
 import com.example.sb10_MoPl_team3.tmdb.TmdbConstants;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -38,10 +37,6 @@ public class TmdbContentUpsertExecutor {
         })
         .orElseGet(() -> contentRepository.save(payload.newContentSupplier().get()));
 
-    List<String> tagNames = payload.genreIds().stream()
-        .map(payload.genreResolver())
-        .toList();
-
-    contentTagService.syncTags(content, tagNames);
+    contentTagService.syncTags(content, payload.genreNames());
   }
 }

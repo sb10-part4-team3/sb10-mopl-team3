@@ -17,24 +17,24 @@ public class TmdbGenreCache {
   private volatile Map<Integer, String> movieGenres;
   private volatile Map<Integer, String> tvGenres;
 
-  public String getMovieGenreName(int genreId) {
-    return getMovieGenres().getOrDefault(genreId, "기타");
-  }
-
-  public String getTvGenreName(int genreId) {
-    return getTvGenres().getOrDefault(genreId, "기타");
-  }
-
-  private synchronized Map<Integer, String> getMovieGenres() {
+  public Map<Integer, String> getMovieGenres() {
     if (movieGenres == null) {
-      movieGenres = toMap(tmdbApiClient.getMovieGenres());
+      synchronized (this) {
+        if (movieGenres == null) {
+          movieGenres = toMap(tmdbApiClient.getMovieGenres());
+        }
+      }
     }
     return movieGenres;
   }
 
-  private synchronized Map<Integer, String> getTvGenres() {
+  public Map<Integer, String> getTvGenres() {
     if (tvGenres == null) {
-      tvGenres = toMap(tmdbApiClient.getTvGenres());
+      synchronized (this) {
+        if (tvGenres == null) {
+          tvGenres = toMap(tmdbApiClient.getTvGenres());
+        }
+      }
     }
     return tvGenres;
   }
