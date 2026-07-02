@@ -6,6 +6,7 @@ import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRed
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -18,6 +19,7 @@ public class UserSummaryCacheEventListener {
     private final WatchingSessionRepository watchingSessionRepository;
     private final WatchingSessionRedisRepository redisRepository;
 
+    @Async("watcherCacheExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void update(UserProfileUpdatedEvent event) {
         try {
@@ -28,6 +30,7 @@ public class UserSummaryCacheEventListener {
         }
     }
 
+    @Async("watcherCacheExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void remove(UserWithdrawnEvent event) {
         try {
