@@ -63,13 +63,16 @@ public class JwtProvider {
             throw new IllegalArgumentException("Token type must be ACCESS");
         }
 
-        String sessionId = claims.get(CLAIM_SESSION_ID, String.class);
+        String sessionId = Objects.requireNonNull(
+                claims.get(CLAIM_SESSION_ID, String.class),
+                "sessionId must not be null"
+        );
 
         return new JwtClaims(
                 UUID.fromString(claims.getSubject()),
                 UserRole.valueOf(claims.get(CLAIM_ROLE, String.class)),
                 type,
-                sessionId == null ? null : UUID.fromString(sessionId),
+                UUID.fromString(sessionId),
                 claims.getIssuedAt().toInstant(),
                 claims.getExpiration().toInstant()
         );

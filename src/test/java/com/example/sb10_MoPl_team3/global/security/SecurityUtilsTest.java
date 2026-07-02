@@ -38,7 +38,7 @@ class SecurityUtilsTest {
     @DisplayName("현재 인증 사용자의 userId를 반환한다")
     void getCurrentUserId() {
         UUID userId = UUID.randomUUID();
-        AuthUser authUser = new AuthUser(userId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(userId, UserRole.USER, UUID.randomUUID());
 
         setAuthentication(authUser);
 
@@ -50,7 +50,7 @@ class SecurityUtilsTest {
     @Test
     @DisplayName("현재 인증 사용자의 role을 반환한다")
     void getCurrentUserRole() {
-        AuthUser authUser = new AuthUser(UUID.randomUUID(), UserRole.ADMIN, null);
+        AuthUser authUser = new AuthUser(UUID.randomUUID(), UserRole.ADMIN, UUID.randomUUID());
 
         setAuthentication(authUser);
 
@@ -63,7 +63,7 @@ class SecurityUtilsTest {
     @DisplayName("전달한 userId가 현재 인증 사용자와 같으면 true를 반환한다")
     void isCurrentUser_true() {
         UUID userId = UUID.randomUUID();
-        AuthUser authUser = new AuthUser(userId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(userId, UserRole.USER, UUID.randomUUID());
 
         setAuthentication(authUser);
 
@@ -75,7 +75,7 @@ class SecurityUtilsTest {
     @Test
     @DisplayName("전달한 userId가 현재 인증 사용자와 다르면 false를 반환한다")
     void isCurrentUser_false() {
-        AuthUser authUser = new AuthUser(UUID.randomUUID(), UserRole.USER, null);
+        AuthUser authUser = new AuthUser(UUID.randomUUID(), UserRole.USER, UUID.randomUUID());
 
         setAuthentication(authUser);
 

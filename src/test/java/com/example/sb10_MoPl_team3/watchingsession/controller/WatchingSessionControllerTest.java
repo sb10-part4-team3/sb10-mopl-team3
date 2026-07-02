@@ -210,7 +210,7 @@ class WatchingSessionControllerTest {
     }
 
     private UsernamePasswordAuthenticationToken authToken(UUID userId) {
-        AuthUser authUser = new AuthUser(userId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(userId, UserRole.USER, UUID.randomUUID());
         return new UsernamePasswordAuthenticationToken(
                 authUser,
                 null,

@@ -41,7 +41,7 @@ class DirectMessageWebSocketControllerTest {
         UUID conversationId = UUID.randomUUID();
         UUID senderId = UUID.randomUUID();
         UUID receiverId = UUID.randomUUID();
-        AuthUser authUser = new AuthUser(senderId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(senderId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
         CompletableFuture<DirectMessageDto> pending = new CompletableFuture<>();
@@ -94,7 +94,7 @@ class DirectMessageWebSocketControllerTest {
     void send_doesNotBroadcastAsyncFailure() {
         UUID conversationId = UUID.randomUUID();
         UUID senderId = UUID.randomUUID();
-        AuthUser authUser = new AuthUser(senderId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(senderId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
         given(asyncService.saveAsync(conversationId, senderId, "메시지"))
@@ -115,7 +115,7 @@ class DirectMessageWebSocketControllerTest {
     void send_rejectsWhenAsyncExecutorIsSaturated() {
         UUID conversationId = UUID.randomUUID();
         UUID senderId = UUID.randomUUID();
-        AuthUser authUser = new AuthUser(senderId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(senderId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
         given(asyncService.saveAsync(conversationId, senderId, "메시지"))

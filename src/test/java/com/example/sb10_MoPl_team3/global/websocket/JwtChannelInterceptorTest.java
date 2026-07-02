@@ -2,11 +2,15 @@ package com.example.sb10_MoPl_team3.global.websocket;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import java.time.Clock;
 import java.time.Duration;
@@ -37,7 +41,8 @@ class JwtChannelInterceptorTest {
             new JwtProperties(TEST_JWT_SECRET, Duration.ofHours(1), Duration.ofDays(7), "mopl-test"),
             Clock.fixed(Instant.parse("2026-06-24T00:00:00Z"), ZoneOffset.UTC)
     );
-    private final JwtChannelInterceptor interceptor = new JwtChannelInterceptor(jwtProvider);
+    private final JwtSessionValidator jwtSessionValidator = mock(JwtSessionValidator.class);
+    private final JwtChannelInterceptor interceptor = new JwtChannelInterceptor(jwtProvider, jwtSessionValidator);
     private final MessageChannel channel = mock(MessageChannel.class);
 
     @AfterEach
@@ -49,7 +54,8 @@ class JwtChannelInterceptorTest {
     @DisplayName("CONNECT 요청의 JWT가 유효하면 STOMP user에 인증 정보를 바인딩하고 전송 완료 후 SecurityContext를 비운다")
     void preSend_connectWithValidAccessToken() {
         UUID userId = UUID.randomUUID();
-        String token = jwtProvider.generateAccessToken(userId, UserRole.USER, UUID.randomUUID());
+        UUID sessionId = UUID.randomUUID();
+        String token = jwtProvider.generateAccessToken(userId, UserRole.USER, sessionId);
         StompHeaderAccessor accessor = connectAccessor("Bearer " + token);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
@@ -62,10 +68,12 @@ class JwtChannelInterceptorTest {
         AuthUser authUser = (AuthUser) authentication.getPrincipal();
         assertThat(authUser.userId()).isEqualTo(userId);
         assertThat(authUser.role()).isEqualTo(UserRole.USER);
+        assertThat(authUser.sessionId()).isEqualTo(sessionId);
         assertThat(authentication.getAuthorities())
                 .extracting("authority")
                 .containsExactly("ROLE_USER");
         assertThat(accessor.getUser()).isEqualTo(authentication);
+        verify(jwtSessionValidator).validate(any());
 
         interceptor.afterSendCompletion(message, channel, true, null);
 
@@ -82,6 +90,24 @@ class JwtChannelInterceptorTest {
         assertThatThrownBy(() -> interceptor.preSend(message, channel))
                 .isInstanceOf(MessagingException.class)
                 .hasMessage("웹소켓 인증에 실패했습니다.");
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        assertThat(accessor.getUser()).isNull();
+    }
+
+    @Test
+    @DisplayName("CONNECT 요청의 세션 검증이 실패하면 인증 정보를 비우고 연결을 거절한다")
+    void preSend_connectWithInvalidSession() {
+        UUID userId = UUID.randomUUID();
+        String token = jwtProvider.generateAccessToken(userId, UserRole.USER, UUID.randomUUID());
+        StompHeaderAccessor accessor = connectAccessor("Bearer " + token);
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        doThrow(new IllegalArgumentException("Auth session is revoked"))
+                .when(jwtSessionValidator)
+                .validate(any());
+
+        assertThatThrownBy(() -> interceptor.preSend(message, channel))
+                .isInstanceOf(MessagingException.class)
+                .hasMessage("?뱀냼耳??몄쬆???ㅽ뙣?덉뒿?덈떎.");
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         assertThat(accessor.getUser()).isNull();
     }

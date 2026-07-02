@@ -21,10 +21,6 @@ public class JwtSessionValidator {
         Objects.requireNonNull(claims, "claims must not be null");
 
         UUID sessionId = claims.sessionId();
-        if (sessionId == null) {
-            throw new IllegalArgumentException("sessionId must not be null");
-        }
-
         AuthSession session = authSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Auth session not found"));
 

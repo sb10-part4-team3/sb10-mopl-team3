@@ -474,18 +474,6 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("현재 인증 정보에 sessionId가 없으면 로그아웃에 실패한다")
-    void signOut_sessionIdNull() {
-        AuthUser authUser = new AuthUser(UUID.randomUUID(), UserRole.USER, null);
-
-        assertThatThrownBy(() -> authService.signOut(authUser))
-                .isInstanceOf(InvalidCredentialException.class);
-
-        then(authSessionRepository).should(never()).findById(any());
-        then(authSessionRepository).should(never()).save(any());
-    }
-
-    @Test
     @DisplayName("현재 인증 사용자와 세션의 사용자가 다르면 로그아웃에 실패한다")
     void signOut_userMismatch() {
         UUID sessionId = UUID.randomUUID();
