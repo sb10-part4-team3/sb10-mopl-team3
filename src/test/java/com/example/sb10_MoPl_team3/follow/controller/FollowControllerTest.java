@@ -3,8 +3,11 @@ package com.example.sb10_MoPl_team3.follow.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -14,6 +17,8 @@ import com.example.sb10_MoPl_team3.follow.dto.FollowRequest;
 import com.example.sb10_MoPl_team3.follow.service.FollowCreateResult;
 import com.example.sb10_MoPl_team3.follow.service.FollowService;
 import com.example.sb10_MoPl_team3.global.config.SecurityConfig;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.exception.GlobalExceptionHandler;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
@@ -92,6 +97,54 @@ class FollowControllerTest {
                 .andExpect(jsonPath("$.id").value(followId.toString()))
                 .andExpect(jsonPath("$.followeeId").value(followeeId.toString()))
                 .andExpect(jsonPath("$.followerId").value(followerId.toString()));
+    }
+
+    @Test
+    @DisplayName("cancelFollow returns 204 when the requester owns the follow")
+    void cancelFollow_success() throws Exception {
+        UUID followerId = uuid(1);
+        UUID followId = uuid(10);
+
+        mockMvc.perform(delete("/api/follows/{followId}", followId)
+                        .with(authentication(authToken(followerId)))
+                        .with(csrf()))
+                .andExpect(status().isNoContent());
+
+        then(followService).should().cancel(followerId, followId);
+    }
+
+    @Test
+    @DisplayName("cancelFollow returns 403 when the requester does not own the follow")
+    void cancelFollow_accessDenied() throws Exception {
+        UUID requesterId = uuid(1);
+        UUID followId = uuid(10);
+
+        doThrow(new BusinessException(ErrorCode.ACCESS_DENIED))
+                .when(followService)
+                .cancel(requesterId, followId);
+
+        mockMvc.perform(delete("/api/follows/{followId}", followId)
+                        .with(authentication(authToken(requesterId)))
+                        .with(csrf()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    @DisplayName("cancelFollow returns 404 when the follow does not exist")
+    void cancelFollow_notFound() throws Exception {
+        UUID requesterId = uuid(1);
+        UUID followId = uuid(10);
+
+        doThrow(new BusinessException(ErrorCode.FOLLOW_NOT_FOUND))
+                .when(followService)
+                .cancel(requesterId, followId);
+
+        mockMvc.perform(delete("/api/follows/{followId}", followId)
+                        .with(authentication(authToken(requesterId)))
+                        .with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("FOLLOW_NOT_FOUND"));
     }
 
     private UsernamePasswordAuthenticationToken authToken(UUID userId) {
