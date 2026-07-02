@@ -107,7 +107,7 @@ class DirectMessageWebSocketControllerTest {
     }
 
     @Test
-    @DisplayName("DM 비동기 executor가 포화되면 SERVICE_UNAVAILABLE 예외를 반환한다")
+    @DisplayName("DM 비동기 executor가 포화되면 서버 오류를 반환한다")
     void send_rejectsWhenAsyncExecutorIsSaturated() {
         UUID conversationId = UUID.randomUUID();
         UUID senderId = UUID.randomUUID();
@@ -121,7 +121,7 @@ class DirectMessageWebSocketControllerTest {
                 conversationId, new DirectMessageSendRequest("메시지"), authentication))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
-                .isEqualTo(ErrorCode.SERVICE_UNAVAILABLE);
+                .isEqualTo(ErrorCode.INTERNAL_SERVER_ERROR);
         then(messagingTemplate).shouldHaveNoInteractions();
     }
 }
