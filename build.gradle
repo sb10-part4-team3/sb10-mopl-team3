@@ -65,7 +65,11 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform {
+		if (!project.hasProperty('includeExternal')) {
+			excludeTags 'external'
+		}
+	}
 	finalizedBy tasks.named('jacocoTestReport')
 }
 
@@ -82,3 +86,4 @@ tasks.named('jacocoTestReport', JacocoReport) {
 		csv.required = false
 	}
 }
+
