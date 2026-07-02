@@ -142,6 +142,27 @@ class FollowControllerTest {
                 .andExpect(jsonPath("$.code").value("FOLLOW_NOT_FOUND"));
     }
 
+    @Test
+    @DisplayName("cancelFollow returns 401 when the requester is unauthenticated")
+    void cancelFollow_unauthenticated() throws Exception {
+        UUID followId = uuid(10);
+
+        mockMvc.perform(delete("/api/follows/{followId}", followId)
+                        .with(csrf()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("cancelFollow returns 403 when csrf token is missing")
+    void cancelFollow_missingCsrf() throws Exception {
+        UUID requesterId = uuid(1);
+        UUID followId = uuid(10);
+
+        mockMvc.perform(delete("/api/follows/{followId}", followId)
+                        .with(authentication(authToken(requesterId))))
+                .andExpect(status().isForbidden());
+    }
+
     private RequestBuilder cancelFollowRequest(UUID requesterId, UUID followId) {
         return delete("/api/follows/{followId}", followId)
                 .with(authentication(authToken(requesterId)))
