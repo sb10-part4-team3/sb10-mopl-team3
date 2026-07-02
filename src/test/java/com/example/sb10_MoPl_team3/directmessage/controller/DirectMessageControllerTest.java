@@ -3,8 +3,12 @@ package com.example.sb10_MoPl_team3.directmessage.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -192,6 +196,42 @@ class DirectMessageControllerTest {
                 .param("sortDirection", "DESCENDING")
                 .param("sortBy", "createdAt"))
             .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("DM 읽음 처리 요청이 유효하면 200을 반환한다")
+    void read_success() throws Exception {
+        UUID requestUserId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        UUID directMessageId = UUID.randomUUID();
+
+        mockMvc.perform(post(
+                        "/api/conversations/{conversationId}/direct-messages/{directMessageId}/read",
+                        conversationId, directMessageId)
+                        .with(csrf())
+                        .with(authentication(authToken(requestUserId))))
+                .andExpect(status().isOk());
+
+        then(directMessageService).should()
+                .read(requestUserId, conversationId, directMessageId);
+    }
+
+    @Test
+    @DisplayName("DM 읽음 처리 권한이 없으면 403을 반환한다")
+    void read_forbidden() throws Exception {
+        UUID requestUserId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        UUID directMessageId = UUID.randomUUID();
+        willThrow(new BusinessException(ErrorCode.ACCESS_DENIED))
+                .given(directMessageService)
+                .read(requestUserId, conversationId, directMessageId);
+
+        mockMvc.perform(post(
+                        "/api/conversations/{conversationId}/direct-messages/{directMessageId}/read",
+                        conversationId, directMessageId)
+                        .with(csrf())
+                        .with(authentication(authToken(requestUserId))))
+                .andExpect(status().isForbidden());
     }
 
     private UsernamePasswordAuthenticationToken authToken(UUID userId) {

@@ -26,6 +26,28 @@ public class DirectMessageService {
     private final DirectMessageRepository directMessageRepository;
     private final ConversationRepository conversationRepository;
 
+    @Transactional
+    public void read(
+            UUID requestUserId,
+            UUID conversationId,
+            UUID directMessageId
+    ) {
+        Conversation conversation = conversationRepository.findWithUsersById(conversationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND));
+        if (!isParticipant(conversation, requestUserId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+
+        DirectMessage directMessage = directMessageRepository
+                .findByIdAndConversationId(directMessageId, conversationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DIRECT_MESSAGE_NOT_FOUND));
+        if (!directMessage.getReceiver().getId().equals(requestUserId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+
+        directMessage.markAsRead(Instant.now());
+    }
+
     @Transactional(readOnly = true)
     public CursorResponseDirectMessageDto<DirectMessageDto> findAll(
         UUID requestUserId,

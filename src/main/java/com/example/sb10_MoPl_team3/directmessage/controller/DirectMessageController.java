@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +21,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class DirectMessageController {
 
     private final DirectMessageService directMessageService;
+
+    @PostMapping("/{directMessageId}/read")
+    public ResponseEntity<Void> read(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable UUID conversationId,
+            @PathVariable UUID directMessageId
+    ) {
+        directMessageService.read(authUser.userId(), conversationId, directMessageId);
+        return ResponseEntity.ok().build();
+    }
 
     @GetMapping
     public ResponseEntity<CursorResponseDirectMessageDto<DirectMessageDto>> findDirectMessages(
