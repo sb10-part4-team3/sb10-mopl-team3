@@ -67,9 +67,9 @@ class WatchingSessionPersistenceServiceTest {
         given(userRepository.findById(watcherId)).willReturn(Optional.of(watcher));
         given(contentRepository.findById(nextId)).willReturn(Optional.of(content(nextId)));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(previous));
-        given(contentStatsRepository.decrementViewerCount(previousId, any(Instant.class)))
+        given(contentStatsRepository.decrementViewerCount(eq(previousId), any(Instant.class)))
                 .willReturn(1);
-        given(contentStatsRepository.incrementViewerCount(nextId, any(Instant.class)))
+        given(contentStatsRepository.incrementViewerCount(eq(nextId), any(Instant.class)))
                 .willReturn(1);
 
         assertThat(persistenceService.join(nextId, watcherId).previousContentId())
@@ -78,9 +78,9 @@ class WatchingSessionPersistenceServiceTest {
         then(watchingSessionRepository).should().flush();
         then(watchingSessionRepository).should().save(any(WatchingSession.class));
         then(contentStatsRepository).should()
-                .decrementViewerCount(previousId, any(Instant.class));
+                .decrementViewerCount(eq(previousId), any(Instant.class));
         then(contentStatsRepository).should()
-                .incrementViewerCount(nextId, any(Instant.class));
+                .incrementViewerCount(eq(nextId), any(Instant.class));
     }
 
     @Test
@@ -127,14 +127,14 @@ class WatchingSessionPersistenceServiceTest {
         UUID watcherId = UUID.randomUUID();
         WatchingSession session = new WatchingSession(user(watcherId), content(contentId));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(session));
-        given(contentStatsRepository.decrementViewerCount(contentId, any(Instant.class)))
+        given(contentStatsRepository.decrementViewerCount(eq(contentId), any(Instant.class)))
                 .willReturn(1);
 
         persistenceService.leave(contentId, watcherId);
 
         then(watchingSessionRepository).should().delete(session);
         then(contentStatsRepository).should()
-                .decrementViewerCount(contentId, any(Instant.class));
+                .decrementViewerCount(eq(contentId), any(Instant.class));
     }
 
     @Test
@@ -172,7 +172,7 @@ class WatchingSessionPersistenceServiceTest {
         given(userRepository.findById(watcherId)).willReturn(Optional.of(user(watcherId)));
         given(contentRepository.findById(contentId)).willReturn(Optional.of(content(contentId)));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.empty());
-        given(contentStatsRepository.incrementViewerCount(contentId, any(Instant.class)))
+        given(contentStatsRepository.incrementViewerCount(eq(contentId), any(Instant.class)))
                 .willReturn(0);
 
         assertThatThrownBy(() -> persistenceService.join(contentId, watcherId))
@@ -186,7 +186,7 @@ class WatchingSessionPersistenceServiceTest {
         UUID watcherId = UUID.randomUUID();
         WatchingSession session = new WatchingSession(user(watcherId), content(contentId));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(session));
-        given(contentStatsRepository.decrementViewerCount(contentId, any(Instant.class)))
+        given(contentStatsRepository.decrementViewerCount(eq(contentId), any(Instant.class)))
                 .willReturn(0);
         given(contentStatsRepository.existsById(contentId)).willReturn(false);
 
@@ -201,7 +201,7 @@ class WatchingSessionPersistenceServiceTest {
         UUID watcherId = UUID.randomUUID();
         WatchingSession session = new WatchingSession(user(watcherId), content(contentId));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(session));
-        given(contentStatsRepository.decrementViewerCount(contentId, any(Instant.class)))
+        given(contentStatsRepository.decrementViewerCount(eq(contentId), any(Instant.class)))
                 .willReturn(0);
         given(contentStatsRepository.existsById(contentId)).willReturn(true);
 
