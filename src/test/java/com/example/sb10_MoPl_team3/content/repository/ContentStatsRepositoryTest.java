@@ -6,7 +6,9 @@ import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.entity.ContentStats;
 import com.example.sb10_MoPl_team3.global.config.JpaAuditingConfig;
+import com.example.sb10_MoPl_team3.global.config.QuerydslConfig;
 import jakarta.persistence.EntityManager;
+import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +16,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import(JpaAuditingConfig.class)
+@Import({JpaAuditingConfig.class, QuerydslConfig.class})
 class ContentStatsRepositoryTest {
 
     @Autowired
@@ -40,9 +42,12 @@ class ContentStatsRepositoryTest {
         contentStatsRepository.saveAndFlush(ContentStats.builder().content(content).build());
         entityManager.clear();
 
-        assertThat(contentStatsRepository.incrementViewerCount(content.getId())).isEqualTo(1);
-        assertThat(contentStatsRepository.decrementViewerCount(content.getId())).isEqualTo(1);
-        assertThat(contentStatsRepository.decrementViewerCount(content.getId())).isZero();
+        assertThat(contentStatsRepository.incrementViewerCount(content.getId(), Instant.now()))
+                .isEqualTo(1);
+        assertThat(contentStatsRepository.decrementViewerCount(content.getId(), Instant.now()))
+                .isEqualTo(1);
+        assertThat(contentStatsRepository.decrementViewerCount(content.getId(), Instant.now()))
+                .isZero();
         entityManager.clear();
 
         ContentStats stats = contentStatsRepository.findById(content.getId()).orElseThrow();

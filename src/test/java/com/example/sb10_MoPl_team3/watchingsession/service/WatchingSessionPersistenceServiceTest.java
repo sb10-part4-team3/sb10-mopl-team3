@@ -20,10 +20,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -44,13 +46,15 @@ class WatchingSessionPersistenceServiceTest {
         given(userRepository.findById(watcherId)).willReturn(Optional.of(user(watcherId)));
         given(contentRepository.findById(contentId)).willReturn(Optional.of(content(contentId)));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.empty());
-        given(contentStatsRepository.incrementViewerCount(contentId)).willReturn(1);
+        given(contentStatsRepository.incrementViewerCount(eq(contentId), any(Instant.class)))
+                .willReturn(1);
 
         var result = persistenceService.join(contentId, watcherId);
         assertThat(result.previousContentId()).isEmpty();
         assertThat(result.watcher().userId()).isEqualTo(watcherId);
         then(watchingSessionRepository).should().save(any(WatchingSession.class));
-        then(contentStatsRepository).should().incrementViewerCount(contentId);
+        then(contentStatsRepository).should()
+                .incrementViewerCount(eq(contentId), any(Instant.class));
     }
 
     @Test
@@ -63,15 +67,20 @@ class WatchingSessionPersistenceServiceTest {
         given(userRepository.findById(watcherId)).willReturn(Optional.of(watcher));
         given(contentRepository.findById(nextId)).willReturn(Optional.of(content(nextId)));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(previous));
-        given(contentStatsRepository.incrementViewerCount(nextId)).willReturn(1);
+        given(contentStatsRepository.decrementViewerCount(previousId, any(Instant.class)))
+                .willReturn(1);
+        given(contentStatsRepository.incrementViewerCount(nextId, any(Instant.class)))
+                .willReturn(1);
 
         assertThat(persistenceService.join(nextId, watcherId).previousContentId())
                 .contains(previousId);
         then(watchingSessionRepository).should().delete(previous);
         then(watchingSessionRepository).should().flush();
         then(watchingSessionRepository).should().save(any(WatchingSession.class));
-        then(contentStatsRepository).should().decrementViewerCount(previousId);
-        then(contentStatsRepository).should().incrementViewerCount(nextId);
+        then(contentStatsRepository).should()
+                .decrementViewerCount(previousId, any(Instant.class));
+        then(contentStatsRepository).should()
+                .incrementViewerCount(nextId, any(Instant.class));
     }
 
     @Test
@@ -118,11 +127,14 @@ class WatchingSessionPersistenceServiceTest {
         UUID watcherId = UUID.randomUUID();
         WatchingSession session = new WatchingSession(user(watcherId), content(contentId));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(session));
+        given(contentStatsRepository.decrementViewerCount(contentId, any(Instant.class)))
+                .willReturn(1);
 
         persistenceService.leave(contentId, watcherId);
 
         then(watchingSessionRepository).should().delete(session);
-        then(contentStatsRepository).should().decrementViewerCount(contentId);
+        then(contentStatsRepository).should()
+                .decrementViewerCount(contentId, any(Instant.class));
     }
 
     @Test
@@ -160,11 +172,43 @@ class WatchingSessionPersistenceServiceTest {
         given(userRepository.findById(watcherId)).willReturn(Optional.of(user(watcherId)));
         given(contentRepository.findById(contentId)).willReturn(Optional.of(content(contentId)));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.empty());
-        given(contentStatsRepository.incrementViewerCount(contentId)).willReturn(0);
+        given(contentStatsRepository.incrementViewerCount(contentId, any(Instant.class)))
+                .willReturn(0);
 
         assertThatThrownBy(() -> persistenceService.join(contentId, watcherId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(contentId.toString());
+    }
+
+    @Test
+    void leave_missingContentStatsRollsBackWithException() {
+        UUID contentId = UUID.randomUUID();
+        UUID watcherId = UUID.randomUUID();
+        WatchingSession session = new WatchingSession(user(watcherId), content(contentId));
+        given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(session));
+        given(contentStatsRepository.decrementViewerCount(contentId, any(Instant.class)))
+                .willReturn(0);
+        given(contentStatsRepository.existsById(contentId)).willReturn(false);
+
+        assertThatThrownBy(() -> persistenceService.leave(contentId, watcherId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(contentId.toString());
+    }
+
+    @Test
+    void leave_zeroViewerCountKeepsSessionExitAndLogsInconsistency() {
+        UUID contentId = UUID.randomUUID();
+        UUID watcherId = UUID.randomUUID();
+        WatchingSession session = new WatchingSession(user(watcherId), content(contentId));
+        given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(session));
+        given(contentStatsRepository.decrementViewerCount(contentId, any(Instant.class)))
+                .willReturn(0);
+        given(contentStatsRepository.existsById(contentId)).willReturn(true);
+
+        persistenceService.leave(contentId, watcherId);
+
+        then(watchingSessionRepository).should().delete(session);
+        then(contentStatsRepository).should().existsById(contentId);
     }
 
     private User user(UUID id) {
