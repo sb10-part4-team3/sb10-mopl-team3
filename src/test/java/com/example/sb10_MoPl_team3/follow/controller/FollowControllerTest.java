@@ -8,7 +8,9 @@ import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -117,6 +119,23 @@ class FollowControllerTest {
     }
 
     @Test
+    @DisplayName("getFollowerCount returns the follower count for the requested user")
+    void getFollowerCount_success() throws Exception {
+        UUID requesterId = uuid(1);
+        UUID followeeId = uuid(2);
+
+        given(followService.getFollowerCount(followeeId)).willReturn(7L);
+
+        mockMvc.perform(get("/api/follows/count")
+                        .queryParam("followeeId", followeeId.toString())
+                        .with(authentication(authToken(requesterId))))
+                .andExpect(status().isOk())
+                .andExpect(content().string("7"));
+
+        then(followService).should().getFollowerCount(followeeId);
+    }
+
+    @Test
     @DisplayName("cancelFollow returns 403 when the requester does not own the follow")
     void cancelFollow_accessDenied() throws Exception {
         UUID requesterId = uuid(1);
@@ -165,6 +184,16 @@ class FollowControllerTest {
         mockMvc.perform(delete("/api/follows/{followId}", followId)
                         .with(authentication(authToken(requesterId))))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("getFollowerCount returns 401 when the requester is unauthenticated")
+    void getFollowerCount_unauthenticated() throws Exception {
+        UUID followeeId = uuid(2);
+        mockMvc.perform(get("/api/follows/count")
+                .queryParam("followeeId", followeeId.toString()))
+                .andExpect(status().isUnauthorized());
+
     }
 
     private RequestBuilder cancelFollowRequest(UUID requesterId, UUID followId) {

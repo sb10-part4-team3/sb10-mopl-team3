@@ -249,6 +249,19 @@ class FollowServiceImplTest {
         then(followRepository).should(never()).delete(any());
     }
 
+    @Test
+    @DisplayName("getFollowerCount returns the number of users following the requested user")
+    void getFollowerCount_success() {
+        UUID followeeId = uuid(2);
+
+        given(followRepository.countByFollowee_Id(followeeId)).willReturn(3L);
+
+        long count = followService.getFollowerCount(followeeId);
+
+        assertThat(count).isEqualTo(3L);
+        then(followRepository).should().countByFollowee_Id(followeeId);
+    }
+
     private Follow follow(UUID id, User follower, User followee) {
         Follow follow = Follow.builder()
                 .follower(follower)
