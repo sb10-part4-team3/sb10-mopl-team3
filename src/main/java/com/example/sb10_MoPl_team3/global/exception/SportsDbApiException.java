@@ -4,4 +4,8 @@ public class SportsDbApiException extends RuntimeException {
   public SportsDbApiException(String message) {
     super(message);
   }
+
+  public SportsDbApiException(String message, Throwable cause) {
+    super(message, cause);
+  }
 }

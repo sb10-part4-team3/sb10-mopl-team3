@@ -1,7 +1,6 @@
 package com.example.sb10_MoPl_team3.sportsdb.config;
 
 import java.time.Duration;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
 import org.springframework.context.annotation.Bean;
@@ -14,11 +13,11 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class SportsDbClientConfig {
 
-  @Value("${sportsdb.base-url}")
-  private String baseUrl;
+  private final SportsDbProperties sportsDbProperties;
 
-  @Value("${sportsdb.api-key}")
-  private String apiKey;
+  public SportsDbClientConfig(SportsDbProperties sportsDbProperties) {
+    this.sportsDbProperties = sportsDbProperties;
+  }
 
   @Bean
   public RestClient sportsDbRestClient() {
@@ -30,7 +29,7 @@ public class SportsDbClientConfig {
         ClientHttpRequestFactoryBuilder.detect().build(settings);
 
     return RestClient.builder()
-        .baseUrl(baseUrl + "/" + apiKey)
+        .baseUrl(sportsDbProperties.getBaseUrl() + "/" + sportsDbProperties.getApiKey())
         .requestFactory(requestFactory)
         .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
         .build();

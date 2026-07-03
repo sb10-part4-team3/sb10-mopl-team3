@@ -13,14 +13,10 @@ public class SportsDbContentMapper {
     return Content.builder()
         .type(ContentType.SPORT)
         .title(event.eventName())
-        .description(buildDescription(event))
+        .description(SportsDbConstants.buildDescription(event.league(), event.dateEvent()))
         .thumbnailUrl(event.thumbnail())
         .externalId(SportsDbConstants.externalId(event.idEvent()))
         .source(SportsDbConstants.SOURCE_SPORTS_DB)
         .build();
-  }
-
-  private String buildDescription(SportsDbEvent event) {
-    return event.league() + " " + event.dateEvent();
   }
 }

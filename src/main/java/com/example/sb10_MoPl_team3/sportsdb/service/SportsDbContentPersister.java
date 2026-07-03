@@ -21,7 +21,7 @@ public class SportsDbContentPersister {
       try {
         sportsDbContentUpsertExecutor.upsert(toPayload(event));
       } catch (Exception e) {
-        log.warn("경기 upsert 실패, externalId=EVENT-{}", event.idEvent(), e);
+        log.warn("경기 upsert 실패, externalId={}", SportsDbConstants.externalId(event.idEvent()), e);
       }
     }
   }
@@ -32,7 +32,7 @@ public class SportsDbContentPersister {
     return new SportsDbSyncPayload(
         SportsDbConstants.externalId(event.idEvent()),
         event.eventName(),
-        event.league() + " " + event.dateEvent(),
+        SportsDbConstants.buildDescription(event.league(), event.dateEvent()),
         event.thumbnail(),
         tagNames,
         () -> sportsDbContentMapper.toContent(event)

@@ -10,4 +10,8 @@ public final class SportsDbConstants {
   public static String externalId(String eventId) {
     return "EVENT-" + eventId;
   }
+
+  public static String buildDescription(String league, String dateEvent) {
+    return league + " " + dateEvent;
+  }
 }
