@@ -82,4 +82,19 @@ public class PasswordResetService {
 
         return false;
     }
+
+    @Transactional
+    public void discardTemporaryPasswords(User user) {
+        Instant now = Instant.now(clock);
+
+        List<PasswordResetToken> tokens =
+                passwordResetTokenRepository.findAllByUser_IdAndUsedFalse(user.getId());
+
+        if (tokens.isEmpty()) {
+            return;
+        }
+
+        tokens.forEach(token -> token.markUsed(now));
+        passwordResetTokenRepository.saveAll(tokens);
+    }
 }

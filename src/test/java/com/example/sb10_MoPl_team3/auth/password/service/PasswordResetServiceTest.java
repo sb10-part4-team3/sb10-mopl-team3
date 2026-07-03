@@ -275,4 +275,70 @@ class PasswordResetServiceTest {
 
         then(passwordResetTokenRepository).should(never()).save(any());
     }
+
+    @Test
+    @DisplayName("사용자의 미사용 임시 비밀번호를 모두 사용 처리한다")
+    void discardTemporaryPasswords_success() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+
+        User user = new User(
+                "user@test.com",
+                "User",
+                "encoded-password",
+                null,
+                UserRole.USER
+        );
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        PasswordResetToken token1 = PasswordResetToken.create(
+                user,
+                "encoded-temporary-password-1",
+                now.plus(Duration.ofMinutes(1)),
+                now.minus(Duration.ofMinutes(1))
+        );
+        PasswordResetToken token2 = PasswordResetToken.create(
+                user,
+                "encoded-temporary-password-2",
+                now.plus(Duration.ofMinutes(2)),
+                now.minus(Duration.ofMinutes(1))
+        );
+
+        given(clock.instant()).willReturn(now);
+        given(passwordResetTokenRepository.findAllByUser_IdAndUsedFalse(userId))
+                .willReturn(List.of(token1, token2));
+
+        passwordResetService.discardTemporaryPasswords(user);
+
+        assertThat(token1.isUsed()).isTrue();
+        assertThat(token1.getUsedAt()).isEqualTo(now);
+        assertThat(token2.isUsed()).isTrue();
+        assertThat(token2.getUsedAt()).isEqualTo(now);
+
+        then(passwordResetTokenRepository).should().saveAll(List.of(token1, token2));
+    }
+
+    @Test
+    @DisplayName("사용자의 미사용 임시 비밀번호가 없으면 저장하지 않는다")
+    void discardTemporaryPasswords_noTokens() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+
+        User user = new User(
+                "user@test.com",
+                "User",
+                "encoded-password",
+                null,
+                UserRole.USER
+        );
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        given(clock.instant()).willReturn(now);
+        given(passwordResetTokenRepository.findAllByUser_IdAndUsedFalse(userId))
+                .willReturn(List.of());
+
+        passwordResetService.discardTemporaryPasswords(user);
+
+        then(passwordResetTokenRepository).should(never()).saveAll(any());
+    }
 }
