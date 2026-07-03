@@ -2,11 +2,10 @@ package com.example.sb10_MoPl_team3.follow.repository;
 
 import com.example.sb10_MoPl_team3.follow.entity.Follow;
 import com.example.sb10_MoPl_team3.user.entity.User;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface FollowRepository extends JpaRepository<Follow, UUID> {
@@ -21,6 +20,8 @@ public interface FollowRepository extends JpaRepository<Follow, UUID> {
     );
 
     long countByFollowee(User followee); // 팔로워 수
+
+    long countByFollowee_Id(UUID followeeId);
 
     long countByFollower(User follower); // 팔로잉 수
 }
