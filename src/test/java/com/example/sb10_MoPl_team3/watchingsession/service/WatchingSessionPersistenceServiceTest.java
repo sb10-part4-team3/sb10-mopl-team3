@@ -3,6 +3,7 @@ package com.example.sb10_MoPl_team3.watchingsession.service;
 import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
+import com.example.sb10_MoPl_team3.content.repository.ContentStatsRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
@@ -33,6 +34,7 @@ class WatchingSessionPersistenceServiceTest {
     @Mock WatchingSessionRepository watchingSessionRepository;
     @Mock UserRepository userRepository;
     @Mock ContentRepository contentRepository;
+    @Mock ContentStatsRepository contentStatsRepository;
     @InjectMocks WatchingSessionPersistenceService persistenceService;
 
     @Test
@@ -42,11 +44,13 @@ class WatchingSessionPersistenceServiceTest {
         given(userRepository.findById(watcherId)).willReturn(Optional.of(user(watcherId)));
         given(contentRepository.findById(contentId)).willReturn(Optional.of(content(contentId)));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.empty());
+        given(contentStatsRepository.incrementViewerCount(contentId)).willReturn(1);
 
         var result = persistenceService.join(contentId, watcherId);
         assertThat(result.previousContentId()).isEmpty();
         assertThat(result.watcher().userId()).isEqualTo(watcherId);
         then(watchingSessionRepository).should().save(any(WatchingSession.class));
+        then(contentStatsRepository).should().incrementViewerCount(contentId);
     }
 
     @Test
@@ -59,12 +63,15 @@ class WatchingSessionPersistenceServiceTest {
         given(userRepository.findById(watcherId)).willReturn(Optional.of(watcher));
         given(contentRepository.findById(nextId)).willReturn(Optional.of(content(nextId)));
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(previous));
+        given(contentStatsRepository.incrementViewerCount(nextId)).willReturn(1);
 
         assertThat(persistenceService.join(nextId, watcherId).previousContentId())
                 .contains(previousId);
         then(watchingSessionRepository).should().delete(previous);
         then(watchingSessionRepository).should().flush();
         then(watchingSessionRepository).should().save(any(WatchingSession.class));
+        then(contentStatsRepository).should().decrementViewerCount(previousId);
+        then(contentStatsRepository).should().incrementViewerCount(nextId);
     }
 
     @Test
@@ -80,6 +87,7 @@ class WatchingSessionPersistenceServiceTest {
         assertThat(persistenceService.join(contentId, watcherId).previousContentId()).isEmpty();
         then(watchingSessionRepository).should(never()).save(any());
         then(watchingSessionRepository).should(never()).delete(any());
+        then(contentStatsRepository).shouldHaveNoInteractions();
     }
 
     @Test
@@ -114,6 +122,7 @@ class WatchingSessionPersistenceServiceTest {
         persistenceService.leave(contentId, watcherId);
 
         then(watchingSessionRepository).should().delete(session);
+        then(contentStatsRepository).should().decrementViewerCount(contentId);
     }
 
     @Test
@@ -129,6 +138,33 @@ class WatchingSessionPersistenceServiceTest {
         persistenceService.leave(requestedContentId, watcherId);
 
         then(watchingSessionRepository).should(never()).delete(any());
+        then(contentStatsRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void leave_missingSessionDoesNotDecrementViewerCount() {
+        UUID contentId = UUID.randomUUID();
+        UUID watcherId = UUID.randomUUID();
+        given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.empty());
+
+        persistenceService.leave(contentId, watcherId);
+
+        then(watchingSessionRepository).should(never()).delete(any());
+        then(contentStatsRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void join_missingContentStatsRollsBackWithException() {
+        UUID contentId = UUID.randomUUID();
+        UUID watcherId = UUID.randomUUID();
+        given(userRepository.findById(watcherId)).willReturn(Optional.of(user(watcherId)));
+        given(contentRepository.findById(contentId)).willReturn(Optional.of(content(contentId)));
+        given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.empty());
+        given(contentStatsRepository.incrementViewerCount(contentId)).willReturn(0);
+
+        assertThatThrownBy(() -> persistenceService.join(contentId, watcherId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(contentId.toString());
     }
 
     private User user(UUID id) {

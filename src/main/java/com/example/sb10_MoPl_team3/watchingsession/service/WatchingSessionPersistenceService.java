@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.watchingsession.service;
 
 import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
+import com.example.sb10_MoPl_team3.content.repository.ContentStatsRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
@@ -24,6 +25,7 @@ public class WatchingSessionPersistenceService {
     private final WatchingSessionRepository watchingSessionRepository;
     private final UserRepository userRepository;
     private final ContentRepository contentRepository;
+    private final ContentStatsRepository contentStatsRepository;
 
     @Transactional
     public WatchingSessionJoinResult join(UUID contentId, UUID watcherId) {
@@ -35,6 +37,7 @@ public class WatchingSessionPersistenceService {
         Optional<WatchingSession> existing = watchingSessionRepository.findByWatcherId(watcherId);
         if (existing.isEmpty()) {
             watchingSessionRepository.save(new WatchingSession(watcher, content));
+            incrementViewerCount(contentId);
             return result(Optional.empty(), watcher);
         }
 
@@ -46,6 +49,8 @@ public class WatchingSessionPersistenceService {
         watchingSessionRepository.delete(existing.get());
         watchingSessionRepository.flush();
         watchingSessionRepository.save(new WatchingSession(watcher, content));
+        contentStatsRepository.decrementViewerCount(previousContentId);
+        incrementViewerCount(contentId);
         return result(Optional.of(previousContentId), watcher);
     }
 
@@ -53,7 +58,16 @@ public class WatchingSessionPersistenceService {
     public void leave(UUID contentId, UUID watcherId) {
         watchingSessionRepository.findByWatcherId(watcherId)
                 .filter(session -> session.getContent().getId().equals(contentId))
-                .ifPresent(watchingSessionRepository::delete);
+                .ifPresent(session -> {
+                    watchingSessionRepository.delete(session);
+                    contentStatsRepository.decrementViewerCount(contentId);
+                });
+    }
+
+    private void incrementViewerCount(UUID contentId) {
+        if (contentStatsRepository.incrementViewerCount(contentId) != 1) {
+            throw new IllegalStateException("콘텐츠 통계가 존재하지 않습니다. contentId=" + contentId);
+        }
     }
 
     private WatchingSessionJoinResult result(Optional<UUID> previousContentId, User watcher) {
