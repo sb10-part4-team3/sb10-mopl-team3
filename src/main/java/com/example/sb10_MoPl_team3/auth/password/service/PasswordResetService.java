@@ -74,8 +74,6 @@ public class PasswordResetService {
 
         for (PasswordResetToken token : tokens) {
             if (passwordEncoder.matches(rawPassword, token.getTemporaryPassword())) {
-                token.markUsed(now);
-                passwordResetTokenRepository.save(token);
                 return true;
             }
         }

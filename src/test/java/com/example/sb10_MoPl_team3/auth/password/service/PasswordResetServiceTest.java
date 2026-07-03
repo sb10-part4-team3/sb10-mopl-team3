@@ -177,7 +177,7 @@ class PasswordResetServiceTest {
     }
 
     @Test
-    @DisplayName("유효한 임시 비밀번호가 일치하면 true를 반환하고 토큰을 사용 처리한다")
+    @DisplayName("유효한 임시 비밀번호가 일치하면 true를 반환한다")
     void matchesTemporaryPassword_success() {
         UUID userId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-28T00:00:00Z");
@@ -207,10 +207,10 @@ class PasswordResetServiceTest {
         boolean result = passwordResetService.matchesTemporaryPassword(user, "temporary-password");
 
         assertThat(result).isTrue();
-        assertThat(token.isUsed()).isTrue();
-        assertThat(token.getUsedAt()).isEqualTo(now);
+        assertThat(token.isUsed()).isFalse();
+        assertThat(token.getUsedAt()).isNull();
 
-        then(passwordResetTokenRepository).should().save(token);
+        then(passwordResetTokenRepository).should(never()).save(any());
     }
 
     @Test
