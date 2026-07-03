@@ -18,7 +18,9 @@ import com.example.sb10_MoPl_team3.content.repository.ContentTagProjection;
 import com.example.sb10_MoPl_team3.content.repository.ContentTagRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
+import com.example.sb10_MoPl_team3.follow.repository.FollowRepository;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistCreateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistFindAllRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistUpdateRequest;
@@ -53,6 +55,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class PlaylistServiceImplTest {
@@ -81,6 +84,12 @@ class PlaylistServiceImplTest {
     @Mock
     private ContentStatsRepository contentStatsRepository;
 
+    @Mock
+    private FollowRepository followRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private PlaylistServiceImpl playlistService;
 
@@ -102,6 +111,8 @@ class PlaylistServiceImplTest {
         given(userRepository.findById(userId)).willReturn(Optional.of(owner));
         given(playlistRepository.save(any(Playlist.class))).willReturn(saved);
         given(playlistMapper.toDto(saved, false)).willReturn(dto);
+        given(followRepository.findFollowerIdsByFolloweeId(userId))
+                .willReturn(List.of(uuid(2)));
 
         PlaylistDto response = playlistService.create(new PlaylistCreateRequest("title", "description"));
 
@@ -114,6 +125,7 @@ class PlaylistServiceImplTest {
         assertThat(captured.getTitle()).isEqualTo("title");
         assertThat(captured.getDescription()).isEqualTo("description");
         assertThat(captured.getStatus()).isEqualTo(PlaylistStatus.ACTIVE);
+        then(eventPublisher).should().publishEvent(any(NotificationEvent.class));
     }
 
     @Test
@@ -330,6 +342,7 @@ class PlaylistServiceImplTest {
         playlistService.subscribe(playlistId);
 
         then(playlistRepository).should().increaseSubscriberCount(playlistId, PlaylistStatus.DELETED);
+        then(eventPublisher).should().publishEvent(any(NotificationEvent.class));
     }
 
     @Test
@@ -423,10 +436,13 @@ class PlaylistServiceImplTest {
         given(playlistRepository.findById(playlistId)).willReturn(Optional.of(playlist));
         given(contentRepository.findById(contentId)).willReturn(Optional.of(content));
         given(playlistContentRepository.insertIfNotExists(playlist, content)).willReturn(1);
+        given(playlistSubscriptionRepository.findSubscriberUserIdsByPlaylistId(playlistId))
+                .willReturn(List.of(uuid(3)));
 
         playlistService.addContent(playlistId, contentId);
 
         then(playlistContentRepository).should().insertIfNotExists(playlist, content);
+        then(eventPublisher).should().publishEvent(any(NotificationEvent.class));
     }
 
     @Test

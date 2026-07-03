@@ -11,9 +11,13 @@ import com.example.sb10_MoPl_team3.watchingsession.entity.WatchingSession;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionJoinResult;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRepository;
+import com.example.sb10_MoPl_team3.follow.repository.FollowRepository;
+import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
+import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -29,6 +33,8 @@ public class WatchingSessionPersistenceService {
     private final UserRepository userRepository;
     private final ContentRepository contentRepository;
     private final ContentStatsRepository contentStatsRepository;
+    private final FollowRepository followRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public WatchingSessionJoinResult join(UUID contentId, UUID watcherId) {
@@ -41,6 +47,7 @@ public class WatchingSessionPersistenceService {
         if (existing.isEmpty()) {
             watchingSessionRepository.save(new WatchingSession(watcher, content));
             incrementViewerCount(contentId);
+            publishWatchingActivity(watcher, content);
             return result(Optional.empty(), watcher);
         }
 
@@ -54,6 +61,7 @@ public class WatchingSessionPersistenceService {
         watchingSessionRepository.save(new WatchingSession(watcher, content));
         decrementViewerCount(previousContentId);
         incrementViewerCount(contentId);
+        publishWatchingActivity(watcher, content);
         return result(Optional.of(previousContentId), watcher);
     }
 
@@ -81,6 +89,17 @@ public class WatchingSessionPersistenceService {
             throw new IllegalStateException("콘텐츠 통계가 존재하지 않습니다. contentId=" + contentId);
         }
         log.warn("시청 세션은 존재하지만 viewerCount가 이미 0입니다. contentId={}", contentId);
+    }
+
+    private void publishWatchingActivity(User watcher, Content content) {
+        followRepository.findFollowerIdsByFolloweeId(watcher.getId())
+                .forEach(followerId -> eventPublisher.publishEvent(new NotificationEvent(
+                        followerId,
+                        "팔로우 활동",
+                        "%s님이 '%s' 시청을 시작했습니다."
+                                .formatted(watcher.getName(), content.getTitle()),
+                        NotificationLevel.INFO
+                )));
     }
 
     private WatchingSessionJoinResult result(Optional<UUID> previousContentId, User watcher) {

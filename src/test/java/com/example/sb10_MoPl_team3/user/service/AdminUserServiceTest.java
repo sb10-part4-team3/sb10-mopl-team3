@@ -14,6 +14,7 @@ import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +23,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -48,6 +50,9 @@ class AdminUserServiceTest {
 
     @Mock
     private Clock clock;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private AdminUserService adminUserService;
@@ -314,6 +319,7 @@ class AdminUserServiceTest {
         then(userRepository).should().findById(userId);
         then(authSessionRepository).should().findAllByUserId(userId);
         then(authSessionRepository).should().saveAll(List.of(session1, session2));
+        then(eventPublisher).should().publishEvent(any(NotificationEvent.class));
     }
 
     @Test
