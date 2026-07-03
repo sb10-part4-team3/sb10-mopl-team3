@@ -39,13 +39,11 @@ public class PasswordResetToken extends BaseEntity {
     private PasswordResetToken(
             User user,
             String temporaryPassword,
-            Instant expiresAt,
-            Instant createdAt
+            Instant expiresAt
     ) {
         this.user = user;
         this.temporaryPassword = temporaryPassword;
         this.expiresAt = expiresAt;
-        this.createdAt = createdAt;
         this.used = false;
         this.usedAt = null;
     }
@@ -60,7 +58,7 @@ public class PasswordResetToken extends BaseEntity {
             throw new IllegalArgumentException("expiresAt must be after createdAt");
         }
 
-        return new PasswordResetToken(user, temporaryPassword, expiresAt, createdAt);
+        return new PasswordResetToken(user, temporaryPassword, expiresAt);
     }
 
     public void markUsed(Instant now) {
