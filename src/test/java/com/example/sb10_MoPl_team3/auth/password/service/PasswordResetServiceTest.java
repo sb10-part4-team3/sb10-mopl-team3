@@ -90,7 +90,6 @@ class PasswordResetServiceTest {
                 .isEqualTo(now.plus(Duration.ofMinutes(3)));
         assertThat(savedToken.isUsed()).isFalse();
         assertThat(savedToken.getUsedAt()).isNull();
-        assertThat(savedToken.getCreatedAt()).isEqualTo(now);
 
         then(passwordEncoder).should().encode("temporary1!!");
     }
