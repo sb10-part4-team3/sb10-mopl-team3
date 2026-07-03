@@ -81,7 +81,8 @@ class PasswordResetIntegrationTest {
         PasswordResetToken token = tokens.get(0);
 
         assertThat(token.getUser().getId()).isEqualTo(user.getId());
-        assertThat(passwordEncoder.matches("temporary1!!", token.getTemporaryPassword())).isTrue();
+        assertThat(token.getTemporaryPassword()).isNotBlank();
+        assertThat(token.getTemporaryPassword()).isNotEqualTo("temporary1!!");
         assertThat(token.getExpiresAt()).isEqualTo(now.plus(Duration.ofMinutes(3)));
         assertThat(token.isUsed()).isFalse();
         assertThat(token.getUsedAt()).isNull();
@@ -129,8 +130,8 @@ class PasswordResetIntegrationTest {
         assertThat(usedToken.getUsedAt()).isEqualTo(now);
         assertThat(usableTokens).hasSize(1);
         assertThat(usableTokens.get(0).getId()).isNotEqualTo(existingToken.getId());
-        assertThat(passwordEncoder.matches("temporary1!!", usableTokens.get(0).getTemporaryPassword()))
-                .isTrue();
+        assertThat(usableTokens.get(0).getTemporaryPassword()).isNotBlank();
+        assertThat(usableTokens.get(0).getTemporaryPassword()).isNotEqualTo("temporary1!!");
     }
 
     @Test

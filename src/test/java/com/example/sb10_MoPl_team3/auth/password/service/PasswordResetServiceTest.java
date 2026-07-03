@@ -44,6 +44,9 @@ class PasswordResetServiceTest {
     @Mock
     private Clock clock;
 
+    @Mock
+    private TemporaryPasswordGenerator temporaryPasswordGenerator;
+
     @InjectMocks
     private PasswordResetService passwordResetService;
 
@@ -69,7 +72,9 @@ class PasswordResetServiceTest {
                 .willReturn(Optional.of(user));
         given(passwordResetTokenRepository.findAllByUser_IdAndUsedFalse(userId))
                 .willReturn(List.of());
-        given(passwordEncoder.encode("temporary1!!"))
+        given(temporaryPasswordGenerator.generate())
+                .willReturn("random-temporary-password");
+        given(passwordEncoder.encode("random-temporary-password"))
                 .willReturn("encoded-temporary-password");
         given(clock.instant())
                 .willReturn(now);
@@ -91,7 +96,8 @@ class PasswordResetServiceTest {
         assertThat(savedToken.isUsed()).isFalse();
         assertThat(savedToken.getUsedAt()).isNull();
 
-        then(passwordEncoder).should().encode("temporary1!!");
+        then(temporaryPasswordGenerator).should().generate();
+        then(passwordEncoder).should().encode("random-temporary-password");
     }
 
     @Test
@@ -123,7 +129,9 @@ class PasswordResetServiceTest {
                 .willReturn(Optional.of(user));
         given(passwordResetTokenRepository.findAllByUser_IdAndUsedFalse(userId))
                 .willReturn(List.of(existingToken));
-        given(passwordEncoder.encode("temporary1!!"))
+        given(temporaryPasswordGenerator.generate())
+                .willReturn("random-temporary-password");
+        given(passwordEncoder.encode("random-temporary-password"))
                 .willReturn("encoded-temporary-password");
         given(clock.instant())
                 .willReturn(now);
@@ -137,6 +145,7 @@ class PasswordResetServiceTest {
                 .saveAll(List.of(existingToken));
         then(passwordResetTokenRepository).should()
                 .save(any(PasswordResetToken.class));
+
     }
 
     @Test
@@ -152,5 +161,7 @@ class PasswordResetServiceTest {
 
         then(passwordResetTokenRepository).shouldHaveNoInteractions();
         then(passwordEncoder).should(never()).encode(any());
+
+        then(temporaryPasswordGenerator).shouldHaveNoInteractions();
     }
 }

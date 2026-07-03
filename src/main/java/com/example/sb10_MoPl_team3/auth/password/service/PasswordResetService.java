@@ -20,9 +20,9 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class PasswordResetService {
 
-    private static final String TEMPORARY_PASSWORD = "temporary1!!";
     private static final Duration TEMPORARY_PASSWORD_EXPIRATION = Duration.ofMinutes(3);
 
+    private final TemporaryPasswordGenerator temporaryPasswordGenerator;
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
@@ -47,9 +47,11 @@ public class PasswordResetService {
             passwordResetTokenRepository.saveAll(existingTokens);
         }
 
+        String temporaryPassword = temporaryPasswordGenerator.generate();
+
         PasswordResetToken token = PasswordResetToken.create(
                 user,
-                passwordEncoder.encode(TEMPORARY_PASSWORD),
+                passwordEncoder.encode(temporaryPassword),
                 now.plus(TEMPORARY_PASSWORD_EXPIRATION),
                 now
         );
