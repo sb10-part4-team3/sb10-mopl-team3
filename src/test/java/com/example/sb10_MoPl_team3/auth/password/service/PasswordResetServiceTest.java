@@ -175,4 +175,104 @@ class PasswordResetServiceTest {
         then(temporaryPasswordGenerator).shouldHaveNoInteractions();
         then(temporaryPasswordNotifier).shouldHaveNoInteractions();
     }
+
+    @Test
+    @DisplayName("유효한 임시 비밀번호가 일치하면 true를 반환하고 토큰을 사용 처리한다")
+    void matchesTemporaryPassword_success() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+
+        User user = new User(
+                "user@test.com",
+                "User",
+                "encoded-password",
+                null,
+                UserRole.USER
+        );
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        PasswordResetToken token = PasswordResetToken.create(
+                user,
+                "encoded-temporary-password",
+                now.plus(Duration.ofMinutes(1)),
+                now.minus(Duration.ofMinutes(1))
+        );
+
+        given(clock.instant()).willReturn(now);
+        given(passwordResetTokenRepository.findAllByUser_IdAndUsedFalseAndExpiresAtAfter(userId, now))
+                .willReturn(List.of(token));
+        given(passwordEncoder.matches("temporary-password", "encoded-temporary-password"))
+                .willReturn(true);
+
+        boolean result = passwordResetService.matchesTemporaryPassword(user, "temporary-password");
+
+        assertThat(result).isTrue();
+        assertThat(token.isUsed()).isTrue();
+        assertThat(token.getUsedAt()).isEqualTo(now);
+
+        then(passwordResetTokenRepository).should().save(token);
+    }
+
+    @Test
+    @DisplayName("유효한 임시 비밀번호가 없으면 false를 반환한다")
+    void matchesTemporaryPassword_noUsableToken() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+
+        User user = new User(
+                "user@test.com",
+                "User",
+                "encoded-password",
+                null,
+                UserRole.USER
+        );
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        given(clock.instant()).willReturn(now);
+        given(passwordResetTokenRepository.findAllByUser_IdAndUsedFalseAndExpiresAtAfter(userId, now))
+                .willReturn(List.of());
+
+        boolean result = passwordResetService.matchesTemporaryPassword(user, "temporary-password");
+
+        assertThat(result).isFalse();
+
+        then(passwordEncoder).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("임시 비밀번호가 일치하지 않으면 false를 반환하고 토큰을 사용 처리하지 않는다")
+    void matchesTemporaryPassword_mismatch() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+
+        User user = new User(
+                "user@test.com",
+                "User",
+                "encoded-password",
+                null,
+                UserRole.USER
+        );
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        PasswordResetToken token = PasswordResetToken.create(
+                user,
+                "encoded-temporary-password",
+                now.plus(Duration.ofMinutes(1)),
+                now.minus(Duration.ofMinutes(1))
+        );
+
+        given(clock.instant()).willReturn(now);
+        given(passwordResetTokenRepository.findAllByUser_IdAndUsedFalseAndExpiresAtAfter(userId, now))
+                .willReturn(List.of(token));
+        given(passwordEncoder.matches("wrong-password", "encoded-temporary-password"))
+                .willReturn(false);
+
+        boolean result = passwordResetService.matchesTemporaryPassword(user, "wrong-password");
+
+        assertThat(result).isFalse();
+        assertThat(token.isUsed()).isFalse();
+        assertThat(token.getUsedAt()).isNull();
+
+        then(passwordResetTokenRepository).should(never()).save(any());
+    }
 }

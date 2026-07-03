@@ -61,4 +61,25 @@ public class PasswordResetService {
         passwordResetTokenRepository.save(token);
         temporaryPasswordNotifier.send(user.getEmail(), temporaryPassword);
     }
+
+    @Transactional
+    public boolean matchesTemporaryPassword(User user, String rawPassword) {
+        Instant now = Instant.now(clock);
+
+        List<PasswordResetToken> tokens =
+                passwordResetTokenRepository.findAllByUser_IdAndUsedFalseAndExpiresAtAfter(
+                        user.getId(),
+                        now
+                );
+
+        for (PasswordResetToken token : tokens) {
+            if (passwordEncoder.matches(rawPassword, token.getTemporaryPassword())) {
+                token.markUsed(now);
+                passwordResetTokenRepository.save(token);
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
