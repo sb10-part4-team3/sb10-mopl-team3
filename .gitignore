@@ -40,7 +40,4 @@ out/
 .env.*
 !.env.example
 
-### Frontend contract check ###
-/frontend/
-
 src/main/generated/
