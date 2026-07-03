@@ -186,6 +186,15 @@ class FollowControllerTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    @DisplayName("getFollowerCount returns 401 when the requester is unauthenticated")
+    void getFollowerCount_unauthenticated() throws Exception {
+        UUID followeeId = uuid(2);
+        mockMvc.perform(get("/api/follows/count")
+                .queryParam("followeeId", followeeId.toString()))
+                .andExpect(status().isUnauthorized());
+        }
+
     private RequestBuilder cancelFollowRequest(UUID requesterId, UUID followId) {
         return delete("/api/follows/{followId}", followId)
                 .with(authentication(authToken(requesterId)))
