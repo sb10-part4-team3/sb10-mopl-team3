@@ -10,6 +10,7 @@ import com.example.sb10_MoPl_team3.global.config.SecurityConfig;
 import com.example.sb10_MoPl_team3.global.exception.GlobalExceptionHandler;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
 import com.example.sb10_MoPl_team3.notification.service.NotificationService;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import java.util.UUID;
@@ -35,6 +36,9 @@ class NotificationControllerTest {
     @MockitoBean
     private JwtProvider jwtProvider;
 
+    @MockitoBean
+    private JwtSessionValidator jwtSessionValidator;
+
     @Test
     @DisplayName("알림 읽음 처리 요청이 성공하면 204를 반환한다")
     void read_success() throws Exception {
@@ -50,7 +54,7 @@ class NotificationControllerTest {
     }
 
     private UsernamePasswordAuthenticationToken authToken(UUID userId) {
-        AuthUser authUser = new AuthUser(userId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(userId, UserRole.USER, UUID.randomUUID());
         return new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
     }
