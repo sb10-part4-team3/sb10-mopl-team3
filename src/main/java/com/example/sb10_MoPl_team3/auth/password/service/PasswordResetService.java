@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.auth.password.service;
 
 import com.example.sb10_MoPl_team3.auth.password.dto.TemporaryPasswordIssueRequest;
 import com.example.sb10_MoPl_team3.auth.password.entity.PasswordResetToken;
+import com.example.sb10_MoPl_team3.auth.password.notification.TemporaryPasswordNotifier;
 import com.example.sb10_MoPl_team3.auth.password.repository.PasswordResetTokenRepository;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
@@ -27,6 +28,7 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
+    private final TemporaryPasswordNotifier temporaryPasswordNotifier;
 
     @Transactional
     public void issueTemporaryPassword(TemporaryPasswordIssueRequest request) {
@@ -57,5 +59,6 @@ public class PasswordResetService {
         );
 
         passwordResetTokenRepository.save(token);
+        temporaryPasswordNotifier.send(user.getEmail(), temporaryPassword);
     }
 }

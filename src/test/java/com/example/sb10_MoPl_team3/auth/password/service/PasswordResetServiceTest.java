@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.auth.password.service;
 
 import com.example.sb10_MoPl_team3.auth.password.dto.TemporaryPasswordIssueRequest;
 import com.example.sb10_MoPl_team3.auth.password.entity.PasswordResetToken;
+import com.example.sb10_MoPl_team3.auth.password.notification.TemporaryPasswordNotifier;
 import com.example.sb10_MoPl_team3.auth.password.repository.PasswordResetTokenRepository;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
@@ -46,6 +47,9 @@ class PasswordResetServiceTest {
 
     @Mock
     private TemporaryPasswordGenerator temporaryPasswordGenerator;
+
+    @Mock
+    private TemporaryPasswordNotifier temporaryPasswordNotifier;
 
     @InjectMocks
     private PasswordResetService passwordResetService;
@@ -98,6 +102,8 @@ class PasswordResetServiceTest {
 
         then(temporaryPasswordGenerator).should().generate();
         then(passwordEncoder).should().encode("random-temporary-password");
+        then(temporaryPasswordNotifier).should()
+                .send("user@test.com", "random-temporary-password");
     }
 
     @Test
@@ -145,6 +151,10 @@ class PasswordResetServiceTest {
                 .saveAll(List.of(existingToken));
         then(passwordResetTokenRepository).should()
                 .save(any(PasswordResetToken.class));
+        then(temporaryPasswordGenerator).should().generate();
+        then(passwordEncoder).should().encode("random-temporary-password");
+        then(temporaryPasswordNotifier).should()
+                .send("user@test.com", "random-temporary-password");
 
     }
 
@@ -163,5 +173,6 @@ class PasswordResetServiceTest {
         then(passwordEncoder).should(never()).encode(any());
 
         then(temporaryPasswordGenerator).shouldHaveNoInteractions();
+        then(temporaryPasswordNotifier).shouldHaveNoInteractions();
     }
 }
