@@ -42,6 +42,14 @@ public class FollowController {
         return ResponseEntity.ok(followService.getFollowerCount(followeeId));
     }
 
+    @GetMapping("/followed-by-me")
+    public ResponseEntity<FollowDto> isFollowedByMe(
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestParam UUID followeeId
+    ) {
+        return ResponseEntity.ok(followService.isFollowedByMe(authUser.userId(), followeeId));
+    }
+
     @DeleteMapping("/{followId}")
     public ResponseEntity<Void> cancelFollow(
             @AuthenticationPrincipal AuthUser authUser,

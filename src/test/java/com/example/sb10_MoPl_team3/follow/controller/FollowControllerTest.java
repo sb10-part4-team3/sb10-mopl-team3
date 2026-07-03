@@ -136,6 +136,44 @@ class FollowControllerTest {
     }
 
     @Test
+    @DisplayName("isFollowedByMe returns the follow when the requester follows the target user")
+    void isFollowedByMe_success() throws Exception {
+        UUID followerId = uuid(1);
+        UUID followeeId = uuid(2);
+        UUID followId = uuid(10);
+        FollowDto followDto = new FollowDto(followId, followeeId, followerId);
+
+        given(followService.isFollowedByMe(followerId, followeeId)).willReturn(followDto);
+
+        mockMvc.perform(get("/api/follows/followed-by-me")
+                        .queryParam("followeeId", followeeId.toString())
+                        .with(authentication(authToken(followerId))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(followId.toString()))
+                .andExpect(jsonPath("$.followeeId").value(followeeId.toString()))
+                .andExpect(jsonPath("$.followerId").value(followerId.toString()));
+
+        then(followService).should().isFollowedByMe(followerId, followeeId);
+    }
+
+    @Test
+    @DisplayName("isFollowedByMe returns 404 when the requester does not follow the target user")
+    void isFollowedByMe_notFound() throws Exception {
+        UUID followerId = uuid(1);
+        UUID followeeId = uuid(2);
+
+        doThrow(new BusinessException(ErrorCode.FOLLOW_NOT_FOUND))
+                .when(followService)
+                .isFollowedByMe(followerId, followeeId);
+
+        mockMvc.perform(get("/api/follows/followed-by-me")
+                        .queryParam("followeeId", followeeId.toString())
+                        .with(authentication(authToken(followerId))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("FOLLOW_NOT_FOUND"));
+    }
+
+    @Test
     @DisplayName("cancelFollow returns 403 when the requester does not own the follow")
     void cancelFollow_accessDenied() throws Exception {
         UUID requesterId = uuid(1);
@@ -194,6 +232,16 @@ class FollowControllerTest {
                 .queryParam("followeeId", followeeId.toString()))
                 .andExpect(status().isUnauthorized());
 
+    }
+
+    @Test
+    @DisplayName("isFollowedByMe returns 401 when the requester is unauthenticated")
+    void isFollowedByMe_unauthenticated() throws Exception {
+        UUID followeeId = uuid(2);
+
+        mockMvc.perform(get("/api/follows/followed-by-me")
+                        .queryParam("followeeId", followeeId.toString()))
+                .andExpect(status().isUnauthorized());
     }
 
     private RequestBuilder cancelFollowRequest(UUID requesterId, UUID followId) {
