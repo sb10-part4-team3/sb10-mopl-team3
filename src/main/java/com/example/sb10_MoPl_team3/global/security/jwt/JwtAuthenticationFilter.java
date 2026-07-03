@@ -24,9 +24,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String ACCESS_TOKEN_SNAKE_CASE_PARAM = "access_token";
 
     private final JwtProvider jwtProvider;
+    private final JwtSessionValidator jwtSessionValidator;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider) {
+    public JwtAuthenticationFilter(
+            JwtProvider jwtProvider,
+            JwtSessionValidator jwtSessionValidator
+    ) {
         this.jwtProvider = jwtProvider;
+        this.jwtSessionValidator = jwtSessionValidator;
     }
 
     @Override
@@ -49,6 +54,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             JwtClaims claims = jwtProvider.parseAccessToken(token);
+            jwtSessionValidator.validate(claims);
+
             AuthUser authUser = AuthUser.from(claims);
 
             UsernamePasswordAuthenticationToken authentication =
@@ -59,8 +66,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
-
-
         } catch (JwtException | IllegalArgumentException e) {
             SecurityContextHolder.clearContext();
             response.setStatus(HttpStatus.UNAUTHORIZED.value());

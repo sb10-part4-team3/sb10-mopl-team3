@@ -20,7 +20,7 @@ public record AuthUser(
     public AuthUser {
         Objects.requireNonNull(userId, "userId must not be null");
         Objects.requireNonNull(role, "role must not be null");
-        // sessionId 미구현
+        Objects.requireNonNull(sessionId, "sessionId must not be null");
     }
 
     public static AuthUser from(JwtClaims claims) {

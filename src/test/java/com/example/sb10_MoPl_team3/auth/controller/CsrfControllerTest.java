@@ -3,6 +3,7 @@ package com.example.sb10_MoPl_team3.auth.controller;
 import com.example.sb10_MoPl_team3.global.config.SecurityConfig;
 import com.example.sb10_MoPl_team3.global.exception.GlobalExceptionHandler;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,9 @@ class CsrfControllerTest {
 
     @MockitoBean
     private JwtProvider jwtProvider;
+
+    @MockitoBean
+    private JwtSessionValidator jwtSessionValidator;
 
     @Test
     @DisplayName("CSRF 토큰 조회 요청이 성공하면 XSRF-TOKEN 쿠키를 발급한다")

@@ -112,10 +112,6 @@ public class AuthService {
 
     @Transactional
     public void signOut(AuthUser authUser) {
-        if (authUser.sessionId() == null) {
-            throw new InvalidCredentialException();
-        }
-
         AuthSession authSession = authSessionRepository.findById(authUser.sessionId())
                 .orElse(null);
 

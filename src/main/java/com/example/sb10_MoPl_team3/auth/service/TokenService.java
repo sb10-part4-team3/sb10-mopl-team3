@@ -23,10 +23,6 @@ public class TokenService {
     private final JwtProvider jwtProvider;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public String issueAccessToken(User user) {
-        return issueAccessToken(user, null);
-    }
-
     public String issueAccessToken(User user, UUID sessionId) {
         return jwtProvider.generateAccessToken(
                 user.getId(),

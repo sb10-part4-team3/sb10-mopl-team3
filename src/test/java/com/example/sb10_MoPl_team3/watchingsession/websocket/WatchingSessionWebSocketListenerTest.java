@@ -44,7 +44,7 @@ class WatchingSessionWebSocketListenerTest {
     void handleSubscribe_publishesWatcherChange() {
         UUID contentId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID watcherId = UUID.fromString("00000000-0000-0000-0000-000000000002");
-        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
         WatchingSessionChange change = new WatchingSessionChange(
@@ -102,7 +102,7 @@ class WatchingSessionWebSocketListenerTest {
     void handleSubscribe_joinFailureDoesNotLeaveGhostPresence() {
         UUID contentId = UUID.randomUUID();
         UUID watcherId = UUID.randomUUID();
-        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
         given(presenceService.join(contentId, watcherId))
@@ -149,7 +149,7 @@ class WatchingSessionWebSocketListenerTest {
     void multipleSubscriptions_leaveOnlyAfterLastUnsubscribe() {
         UUID contentId = UUID.randomUUID();
         UUID watcherId = UUID.randomUUID();
-        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
         WatchingSessionChange joined = new WatchingSessionChange(contentId, List.of());
@@ -195,7 +195,7 @@ class WatchingSessionWebSocketListenerTest {
     void handleDisconnect_publishesWatcherChange() {
         UUID contentId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID watcherId = UUID.fromString("00000000-0000-0000-0000-000000000002");
-        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
         WatchingSessionChange joined = new WatchingSessionChange(
@@ -226,7 +226,7 @@ class WatchingSessionWebSocketListenerTest {
     void handleUnsubscribe_publishesWatcherChange() {
         UUID contentId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID watcherId = UUID.fromString("00000000-0000-0000-0000-000000000002");
-        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
         WatchingSessionChange joined = new WatchingSessionChange(

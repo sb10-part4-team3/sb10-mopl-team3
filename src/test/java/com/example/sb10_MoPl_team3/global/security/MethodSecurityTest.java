@@ -84,7 +84,7 @@ class MethodSecurityTest {
     }
 
     private void setAuthentication(UUID userId, UserRole role) {
-        AuthUser authUser = new AuthUser(userId, role, null);
+        AuthUser authUser = new AuthUser(userId, role, UUID.randomUUID());
 
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(

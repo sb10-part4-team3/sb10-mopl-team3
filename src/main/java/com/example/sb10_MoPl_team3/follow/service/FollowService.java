@@ -7,5 +7,7 @@ public interface FollowService {
 
     FollowCreateResult create(UUID followerId, FollowRequest request);
 
+    long getFollowerCount(UUID followeeId);
+
     void cancel(UUID followerId, UUID followId);
 }

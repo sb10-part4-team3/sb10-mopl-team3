@@ -78,7 +78,7 @@ class UserAuthorizationServiceTest {
     }
 
     private void setAuthentication(UUID userId) {
-        AuthUser authUser = new AuthUser(userId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(userId, UserRole.USER, UUID.randomUUID());
 
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(

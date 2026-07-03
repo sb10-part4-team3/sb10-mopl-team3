@@ -56,6 +56,12 @@ public class FollowServiceImpl implements FollowService {
         followRepository.delete(follow);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public long getFollowerCount(UUID followeeId) {
+        return followRepository.countByFollowee_Id(followeeId);
+    }
+
     private FollowCreateResult createOrFindFollow(UUID followerId, UUID followeeId) {
         try {
             return new FollowCreateResult(createNewFollow(followerId, followeeId), true);

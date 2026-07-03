@@ -8,7 +8,9 @@ import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -22,6 +24,7 @@ import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.exception.GlobalExceptionHandler;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -47,6 +50,9 @@ class FollowControllerTest {
 
     @MockitoBean
     private JwtProvider jwtProvider;
+
+    @MockitoBean
+    private JwtSessionValidator jwtSessionValidator;
 
     @Test
     @DisplayName("createFollow returns 201 when a follow is newly created")
@@ -113,6 +119,23 @@ class FollowControllerTest {
     }
 
     @Test
+    @DisplayName("getFollowerCount returns the follower count for the requested user")
+    void getFollowerCount_success() throws Exception {
+        UUID requesterId = uuid(1);
+        UUID followeeId = uuid(2);
+
+        given(followService.getFollowerCount(followeeId)).willReturn(7L);
+
+        mockMvc.perform(get("/api/follows/count")
+                        .queryParam("followeeId", followeeId.toString())
+                        .with(authentication(authToken(requesterId))))
+                .andExpect(status().isOk())
+                .andExpect(content().string("7"));
+
+        then(followService).should().getFollowerCount(followeeId);
+    }
+
+    @Test
     @DisplayName("cancelFollow returns 403 when the requester does not own the follow")
     void cancelFollow_accessDenied() throws Exception {
         UUID requesterId = uuid(1);
@@ -163,6 +186,16 @@ class FollowControllerTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    @DisplayName("getFollowerCount returns 401 when the requester is unauthenticated")
+    void getFollowerCount_unauthenticated() throws Exception {
+        UUID followeeId = uuid(2);
+        mockMvc.perform(get("/api/follows/count")
+                .queryParam("followeeId", followeeId.toString()))
+                .andExpect(status().isUnauthorized());
+
+    }
+
     private RequestBuilder cancelFollowRequest(UUID requesterId, UUID followId) {
         return delete("/api/follows/{followId}", followId)
                 .with(authentication(authToken(requesterId)))
@@ -170,7 +203,7 @@ class FollowControllerTest {
     }
 
     private UsernamePasswordAuthenticationToken authToken(UUID userId) {
-        AuthUser authUser = new AuthUser(userId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(userId, UserRole.USER, UUID.randomUUID());
         return new UsernamePasswordAuthenticationToken(
                 authUser,
                 null,

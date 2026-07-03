@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.global.config;
 
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtAuthenticationFilter;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -56,9 +57,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtProvider jwtProvider) {
-        return new JwtAuthenticationFilter(jwtProvider);
+    public JwtAuthenticationFilter jwtAuthenticationFilter(
+            JwtProvider jwtProvider,
+            JwtSessionValidator jwtSessionValidator
+    ) {
+        return new JwtAuthenticationFilter(jwtProvider, jwtSessionValidator);
     }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

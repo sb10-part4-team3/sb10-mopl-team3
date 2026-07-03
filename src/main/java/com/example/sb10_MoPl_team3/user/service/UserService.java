@@ -10,19 +10,21 @@ import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
+import com.example.sb10_MoPl_team3.user.event.UserProfileUpdatedEvent;
+import com.example.sb10_MoPl_team3.user.event.UserWithdrawnEvent;
 import com.example.sb10_MoPl_team3.user.exception.DuplicatedEmailException;
 import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
-import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
 import com.example.sb10_MoPl_team3.user.dto.request.UserPasswordUpdateRequest;
 
 import java.time.Clock;
@@ -31,7 +33,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +45,7 @@ public class UserService {
     private final UserAuthorizationService userAuthorizationService;
     private final AuthSessionRepository authSessionRepository;
     private final Clock clock;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public UserDto createUser(UserCreateRequest request) {
@@ -91,6 +93,9 @@ public class UserService {
 
             user.updateProfile(request.name(), uploadedProfileImageUrl);
             userRepository.flush();
+            eventPublisher.publishEvent(
+                    new UserProfileUpdatedEvent(UserMapper.toSummary(user))
+            );
 
             return UserMapper.toDto(user);
         } catch (RuntimeException exception) {
@@ -123,6 +128,7 @@ public class UserService {
         user.changeStatus(UserStatus.WITHDRAWN);
 
         revokeUserSessions(userId);
+        eventPublisher.publishEvent(new UserWithdrawnEvent(userId));
     }
 
     private void registerProfileImageCleanup(

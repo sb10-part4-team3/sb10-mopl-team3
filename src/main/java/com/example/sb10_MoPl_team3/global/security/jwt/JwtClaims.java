@@ -18,7 +18,7 @@ public record JwtClaims(
         Objects.requireNonNull(userId, "userId must not be null");
         Objects.requireNonNull(role, "role must not be null");
         Objects.requireNonNull(type, "type must not be null");
-        // 세션 ID는 아직 미구현이므로 null 허용
+        Objects.requireNonNull(sessionId, "sessionId must not be null");
         Objects.requireNonNull(issuedAt, "issuedAt must not be null");
         Objects.requireNonNull(expiresAt, "expiresAt must not be null");
 

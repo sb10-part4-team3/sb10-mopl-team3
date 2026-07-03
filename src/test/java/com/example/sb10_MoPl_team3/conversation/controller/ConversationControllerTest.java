@@ -23,6 +23,7 @@ import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.exception.GlobalExceptionHandler;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
 import com.example.sb10_MoPl_team3.user.dto.response.UserSummary;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import java.util.List;
@@ -50,6 +51,9 @@ class ConversationControllerTest {
 
     @MockitoBean
     private JwtProvider jwtProvider;
+
+    @MockitoBean
+    private JwtSessionValidator jwtSessionValidator;
 
     @Test
     @DisplayName("대화방 목록 조회 쿼리 파라미터를 요청 DTO로 바인딩한다")
@@ -251,7 +255,7 @@ class ConversationControllerTest {
     }
 
     private UsernamePasswordAuthenticationToken authToken(UUID userId) {
-        AuthUser authUser = new AuthUser(userId, UserRole.USER, null);
+        AuthUser authUser = new AuthUser(userId, UserRole.USER, UUID.randomUUID());
         return new UsernamePasswordAuthenticationToken(
             authUser,
             null,

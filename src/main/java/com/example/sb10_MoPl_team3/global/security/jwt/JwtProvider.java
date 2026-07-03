@@ -11,6 +11,7 @@ import javax.crypto.SecretKey;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Date;
+import java.util.Objects;
 import java.util.UUID;
 
 @Component
@@ -31,6 +32,7 @@ public class JwtProvider {
     }
 
     public String generateAccessToken(UUID userId, UserRole role, UUID sessionId) {
+        Objects.requireNonNull(sessionId, "sessionId must not be null");
         Instant issuedAt = Instant.now(clock);
         Instant expiresAt = issuedAt.plus(jwtProperties.accessTokenExpiration());
 
@@ -41,11 +43,8 @@ public class JwtProvider {
                 .expiration(Date.from(expiresAt))
                 .claim(CLAIM_ROLE, role.name())
                 .claim(CLAIM_TYPE, JwtTokenType.ACCESS.name())
+                .claim(CLAIM_SESSION_ID, sessionId.toString())
                 .signWith(secretKey);
-
-        if (sessionId != null) {
-            builder.claim(CLAIM_SESSION_ID, sessionId.toString());
-        }
 
         return builder.compact();
     }
@@ -65,12 +64,15 @@ public class JwtProvider {
         }
 
         String sessionId = claims.get(CLAIM_SESSION_ID, String.class);
+        if (sessionId == null) {
+            throw new IllegalArgumentException("sessionId must not be null");
+        }
 
         return new JwtClaims(
                 UUID.fromString(claims.getSubject()),
                 UserRole.valueOf(claims.get(CLAIM_ROLE, String.class)),
                 type,
-                sessionId == null ? null : UUID.fromString(sessionId),
+                UUID.fromString(sessionId),
                 claims.getIssuedAt().toInstant(),
                 claims.getExpiration().toInstant()
         );

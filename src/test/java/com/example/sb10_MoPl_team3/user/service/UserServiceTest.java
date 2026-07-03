@@ -5,6 +5,8 @@ import com.example.sb10_MoPl_team3.user.dto.request.UserCreateRequest;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
+import com.example.sb10_MoPl_team3.user.event.UserProfileUpdatedEvent;
+import com.example.sb10_MoPl_team3.user.event.UserWithdrawnEvent;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.ApplicationEventPublisher;
 import com.example.sb10_MoPl_team3.global.file.FileStorageService;
 import com.example.sb10_MoPl_team3.global.security.UserAuthorizationService;
 import com.example.sb10_MoPl_team3.global.security.exception.AccessDeniedBusinessException;
@@ -60,6 +63,9 @@ class UserServiceTest {
 
     @Mock
     private Clock clock;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private UserService userService;
@@ -176,6 +182,12 @@ class UserServiceTest {
 
         assertThat(response.name()).isEqualTo("변경된이름");
         assertThat(response.profileImageUrl()).isEqualTo("https://image.test/old.png");
+        ArgumentCaptor<UserProfileUpdatedEvent> eventCaptor =
+                ArgumentCaptor.forClass(UserProfileUpdatedEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().user().name()).isEqualTo("변경된이름");
+        assertThat(eventCaptor.getValue().user().profileImageUrl())
+                .isEqualTo("https://image.test/old.png");
     }
 
     @Test
@@ -373,6 +385,7 @@ class UserServiceTest {
         then(userRepository).should().findById(userId);
         then(authSessionRepository).should().findAllByUserId(userId);
         then(authSessionRepository).should().saveAll(List.of(session1, session2));
+        then(eventPublisher).should().publishEvent(new UserWithdrawnEvent(userId));
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
 

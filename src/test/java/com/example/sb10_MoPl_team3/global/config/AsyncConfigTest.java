@@ -26,4 +26,21 @@ class AsyncConfigTest {
             executor.shutdown();
         }
     }
+
+    @Test
+    @DisplayName("시청자 캐시 executor의 용량과 거부 정책을 설정한다")
+    void watcherCacheExecutor_hasExpectedCapacityAndRejectionPolicy() {
+        ThreadPoolTaskExecutor executor = (ThreadPoolTaskExecutor)
+                new AsyncConfig().watcherCacheExecutor();
+        try {
+            assertThat(executor.getCorePoolSize()).isEqualTo(1);
+            assertThat(executor.getMaxPoolSize()).isEqualTo(2);
+            assertThat(executor.getThreadPoolExecutor().getQueue().remainingCapacity())
+                    .isEqualTo(100);
+            assertThat(executor.getThreadPoolExecutor().getRejectedExecutionHandler())
+                    .isInstanceOf(ThreadPoolExecutor.CallerRunsPolicy.class);
+        } finally {
+            executor.shutdown();
+        }
+    }
 }
