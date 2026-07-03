@@ -3,7 +3,9 @@ package com.example.sb10_MoPl_team3.auth.password.controller;
 import com.example.sb10_MoPl_team3.auth.password.dto.TemporaryPasswordIssueRequest;
 import com.example.sb10_MoPl_team3.auth.password.service.PasswordResetService;
 import com.example.sb10_MoPl_team3.global.config.SecurityConfig;
-import com.example.sb10_MoPl_team3.global.security.jwt.JwtAuthenticationFilter;
+import com.example.sb10_MoPl_team3.global.exception.GlobalExceptionHandler;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,20 +26,20 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(PasswordResetController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, GlobalExceptionHandler.class})
 class PasswordResetControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
     @MockitoBean
     private PasswordResetService passwordResetService;
 
     @MockitoBean
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
+    private JwtProvider jwtProvider;
+
+    @MockitoBean
+    private JwtSessionValidator jwtSessionValidator;
 
     @Test
     @DisplayName("이메일이 유효하면 임시 비밀번호 발급 요청에 성공한다")
