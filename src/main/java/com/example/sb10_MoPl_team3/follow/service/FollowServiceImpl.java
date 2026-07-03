@@ -62,6 +62,13 @@ public class FollowServiceImpl implements FollowService {
         return followRepository.countByFollowee_Id(followeeId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public FollowDto isFollowedByMe(UUID followerId, UUID followeeId) {
+        return findFollow(followerId, followeeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.FOLLOW_NOT_FOUND));
+    }
+
     private FollowCreateResult createOrFindFollow(UUID followerId, UUID followeeId) {
         try {
             return new FollowCreateResult(createNewFollow(followerId, followeeId), true);
