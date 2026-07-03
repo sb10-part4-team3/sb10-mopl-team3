@@ -193,7 +193,8 @@ class FollowControllerTest {
         mockMvc.perform(get("/api/follows/count")
                 .queryParam("followeeId", followeeId.toString()))
                 .andExpect(status().isUnauthorized());
-        }
+
+    }
 
     private RequestBuilder cancelFollowRequest(UUID requesterId, UUID followId) {
         return delete("/api/follows/{followId}", followId)

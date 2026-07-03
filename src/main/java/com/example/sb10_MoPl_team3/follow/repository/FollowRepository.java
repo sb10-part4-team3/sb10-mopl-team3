@@ -19,8 +19,6 @@ public interface FollowRepository extends JpaRepository<Follow, UUID> {
             UUID followeeId
     );
 
-    long countByFollowee(User followee); // 팔로워 수
-
     long countByFollowee_Id(UUID followeeId);
 
     long countByFollower(User follower); // 팔로잉 수
