@@ -51,3 +51,13 @@ admin:
 auth:
   refresh-token-cookie:
     secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
+
+sportsdb:
+  base-url: https://www.thesportsdb.com/api/v1/json
+  api-key: ${SPORTS_DB_API_KEY:}
+  target-league-ids:
+    - 4328  # English Premier League
+    - 4335  # Spanish La Liga
+    - 4331  # German Bundesliga
+    - 4332  # Italian Serie A
+    - 4334  # French Ligue 1

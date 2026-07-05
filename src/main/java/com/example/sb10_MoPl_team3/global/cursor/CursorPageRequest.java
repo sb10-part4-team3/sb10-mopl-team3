@@ -24,9 +24,19 @@ public record CursorPageRequest(
         }
         if (sortDirection == null || sortDirection.isBlank()) {
             sortDirection = DEFAULT_SORT_DIRECTION;
-        } else if (!sortDirection.equalsIgnoreCase("ASC") && !sortDirection.equalsIgnoreCase("DESC")) {
-            throw new BusinessException(ErrorCode.INVALID_SORT_DIRECTION);
+        } else {
+            sortDirection = normalizeSortDirection(sortDirection);
         }
+    }
+
+    private static String normalizeSortDirection(String value) {
+        if (value.equalsIgnoreCase("ASC") || value.equalsIgnoreCase("ASCENDING")) {
+            return "ASC";
+        }
+        if (value.equalsIgnoreCase("DESC") || value.equalsIgnoreCase("DESCENDING")) {
+            return "DESC";
+        }
+        throw new BusinessException(ErrorCode.INVALID_SORT_DIRECTION);
     }
 
     public boolean hasCursor() {

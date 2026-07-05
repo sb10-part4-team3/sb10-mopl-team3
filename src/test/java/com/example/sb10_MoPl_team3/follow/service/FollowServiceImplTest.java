@@ -262,6 +262,43 @@ class FollowServiceImplTest {
         then(followRepository).should().countByFollowee_Id(followeeId);
     }
 
+    @Test
+    @DisplayName("isFollowedByMe returns the follow when the requester follows the target user")
+    void isFollowedByMe_success() {
+        UUID followerId = uuid(1);
+        UUID followeeId = uuid(2);
+        UUID followId = uuid(10);
+        Follow follow = follow(
+                followId,
+                user(followerId, "follower@test.com", "follower"),
+                user(followeeId, "followee@test.com", "followee")
+        );
+        FollowDto dto = new FollowDto(followId, followeeId, followerId);
+
+        given(followRepository.findByFollower_IdAndFollowee_Id(followerId, followeeId))
+                .willReturn(Optional.of(follow));
+        given(followMapper.toDto(follow)).willReturn(dto);
+
+        FollowDto response = followService.isFollowedByMe(followerId, followeeId);
+
+        assertThat(response).isEqualTo(dto);
+    }
+
+    @Test
+    @DisplayName("isFollowedByMe rejects when the requester does not follow the target user")
+    void isFollowedByMe_notFound() {
+        UUID followerId = uuid(1);
+        UUID followeeId = uuid(2);
+
+        given(followRepository.findByFollower_IdAndFollowee_Id(followerId, followeeId))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> followService.isFollowedByMe(followerId, followeeId))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FOLLOW_NOT_FOUND)
+                );
+    }
+
     private Follow follow(UUID id, User follower, User followee) {
         Follow follow = Follow.builder()
                 .follower(follower)

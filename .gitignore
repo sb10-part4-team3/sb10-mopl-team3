@@ -41,3 +41,5 @@ out/
 !.env.example
 
 src/main/generated/
+
+src/test/java/com/example/sb10_MoPl_team3/tmdb/ManualDataSeedTest.java
