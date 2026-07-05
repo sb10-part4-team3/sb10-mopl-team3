@@ -18,9 +18,11 @@ import com.example.sb10_MoPl_team3.content.repository.ContentTagProjection;
 import com.example.sb10_MoPl_team3.content.repository.ContentTagRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
+import com.example.sb10_MoPl_team3.notification.event.NotificationAudienceType;
 import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
+import com.example.sb10_MoPl_team3.notification.event.NotificationFanoutEvent;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
-import com.example.sb10_MoPl_team3.follow.repository.FollowRepository;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistCreateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistFindAllRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistUpdateRequest;
@@ -85,9 +87,6 @@ class PlaylistServiceImplTest {
     private ContentStatsRepository contentStatsRepository;
 
     @Mock
-    private FollowRepository followRepository;
-
-    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
@@ -111,8 +110,6 @@ class PlaylistServiceImplTest {
         given(userRepository.findById(userId)).willReturn(Optional.of(owner));
         given(playlistRepository.save(any(Playlist.class))).willReturn(saved);
         given(playlistMapper.toDto(saved, false)).willReturn(dto);
-        given(followRepository.findFollowerIdsByFolloweeId(userId))
-                .willReturn(List.of(uuid(2)));
 
         PlaylistDto response = playlistService.create(new PlaylistCreateRequest("title", "description"));
 
@@ -125,7 +122,15 @@ class PlaylistServiceImplTest {
         assertThat(captured.getTitle()).isEqualTo("title");
         assertThat(captured.getDescription()).isEqualTo("description");
         assertThat(captured.getStatus()).isEqualTo(PlaylistStatus.ACTIVE);
-        then(eventPublisher).should().publishEvent(any(NotificationEvent.class));
+        ArgumentCaptor<NotificationFanoutEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationFanoutEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        NotificationFanoutEvent event = eventCaptor.getValue();
+        assertThat(event.audienceType()).isEqualTo(NotificationAudienceType.FOLLOWERS);
+        assertThat(event.sourceId()).isEqualTo(owner.getId());
+        assertThat(event.title()).isEqualTo("팔로우 활동");
+        assertThat(event.content()).isEqualTo("owner님이 새 플레이리스트 'title'을(를) 등록했습니다.");
+        assertThat(event.level()).isEqualTo(NotificationLevel.INFO);
     }
 
     @Test
@@ -342,7 +347,14 @@ class PlaylistServiceImplTest {
         playlistService.subscribe(playlistId);
 
         then(playlistRepository).should().increaseSubscriberCount(playlistId, PlaylistStatus.DELETED);
-        then(eventPublisher).should().publishEvent(any(NotificationEvent.class));
+        ArgumentCaptor<NotificationEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        NotificationEvent event = eventCaptor.getValue();
+        assertThat(event.receiverId()).isEqualTo(playlist.getOwner().getId());
+        assertThat(event.title()).isEqualTo("플레이리스트 구독");
+        assertThat(event.content()).isEqualTo("'title' 플레이리스트에 새로운 구독자가 있습니다.");
+        assertThat(event.level()).isEqualTo(NotificationLevel.INFO);
     }
 
     @Test
@@ -436,13 +448,21 @@ class PlaylistServiceImplTest {
         given(playlistRepository.findById(playlistId)).willReturn(Optional.of(playlist));
         given(contentRepository.findById(contentId)).willReturn(Optional.of(content));
         given(playlistContentRepository.insertIfNotExists(playlist, content)).willReturn(1);
-        given(playlistSubscriptionRepository.findSubscriberUserIdsByPlaylistId(playlistId))
-                .willReturn(List.of(uuid(3)));
 
         playlistService.addContent(playlistId, contentId);
 
         then(playlistContentRepository).should().insertIfNotExists(playlist, content);
-        then(eventPublisher).should().publishEvent(any(NotificationEvent.class));
+        ArgumentCaptor<NotificationFanoutEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationFanoutEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        NotificationFanoutEvent event = eventCaptor.getValue();
+        assertThat(event.audienceType())
+                .isEqualTo(NotificationAudienceType.PLAYLIST_SUBSCRIBERS);
+        assertThat(event.sourceId()).isEqualTo(playlistId);
+        assertThat(event.title()).isEqualTo("플레이리스트 업데이트");
+        assertThat(event.content())
+                .isEqualTo("'title' 플레이리스트에 'movie' 콘텐츠가 추가되었습니다.");
+        assertThat(event.level()).isEqualTo(NotificationLevel.INFO);
     }
 
     @Test

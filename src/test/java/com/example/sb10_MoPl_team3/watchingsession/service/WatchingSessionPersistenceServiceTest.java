@@ -6,15 +6,17 @@ import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.content.repository.ContentStatsRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
-import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
+import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
+import com.example.sb10_MoPl_team3.notification.event.NotificationAudienceType;
+import com.example.sb10_MoPl_team3.notification.event.NotificationFanoutEvent;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import com.example.sb10_MoPl_team3.watchingsession.entity.WatchingSession;
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRepository;
-import com.example.sb10_MoPl_team3.follow.repository.FollowRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -40,7 +42,6 @@ class WatchingSessionPersistenceServiceTest {
     @Mock UserRepository userRepository;
     @Mock ContentRepository contentRepository;
     @Mock ContentStatsRepository contentStatsRepository;
-    @Mock FollowRepository followRepository;
     @Mock ApplicationEventPublisher eventPublisher;
     @InjectMocks WatchingSessionPersistenceService persistenceService;
 
@@ -53,8 +54,6 @@ class WatchingSessionPersistenceServiceTest {
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.empty());
         given(contentStatsRepository.incrementViewerCount(eq(contentId), any(Instant.class)))
                 .willReturn(1);
-        given(followRepository.findFollowerIdsByFolloweeId(watcherId))
-                .willReturn(java.util.List.of(UUID.randomUUID()));
 
         var result = persistenceService.join(contentId, watcherId);
         assertThat(result.previousContentId()).isEmpty();
@@ -62,7 +61,15 @@ class WatchingSessionPersistenceServiceTest {
         then(watchingSessionRepository).should().save(any(WatchingSession.class));
         then(contentStatsRepository).should()
                 .incrementViewerCount(eq(contentId), any(Instant.class));
-        then(eventPublisher).should().publishEvent(any(NotificationEvent.class));
+        ArgumentCaptor<NotificationFanoutEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationFanoutEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        NotificationFanoutEvent event = eventCaptor.getValue();
+        assertThat(event.audienceType()).isEqualTo(NotificationAudienceType.FOLLOWERS);
+        assertThat(event.sourceId()).isEqualTo(watcherId);
+        assertThat(event.title()).isEqualTo("팔로우 활동");
+        assertThat(event.content()).isEqualTo("시청자님이 '콘텐츠' 시청을 시작했습니다.");
+        assertThat(event.level()).isEqualTo(NotificationLevel.INFO);
     }
 
     @Test

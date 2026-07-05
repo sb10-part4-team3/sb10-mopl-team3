@@ -6,6 +6,8 @@ import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
+import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import com.example.sb10_MoPl_team3.user.dto.request.UserLockUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserRoleUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
@@ -14,7 +16,6 @@ import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
-import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -319,7 +320,14 @@ class AdminUserServiceTest {
         then(userRepository).should().findById(userId);
         then(authSessionRepository).should().findAllByUserId(userId);
         then(authSessionRepository).should().saveAll(List.of(session1, session2));
-        then(eventPublisher).should().publishEvent(any(NotificationEvent.class));
+        ArgumentCaptor<NotificationEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        NotificationEvent event = eventCaptor.getValue();
+        assertThat(event.receiverId()).isEqualTo(userId);
+        assertThat(event.title()).isEqualTo("권한 변경");
+        assertThat(event.content()).isEqualTo("사용자 권한이 ADMIN(으)로 변경되었습니다.");
+        assertThat(event.level()).isEqualTo(NotificationLevel.INFO);
     }
 
     @Test

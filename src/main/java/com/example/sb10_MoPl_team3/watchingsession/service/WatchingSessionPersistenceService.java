@@ -11,9 +11,9 @@ import com.example.sb10_MoPl_team3.watchingsession.entity.WatchingSession;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionJoinResult;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRepository;
-import com.example.sb10_MoPl_team3.follow.repository.FollowRepository;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
-import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
+import com.example.sb10_MoPl_team3.notification.event.NotificationAudienceType;
+import com.example.sb10_MoPl_team3.notification.event.NotificationFanoutEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,7 +33,6 @@ public class WatchingSessionPersistenceService {
     private final UserRepository userRepository;
     private final ContentRepository contentRepository;
     private final ContentStatsRepository contentStatsRepository;
-    private final FollowRepository followRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -92,14 +91,14 @@ public class WatchingSessionPersistenceService {
     }
 
     private void publishWatchingActivity(User watcher, Content content) {
-        followRepository.findFollowerIdsByFolloweeId(watcher.getId())
-                .forEach(followerId -> eventPublisher.publishEvent(new NotificationEvent(
-                        followerId,
-                        "팔로우 활동",
-                        "%s님이 '%s' 시청을 시작했습니다."
-                                .formatted(watcher.getName(), content.getTitle()),
-                        NotificationLevel.INFO
-                )));
+        eventPublisher.publishEvent(new NotificationFanoutEvent(
+                NotificationAudienceType.FOLLOWERS,
+                watcher.getId(),
+                "팔로우 활동",
+                "%s님이 '%s' 시청을 시작했습니다."
+                        .formatted(watcher.getName(), content.getTitle()),
+                NotificationLevel.INFO
+        ));
     }
 
     private WatchingSessionJoinResult result(Optional<UUID> previousContentId, User watcher) {

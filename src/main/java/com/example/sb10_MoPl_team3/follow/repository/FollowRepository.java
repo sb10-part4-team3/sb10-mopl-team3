@@ -4,8 +4,9 @@ import com.example.sb10_MoPl_team3.follow.entity.Follow;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.List;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -25,6 +26,7 @@ public interface FollowRepository extends JpaRepository<Follow, UUID> {
 
     long countByFollower(User follower); // 팔로잉 수
 
-    @Query("select follow.follower.id from Follow follow where follow.followee.id = :followeeId")
-    List<UUID> findFollowerIdsByFolloweeId(UUID followeeId);
+    @Query("select follow.follower.id from Follow follow "
+            + "where follow.followee.id = :followeeId order by follow.id")
+    Slice<UUID> findFollowerIdsByFolloweeId(UUID followeeId, Pageable pageable);
 }

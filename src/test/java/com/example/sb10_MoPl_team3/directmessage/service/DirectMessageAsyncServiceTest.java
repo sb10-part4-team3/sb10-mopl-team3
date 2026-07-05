@@ -12,6 +12,7 @@ import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -62,7 +63,10 @@ class DirectMessageAsyncServiceTest {
         assertThat(result.receiver().userId()).isEqualTo(receiver.getId());
         assertThat(result.content()).isEqualTo("안녕하세요");
         then(directMessageRepository).should().saveAndFlush(any(DirectMessage.class));
-        then(eventPublisher).should().publishEvent(any(NotificationEvent.class));
+        ArgumentCaptor<NotificationEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().receiverId()).isEqualTo(receiver.getId());
     }
 
     @Test

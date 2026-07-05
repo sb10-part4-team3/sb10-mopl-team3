@@ -25,9 +25,10 @@ import com.example.sb10_MoPl_team3.playlist.repository.PlaylistRepository;
 import com.example.sb10_MoPl_team3.playlist.repository.PlaylistRepositoryCustom;
 import com.example.sb10_MoPl_team3.playlist.repository.PlaylistSubscriptionRepository;
 import com.example.sb10_MoPl_team3.review.dto.response.CursorResponsePlaylistDto;
-import com.example.sb10_MoPl_team3.follow.repository.FollowRepository;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
 import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
+import com.example.sb10_MoPl_team3.notification.event.NotificationAudienceType;
+import com.example.sb10_MoPl_team3.notification.event.NotificationFanoutEvent;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
@@ -51,7 +52,6 @@ public class PlaylistServiceImpl implements PlaylistService{
     private final ContentRepository contentRepository;
     private final ContentTagRepository contentTagRepository;
     private final ContentStatsRepository contentStatsRepository;
-    private final FollowRepository followRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     // 플레이리스트 생성
@@ -69,12 +69,14 @@ public class PlaylistServiceImpl implements PlaylistService{
                 .build();
 
         Playlist savedPlaylist = playlistRepository.save(newPlaylist);
-        publishToFollowers(
+        eventPublisher.publishEvent(new NotificationFanoutEvent(
+                NotificationAudienceType.FOLLOWERS,
                 owner.getId(),
                 "팔로우 활동",
                 "%s님이 새 플레이리스트 '%s'을(를) 등록했습니다."
-                        .formatted(owner.getName(), savedPlaylist.getTitle())
-        );
+                        .formatted(owner.getName(), savedPlaylist.getTitle()),
+                NotificationLevel.INFO
+        ));
         PlaylistDto playlistDto = playlistMapper.toDto(savedPlaylist, false);
 
         return playlistDto;
@@ -282,14 +284,14 @@ public class PlaylistServiceImpl implements PlaylistService{
         if (inserted == 0) {
             return;
         }
-        playlistSubscriptionRepository.findSubscriberUserIdsByPlaylistId(playlistId)
-                .forEach(subscriberId -> eventPublisher.publishEvent(new NotificationEvent(
-                        subscriberId,
-                        "플레이리스트 업데이트",
-                        "'%s' 플레이리스트에 '%s' 콘텐츠가 추가되었습니다."
-                                .formatted(playlist.getTitle(), content.getTitle()),
-                        NotificationLevel.INFO
-                )));
+        eventPublisher.publishEvent(new NotificationFanoutEvent(
+                NotificationAudienceType.PLAYLIST_SUBSCRIBERS,
+                playlistId,
+                "플레이리스트 업데이트",
+                "'%s' 플레이리스트에 '%s' 콘텐츠가 추가되었습니다."
+                        .formatted(playlist.getTitle(), content.getTitle()),
+                NotificationLevel.INFO
+        ));
     }
 
     // 플레이리스트 콘텐츠 제거
@@ -307,13 +309,6 @@ public class PlaylistServiceImpl implements PlaylistService{
         }
 
         playlistContentRepository.deleteByPlaylistIdAndContentId(playlistId, contentId);
-    }
-
-    private void publishToFollowers(UUID ownerId, String title, String content) {
-        followRepository.findFollowerIdsByFolloweeId(ownerId)
-                .forEach(followerId -> eventPublisher.publishEvent(new NotificationEvent(
-                        followerId, title, content, NotificationLevel.INFO
-                )));
     }
 
     // 플레이리스트 논리 삭제

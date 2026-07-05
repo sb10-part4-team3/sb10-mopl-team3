@@ -82,7 +82,10 @@ class FollowServiceImplTest {
         then(followRepository).should().saveAndFlush(followCaptor.capture());
         assertThat(followCaptor.getValue().getFollower()).isEqualTo(follower);
         assertThat(followCaptor.getValue().getFollowee()).isEqualTo(followee);
-        then(eventPublisher).should().publishEvent(any(NotificationEvent.class));
+        ArgumentCaptor<NotificationEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().receiverId()).isEqualTo(followeeId);
     }
 
     @Test
