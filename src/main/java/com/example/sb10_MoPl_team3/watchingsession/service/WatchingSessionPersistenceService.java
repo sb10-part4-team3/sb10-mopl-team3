@@ -94,7 +94,7 @@ public class WatchingSessionPersistenceService {
         eventPublisher.publishEvent(new NotificationFanoutEvent(
                 NotificationAudienceType.FOLLOWERS,
                 watcher.getId(),
-                "팔로우 활동",
+                "시청 시작",
                 "%s님이 '%s' 시청을 시작했습니다."
                         .formatted(watcher.getName(), content.getTitle()),
                 NotificationLevel.INFO

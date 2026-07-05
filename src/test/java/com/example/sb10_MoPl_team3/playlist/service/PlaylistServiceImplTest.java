@@ -128,7 +128,7 @@ class PlaylistServiceImplTest {
         NotificationFanoutEvent event = eventCaptor.getValue();
         assertThat(event.audienceType()).isEqualTo(NotificationAudienceType.FOLLOWERS);
         assertThat(event.sourceId()).isEqualTo(owner.getId());
-        assertThat(event.title()).isEqualTo("팔로우 활동");
+        assertThat(event.title()).isEqualTo("새 플레이리스트");
         assertThat(event.content()).isEqualTo("owner님이 새 플레이리스트 'title'을(를) 등록했습니다.");
         assertThat(event.level()).isEqualTo(NotificationLevel.INFO);
     }

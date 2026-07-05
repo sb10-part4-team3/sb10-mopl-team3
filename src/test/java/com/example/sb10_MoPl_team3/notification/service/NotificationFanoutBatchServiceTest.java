@@ -29,11 +29,29 @@ class NotificationFanoutBatchServiceTest {
     @InjectMocks NotificationFanoutBatchService batchService;
 
     @Test
+    void saveBatch_returnsZeroWithoutRepositoryCallsWhenReceiverIdsAreEmpty() {
+        int savedCount = batchService.saveBatch(
+                List.of(),
+                new NotificationFanoutEvent(
+                        NotificationAudienceType.FOLLOWERS,
+                        UUID.randomUUID(),
+                        "제목",
+                        "내용",
+                        NotificationLevel.INFO));
+
+        assertThat(savedCount).isZero();
+        then(userRepository).shouldHaveNoInteractions();
+        then(notificationRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
     void saveBatch_savesNotificationsAndReturnsSavedCount() {
         UUID firstId = UUID.randomUUID();
         UUID secondId = UUID.randomUUID();
+        User first = user("first@test.com");
+        User second = user("second@test.com");
         given(userRepository.findAllById(List.of(firstId, secondId)))
-                .willReturn(List.of(user("first@test.com"), user("second@test.com")));
+                .willReturn(List.of(first, second));
 
         int savedCount = batchService.saveBatch(
                 List.of(firstId, secondId),
@@ -47,7 +65,16 @@ class NotificationFanoutBatchServiceTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<Notification>> captor = ArgumentCaptor.forClass(List.class);
         then(notificationRepository).should().saveAll(captor.capture());
-        assertThat(captor.getValue()).hasSize(2);
+        List<Notification> notifications = captor.getValue();
+        assertThat(notifications).hasSize(2);
+        assertThat(notifications).extracting(Notification::getReceiver)
+                .containsExactly(first, second);
+        assertThat(notifications).extracting(Notification::getTitle)
+                .containsOnly("제목");
+        assertThat(notifications).extracting(Notification::getContent)
+                .containsOnly("내용");
+        assertThat(notifications).extracting(Notification::getLevel)
+                .containsOnly(NotificationLevel.INFO);
         assertThat(savedCount).isEqualTo(2);
     }
 

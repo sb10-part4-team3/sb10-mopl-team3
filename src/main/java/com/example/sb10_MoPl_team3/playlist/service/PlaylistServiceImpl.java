@@ -72,7 +72,7 @@ public class PlaylistServiceImpl implements PlaylistService{
         eventPublisher.publishEvent(new NotificationFanoutEvent(
                 NotificationAudienceType.FOLLOWERS,
                 owner.getId(),
-                "팔로우 활동",
+                "새 플레이리스트",
                 "%s님이 새 플레이리스트 '%s'을(를) 등록했습니다."
                         .formatted(owner.getName(), savedPlaylist.getTitle()),
                 NotificationLevel.INFO

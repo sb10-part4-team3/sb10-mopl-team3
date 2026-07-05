@@ -67,7 +67,7 @@ class WatchingSessionPersistenceServiceTest {
         NotificationFanoutEvent event = eventCaptor.getValue();
         assertThat(event.audienceType()).isEqualTo(NotificationAudienceType.FOLLOWERS);
         assertThat(event.sourceId()).isEqualTo(watcherId);
-        assertThat(event.title()).isEqualTo("팔로우 활동");
+        assertThat(event.title()).isEqualTo("시청 시작");
         assertThat(event.content()).isEqualTo("시청자님이 '콘텐츠' 시청을 시작했습니다.");
         assertThat(event.level()).isEqualTo(NotificationLevel.INFO);
     }
