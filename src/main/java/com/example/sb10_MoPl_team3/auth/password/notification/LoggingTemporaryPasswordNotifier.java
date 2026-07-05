@@ -9,6 +9,6 @@ public class LoggingTemporaryPasswordNotifier implements TemporaryPasswordNotifi
 
     @Override
     public void send(String email, String temporaryPassword) {
-        log.info("Temporary password issued. email={}, temporaryPassword={}", email, temporaryPassword);
+        log.info("Temporary password issued. email={}", email);
     }
 }

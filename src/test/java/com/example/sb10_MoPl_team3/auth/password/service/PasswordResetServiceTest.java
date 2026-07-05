@@ -207,10 +207,10 @@ class PasswordResetServiceTest {
         boolean result = passwordResetService.matchesTemporaryPassword(user, "temporary-password");
 
         assertThat(result).isTrue();
-        assertThat(token.isUsed()).isFalse();
-        assertThat(token.getUsedAt()).isNull();
+        assertThat(token.isUsed()).isTrue();
+        assertThat(token.getUsedAt()).isEqualTo(now);
 
-        then(passwordResetTokenRepository).should(never()).save(any());
+        then(passwordResetTokenRepository).should().save(token);
     }
 
     @Test
@@ -340,5 +340,33 @@ class PasswordResetServiceTest {
         passwordResetService.discardTemporaryPasswords(user);
 
         then(passwordResetTokenRepository).should(never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("만료된 임시 비밀번호는 검증 대상에서 제외되어 false를 반환한다")
+    void matchesTemporaryPassword_expiredToken() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:03:01Z");
+
+        User user = new User(
+                "user@test.com",
+                "User",
+                "encoded-password",
+                null,
+                UserRole.USER
+        );
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        given(clock.instant()).willReturn(now);
+        given(passwordResetTokenRepository.findAllByUser_IdAndUsedFalseAndExpiresAtAfter(userId, now))
+                .willReturn(List.of());
+
+        boolean result = passwordResetService.matchesTemporaryPassword(user, "temporary-password");
+
+        assertThat(result).isFalse();
+
+        then(passwordResetTokenRepository).should()
+                .findAllByUser_IdAndUsedFalseAndExpiresAtAfter(userId, now);
+        then(passwordEncoder).shouldHaveNoInteractions();
     }
 }
