@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.auth.integration;
 
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.auth.password.service.TemporaryPasswordGenerator;
 import com.example.sb10_MoPl_team3.auth.service.TokenService;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
@@ -31,7 +32,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.util.UUID;
+
+import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.http.HttpHeaders.SET_COOKIE;
@@ -77,6 +83,9 @@ class AuthIntegrationTest {
 
     @Autowired
     private TokenService tokenService;
+
+    @MockitoBean
+    private TemporaryPasswordGenerator temporaryPasswordGenerator;
 
     @AfterEach
     void cleanRedis() {
@@ -221,6 +230,67 @@ class AuthIntegrationTest {
         signIn("locked@test.com", "password1!")
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
+    }
+
+    @Test
+    @DisplayName("임시 비밀번호는 만료 전 로그인에 사용할 수 있고 비밀번호 변경 후 파기된다")
+    void signIn_withTemporaryPassword_untilPasswordChanged() throws Exception {
+        signUp("Reset User", "temporary-login@test.com", "password1!")
+                .andExpect(status().isCreated());
+
+        String temporaryPassword = "randomTemporaryPassword1!";
+
+        given(temporaryPasswordGenerator.generate())
+                .willReturn(temporaryPassword);
+
+        mockMvc.perform(post("/api/auth/password-reset")
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "temporary-login@test.com"
+                            }
+                            """))
+                .andExpect(status().isNoContent());
+
+        assertThat(temporaryPassword).isNotBlank();
+        assertThat(temporaryPassword).isNotEqualTo("temporary1!!");
+
+        MvcResult temporarySignInResult =
+                signIn("temporary-login@test.com", temporaryPassword)
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                        .andReturn();
+
+        JsonNode jsonNode = objectMapper.readTree(
+                temporarySignInResult.getResponse().getContentAsString()
+        );
+
+        String accessToken = jsonNode.get("accessToken").asText();
+        UUID userId = jwtProvider.parseAccessToken(accessToken).userId();
+
+        signIn("temporary-login@test.com", temporaryPassword)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
+
+        mockMvc.perform(patch("/api/users/{userId}/password", userId)
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                    {
+                      "password": "newPassword1!"
+                    }
+                    """))
+                .andExpect(status().isNoContent());
+
+        signIn("temporary-login@test.com", temporaryPassword)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
+
+        signIn("temporary-login@test.com", "newPassword1!")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty());
     }
 
     @Test

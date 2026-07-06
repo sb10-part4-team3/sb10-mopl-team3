@@ -4,6 +4,8 @@ import com.example.sb10_MoPl_team3.review.entity.Review;
 import com.example.sb10_MoPl_team3.review.enums.ReviewStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.UUID;
@@ -12,4 +14,7 @@ import java.util.UUID;
 public interface ReviewRepository extends JpaRepository<Review, UUID>, JpaSpecificationExecutor<Review> {
 
     long countByContent_IdAndStatus(UUID contentId, ReviewStatus status);
+
+    @Query("SELECT AVG(r.rating) FROM Review r WHERE r.content.id = :contentId AND r.status = :status")
+    Double findAverageRatingByContentIdAndStatus(@Param("contentId") UUID contentId, @Param("status") ReviewStatus status);
 }

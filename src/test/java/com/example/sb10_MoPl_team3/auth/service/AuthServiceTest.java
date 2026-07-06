@@ -5,6 +5,7 @@ import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
+import com.example.sb10_MoPl_team3.auth.password.service.PasswordResetService;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
@@ -37,6 +38,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -58,6 +60,21 @@ class AuthServiceTest {
 
     @Mock
     private Clock clock;
+
+    @Mock
+    private AuthSessionLockManager authSessionLockManager;
+
+    @Mock
+    private PasswordResetService passwordResetService;
+
+    @SuppressWarnings("unchecked")
+    private void givenAuthSessionLockExecutesSupplier() {
+        given(authSessionLockManager.executeWithLock(any(UUID.class), any(java.util.function.Supplier.class)))
+                .willAnswer(invocation -> {
+                    java.util.function.Supplier<AuthTokenResult> supplier = invocation.getArgument(1);
+                    return supplier.get();
+                });
+    }
 
     @InjectMocks
     private AuthService authService;
@@ -105,6 +122,7 @@ class AuthServiceTest {
         then(tokenService).should().issueRefreshToken();
         then(tokenService).should().hashRefreshToken("refresh-token");
         then(tokenService).should().issueAccessToken(user, savedAuthSession.getId());
+        then(passwordResetService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -138,6 +156,11 @@ class AuthServiceTest {
         given(jwtProperties.refreshTokenExpiration()).willReturn(refreshTokenExpiration);
         given(authSessionRepository.findAllByUserId(userId))
                 .willReturn(List.of(existingSession1, existingSession2));
+        given(authSessionRepository.findById(existingSession1.getId()))
+                .willReturn(Optional.of(existingSession1));
+        given(authSessionRepository.findById(existingSession2.getId()))
+                .willReturn(Optional.of(existingSession2));
+        givenAuthSessionLockExecutesSupplier();
         given(tokenService.issueRefreshToken()).willReturn("new-refresh-token");
         given(tokenService.hashRefreshToken("new-refresh-token")).willReturn("new-refresh-token-hash");
         given(tokenService.issueAccessToken(any(User.class), any(UUID.class))).willReturn("new-access-token");
@@ -155,17 +178,20 @@ class AuthServiceTest {
         assertThat(existingSession2.getRevokedAt()).isEqualTo(now);
 
         then(authSessionRepository).should().findAllByUserId(userId);
-        then(authSessionRepository).should().saveAll(any());
 
         ArgumentCaptor<AuthSession> authSessionCaptor = ArgumentCaptor.forClass(AuthSession.class);
-        then(authSessionRepository).should().save(authSessionCaptor.capture());
+        then(authSessionRepository).should(times(3)).save(authSessionCaptor.capture());
 
-        AuthSession newSession = authSessionCaptor.getValue();
+        AuthSession newSession = authSessionCaptor.getAllValues().stream()
+                .filter(session -> !session.isRevoked())
+                .findFirst()
+                .orElseThrow();
         assertThat(newSession.getUserId()).isEqualTo(userId);
         assertThat(newSession.getRefreshTokenHash()).isEqualTo("new-refresh-token-hash");
         assertThat(newSession.isRevoked()).isFalse();
 
         then(tokenService).should().issueAccessToken(user, newSession.getId());
+        then(passwordResetService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -182,6 +208,7 @@ class AuthServiceTest {
         then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
+        then(passwordResetService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -192,13 +219,59 @@ class AuthServiceTest {
 
         given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
         given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(false);
+        given(passwordResetService.matchesTemporaryPassword(user, request.password())).willReturn(false);
 
         assertThatThrownBy(() -> authService.signIn(request))
                 .isInstanceOf(InvalidCredentialException.class);
 
+        then(passwordResetService).should().matchesTemporaryPassword(user, request.password());
         then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("일반 비밀번호가 틀려도 유효한 임시 비밀번호이면 로그인에 성공한다")
+    void signIn_temporaryPasswordSuccess() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+        Duration refreshTokenExpiration = Duration.ofDays(7);
+        SignInRequest request = new SignInRequest("user@test.com", "temporary-password");
+        User user = new User("user@test.com", "User", "encoded-password", null, UserRole.USER);
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
+        given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(false);
+        given(passwordResetService.matchesTemporaryPassword(user, request.password())).willReturn(true);
+        given(clock.instant()).willReturn(now);
+        given(jwtProperties.refreshTokenExpiration()).willReturn(refreshTokenExpiration);
+        given(authSessionRepository.findAllByUserId(userId)).willReturn(List.of());
+        given(tokenService.issueRefreshToken()).willReturn("refresh-token");
+        given(tokenService.hashRefreshToken("refresh-token")).willReturn("refresh-token-hash");
+        given(tokenService.issueAccessToken(any(User.class), any(UUID.class))).willReturn("access-token");
+
+        AuthTokenResult response = authService.signIn(request);
+
+        assertThat(response.jwtDto().accessToken()).isEqualTo("access-token");
+        assertThat(response.refreshToken()).isEqualTo("refresh-token");
+        assertThat(response.jwtDto().userDto().email()).isEqualTo("user@test.com");
+        assertThat(response.jwtDto().userDto().locked()).isFalse();
+
+        ArgumentCaptor<AuthSession> authSessionCaptor = ArgumentCaptor.forClass(AuthSession.class);
+        then(authSessionRepository).should().save(authSessionCaptor.capture());
+
+        AuthSession savedAuthSession = authSessionCaptor.getValue();
+        assertThat(savedAuthSession.getId()).isNotNull();
+        assertThat(savedAuthSession.getUserId()).isEqualTo(userId);
+        assertThat(savedAuthSession.getRefreshTokenHash()).isEqualTo("refresh-token-hash");
+        assertThat(savedAuthSession.getExpiresAt()).isEqualTo(now.plus(refreshTokenExpiration));
+        assertThat(savedAuthSession.isRevoked()).isFalse();
+
+        then(passwordResetService).should().matchesTemporaryPassword(user, request.password());
+        then(authSessionRepository).should().findAllByUserId(userId);
+        then(tokenService).should().issueRefreshToken();
+        then(tokenService).should().hashRefreshToken("refresh-token");
+        then(tokenService).should().issueAccessToken(user, savedAuthSession.getId());
     }
 
     @Test
@@ -217,6 +290,7 @@ class AuthServiceTest {
         then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
+        then(passwordResetService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -235,6 +309,7 @@ class AuthServiceTest {
         then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
+        then(passwordResetService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -268,8 +343,11 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken("new-refresh-token")).willReturn("new-refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
+        given(authSessionRepository.findById(authSession.getId()))
+                .willReturn(Optional.of(authSession));
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(tokenService.issueAccessToken(user, authSession.getId())).willReturn("new-access-token");
+        givenAuthSessionLockExecutesSupplier();
 
         AuthTokenResult response = authService.reissueToken(refreshToken);
 
@@ -287,6 +365,89 @@ class AuthServiceTest {
         then(userRepository).should().findById(userId);
         then(authSessionRepository).should().save(authSession);
         then(tokenService).should().issueAccessToken(user, authSession.getId());
+    }
+
+    @Test
+    @DisplayName("refresh token 재발급 중 세션이 무효화되면 재발급에 실패한다")
+    void reissueToken_sessionRevokedAfterFirstLookup() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+        String refreshToken = "refresh-token";
+        String refreshTokenHash = "refresh-token-hash";
+
+        AuthSession firstLookupSession = AuthSession.create(
+                userId,
+                refreshTokenHash,
+                now.plus(Duration.ofDays(7)),
+                now.minus(Duration.ofMinutes(1))
+        );
+
+        AuthSession reloadedSession = AuthSession.create(
+                userId,
+                refreshTokenHash,
+                now.plus(Duration.ofDays(7)),
+                now.minus(Duration.ofMinutes(1))
+        );
+        ReflectionTestUtils.setField(reloadedSession, "id", firstLookupSession.getId());
+        reloadedSession.revoke(now);
+
+        given(clock.instant()).willReturn(now);
+        given(tokenService.hashRefreshToken(refreshToken)).willReturn(refreshTokenHash);
+        given(authSessionRepository.findByRefreshTokenHash(refreshTokenHash))
+                .willReturn(Optional.of(firstLookupSession));
+        given(authSessionRepository.findById(firstLookupSession.getId()))
+                .willReturn(Optional.of(reloadedSession));
+        givenAuthSessionLockExecutesSupplier();
+
+        assertThatThrownBy(() -> authService.reissueToken(refreshToken))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        then(authSessionRepository).should().findByRefreshTokenHash(refreshTokenHash);
+        then(authSessionRepository).should().findById(firstLookupSession.getId());
+        then(userRepository).should(never()).findById(any());
+        then(tokenService).should(never()).issueRefreshToken();
+        then(authSessionRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("refresh token 재발급 중 세션의 refresh token hash가 바뀌면 재발급에 실패한다")
+    void reissueToken_refreshTokenHashChangedAfterFirstLookup() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+        String refreshToken = "refresh-token";
+        String refreshTokenHash = "refresh-token-hash";
+
+        AuthSession firstLookupSession = AuthSession.create(
+                userId,
+                refreshTokenHash,
+                now.plus(Duration.ofDays(7)),
+                now.minus(Duration.ofMinutes(1))
+        );
+
+        AuthSession reloadedSession = AuthSession.create(
+                userId,
+                "already-rotated-refresh-token-hash",
+                now.plus(Duration.ofDays(7)),
+                now.minus(Duration.ofMinutes(1))
+        );
+        ReflectionTestUtils.setField(reloadedSession, "id", firstLookupSession.getId());
+
+        given(clock.instant()).willReturn(now);
+        given(tokenService.hashRefreshToken(refreshToken)).willReturn(refreshTokenHash);
+        given(authSessionRepository.findByRefreshTokenHash(refreshTokenHash))
+                .willReturn(Optional.of(firstLookupSession));
+        given(authSessionRepository.findById(firstLookupSession.getId()))
+                .willReturn(Optional.of(reloadedSession));
+        givenAuthSessionLockExecutesSupplier();
+
+        assertThatThrownBy(() -> authService.reissueToken(refreshToken))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        then(authSessionRepository).should().findByRefreshTokenHash(refreshTokenHash);
+        then(authSessionRepository).should().findById(firstLookupSession.getId());
+        then(userRepository).should(never()).findById(any());
+        then(tokenService).should(never()).issueRefreshToken();
+        then(authSessionRepository).should(never()).save(any());
     }
 
     @Test
@@ -326,6 +487,9 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
+        given(authSessionRepository.findById(authSession.getId()))
+                .willReturn(Optional.of(authSession));
+        givenAuthSessionLockExecutesSupplier();
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
@@ -354,6 +518,9 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
+        given(authSessionRepository.findById(authSession.getId()))
+                .willReturn(Optional.of(authSession));
+        givenAuthSessionLockExecutesSupplier();
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
@@ -381,7 +548,10 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
+        given(authSessionRepository.findById(authSession.getId()))
+                .willReturn(Optional.of(authSession));
         given(userRepository.findById(userId)).willReturn(Optional.empty());
+        givenAuthSessionLockExecutesSupplier();
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
@@ -419,7 +589,10 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
+        given(authSessionRepository.findById(authSession.getId()))
+                .willReturn(Optional.of(authSession));
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        givenAuthSessionLockExecutesSupplier();
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
@@ -448,6 +621,7 @@ class AuthServiceTest {
 
         given(clock.instant()).willReturn(now);
         given(authSessionRepository.findById(sessionId)).willReturn(Optional.of(authSession));
+        givenAuthSessionLockExecutesSupplier();
 
         authService.signOut(authUser);
 
@@ -466,6 +640,7 @@ class AuthServiceTest {
         AuthUser authUser = new AuthUser(userId, UserRole.USER, sessionId);
 
         given(authSessionRepository.findById(sessionId)).willReturn(Optional.empty());
+        givenAuthSessionLockExecutesSupplier();
 
         authService.signOut(authUser);
 
@@ -489,6 +664,7 @@ class AuthServiceTest {
         ReflectionTestUtils.setField(authSession, "id", sessionId);
 
         given(authSessionRepository.findById(sessionId)).willReturn(Optional.of(authSession));
+        givenAuthSessionLockExecutesSupplier();
 
         assertThatThrownBy(() -> authService.signOut(authUser))
                 .isInstanceOf(InvalidCredentialException.class);

@@ -24,6 +24,18 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD}
 
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 tmdb:
   base-url: https://api.themoviedb.org/3
   access-token: ${TMDB_ACCESS_TOKEN:}
@@ -53,4 +65,15 @@ auth:
     secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
 
   password-reset-mail:
+
     from: ${MAIL_FROM:no-reply@mopl.local}
+
+sportsdb:
+  base-url: https://www.thesportsdb.com/api/v1/json
+  api-key: ${SPORTS_DB_API_KEY:}
+  target-league-ids:
+    - 4328  # English Premier League
+    - 4335  # Spanish La Liga
+    - 4331  # German Bundesliga
+    - 4332  # Italian Serie A
+    - 4334  # French Ligue 1

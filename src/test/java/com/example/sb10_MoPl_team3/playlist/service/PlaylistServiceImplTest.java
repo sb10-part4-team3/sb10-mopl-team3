@@ -18,6 +18,10 @@ import com.example.sb10_MoPl_team3.content.repository.ContentTagProjection;
 import com.example.sb10_MoPl_team3.content.repository.ContentTagRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
+import com.example.sb10_MoPl_team3.notification.event.NotificationAudienceType;
+import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
+import com.example.sb10_MoPl_team3.notification.event.NotificationFanoutEvent;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistCreateRequest;
 import com.example.sb10_MoPl_team3.playlist.dto.request.PlaylistFindAllRequest;
@@ -53,6 +57,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class PlaylistServiceImplTest {
@@ -80,6 +85,9 @@ class PlaylistServiceImplTest {
 
     @Mock
     private ContentStatsRepository contentStatsRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private PlaylistServiceImpl playlistService;
@@ -114,6 +122,15 @@ class PlaylistServiceImplTest {
         assertThat(captured.getTitle()).isEqualTo("title");
         assertThat(captured.getDescription()).isEqualTo("description");
         assertThat(captured.getStatus()).isEqualTo(PlaylistStatus.ACTIVE);
+        ArgumentCaptor<NotificationFanoutEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationFanoutEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        NotificationFanoutEvent event = eventCaptor.getValue();
+        assertThat(event.audienceType()).isEqualTo(NotificationAudienceType.FOLLOWERS);
+        assertThat(event.sourceId()).isEqualTo(owner.getId());
+        assertThat(event.title()).isEqualTo("새 플레이리스트");
+        assertThat(event.content()).isEqualTo("owner님이 새 플레이리스트 'title'을(를) 등록했습니다.");
+        assertThat(event.level()).isEqualTo(NotificationLevel.INFO);
     }
 
     @Test
@@ -330,6 +347,14 @@ class PlaylistServiceImplTest {
         playlistService.subscribe(playlistId);
 
         then(playlistRepository).should().increaseSubscriberCount(playlistId, PlaylistStatus.DELETED);
+        ArgumentCaptor<NotificationEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        NotificationEvent event = eventCaptor.getValue();
+        assertThat(event.receiverId()).isEqualTo(playlist.getOwner().getId());
+        assertThat(event.title()).isEqualTo("플레이리스트 구독");
+        assertThat(event.content()).isEqualTo("'title' 플레이리스트에 새로운 구독자가 있습니다.");
+        assertThat(event.level()).isEqualTo(NotificationLevel.INFO);
     }
 
     @Test
@@ -427,6 +452,17 @@ class PlaylistServiceImplTest {
         playlistService.addContent(playlistId, contentId);
 
         then(playlistContentRepository).should().insertIfNotExists(playlist, content);
+        ArgumentCaptor<NotificationFanoutEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationFanoutEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        NotificationFanoutEvent event = eventCaptor.getValue();
+        assertThat(event.audienceType())
+                .isEqualTo(NotificationAudienceType.PLAYLIST_SUBSCRIBERS);
+        assertThat(event.sourceId()).isEqualTo(playlistId);
+        assertThat(event.title()).isEqualTo("플레이리스트 업데이트");
+        assertThat(event.content())
+                .isEqualTo("'title' 플레이리스트에 'movie' 콘텐츠가 추가되었습니다.");
+        assertThat(event.level()).isEqualTo(NotificationLevel.INFO);
     }
 
     @Test

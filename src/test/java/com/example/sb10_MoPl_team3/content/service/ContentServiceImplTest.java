@@ -294,6 +294,19 @@ class ContentServiceImplTest {
         assertThat(result.nextIdAfter()).isEqualTo(c2.getId());
     }
 
+    @Test
+    void getContents_잘못된_type_문자열이면_INVALID_CONTENT_TYPE_예외() {
+        CursorPageRequest pageRequest = new CursorPageRequest(null, null, 10, "createdAt", "ASC");
+
+        assertThatThrownBy(() -> contentService.getContents(pageRequest, "aaa", null, null))
+            .isInstanceOf(BusinessException.class)
+            .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_CONTENT_TYPE));
+
+        then(contentRepository).should(never()).findContentsByCursor(any(), any(), any(), any());
+        then(contentRepository).should(never()).countContents(any(), any(), any());
+    }
+
     // --- helpers ---
 
     private Content buildContent(ContentType type, String title) {

@@ -1,7 +1,9 @@
 package com.example.sb10_MoPl_team3.review.service;
 
 import com.example.sb10_MoPl_team3.content.entity.Content;
+import com.example.sb10_MoPl_team3.content.entity.ContentStats;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
+import com.example.sb10_MoPl_team3.content.service.ContentStatsService;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.security.SecurityUtils;
@@ -42,6 +44,7 @@ public class ReviewServiceImpl implements ReviewService{
     private final ReviewMapper reviewMapper;
     private final UserRepository userRepository;
     private final ContentRepository contentRepository;
+    private final ContentStatsService contentStatsService;
 
     @Override
     public ReviewDto create(ReviewCreateRequest request) {
@@ -64,7 +67,10 @@ public class ReviewServiceImpl implements ReviewService{
                 .status(ReviewStatus.ACTIVE)
                 .build();
 
-        return reviewMapper.toDto(reviewRepository.save(newReview));
+        Review savedReview = reviewRepository.save(newReview);
+        contentStatsService.recalculate(content.getId());
+
+        return reviewMapper.toDto(savedReview);
     }
 
     // 리뷰 수정
@@ -80,6 +86,8 @@ public class ReviewServiceImpl implements ReviewService{
         }
 
         targetReview.update(request.text(), request.rating());
+
+        contentStatsService.recalculate(targetReview.getContent().getId());
 
         return reviewMapper.toDto(targetReview);
     }
@@ -284,6 +292,7 @@ public class ReviewServiceImpl implements ReviewService{
         validateAuthor(targetReview, requestUserId);
 
         targetReview.delete();
+        contentStatsService.recalculate(targetReview.getContent().getId());
     }
 
     // 리뷰 물리 삭제
@@ -296,6 +305,7 @@ public class ReviewServiceImpl implements ReviewService{
         validateAuthor(targetReview, requestUserId);
 
         reviewRepository.delete(targetReview);
+        contentStatsService.recalculate(targetReview.getContent().getId());
     }
 
     // 권한 확인

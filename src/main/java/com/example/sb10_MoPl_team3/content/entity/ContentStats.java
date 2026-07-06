@@ -59,4 +59,15 @@ public class ContentStats {
     this.reviewCount = reviewCount;
     this.viewerCount = viewerCount;
   }
+
+  public void updateStats(BigDecimal averageRating, int reviewCount) {
+    this.averageRating = averageRating;
+    this.reviewCount = reviewCount;
+  }
+
+  public static ContentStats createDefault(Content content) {
+    return ContentStats.builder()
+        .content(content)
+        .build();
+  }
 }

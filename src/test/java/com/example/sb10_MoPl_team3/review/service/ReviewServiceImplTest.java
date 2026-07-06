@@ -11,6 +11,7 @@ import static org.mockito.Mockito.never;
 import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
+import com.example.sb10_MoPl_team3.content.service.ContentStatsService;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
@@ -61,6 +62,9 @@ class ReviewServiceImplTest {
     @Mock
     private ContentRepository contentRepository;
 
+    @Mock
+    private ContentStatsService contentStatsService;
+
     @InjectMocks
     private ReviewServiceImpl reviewService;
 
@@ -89,6 +93,7 @@ class ReviewServiceImplTest {
         ReviewDto response = reviewService.create(new ReviewCreateRequest(contentId, "great", 4.5));
 
         assertThat(response).isEqualTo(dto);
+        then(contentStatsService).should().recalculate(contentId);
         // 저장 전 엔티티 상태를 캡처해서 인증 사용자, 콘텐츠, ACTIVE 상태가 실제로 조립됐는지 검증한다.
         ArgumentCaptor<Review> reviewCaptor = ArgumentCaptor.forClass(Review.class);
         then(reviewRepository).should().save(reviewCaptor.capture());
@@ -118,6 +123,7 @@ class ReviewServiceImplTest {
         assertThat(response).isEqualTo(dto);
         assertThat(review.getText()).isEqualTo("after");
         assertThat(review.getRating()).isEqualTo(5.0);
+        then(contentStatsService).should().recalculate(review.getContent().getId());
     }
 
     @Test
@@ -139,6 +145,7 @@ class ReviewServiceImplTest {
         assertThat(review.getText()).isEqualTo("text");
         assertThat(review.getRating()).isEqualTo(4.0);
         then(reviewMapper).should(never()).toDto(any());
+        then(contentStatsService).should(never()).recalculate(any());
     }
 
     @Test
@@ -225,6 +232,7 @@ class ReviewServiceImplTest {
         assertThat(review.getStatus()).isEqualTo(ReviewStatus.DELETED);
         assertThat(review.getDeletedAt()).isNotNull();
         then(reviewRepository).should(never()).delete(any(Review.class));
+        then(contentStatsService).should().recalculate(review.getContent().getId());
     }
 
     @Test
@@ -241,6 +249,7 @@ class ReviewServiceImplTest {
         reviewService.hardDelete(reviewId);
 
         then(reviewRepository).should().delete(review);
+        then(contentStatsService).should().recalculate(review.getContent().getId());
     }
 
     @Test
@@ -256,6 +265,7 @@ class ReviewServiceImplTest {
 
         assertThatThrownBy(() -> reviewService.delete(reviewId))
                 .isInstanceOf(ReviewNotFoundException.class);
+        then(contentStatsService).should(never()).recalculate(any());
     }
 
     private void authenticate(UUID userId) {

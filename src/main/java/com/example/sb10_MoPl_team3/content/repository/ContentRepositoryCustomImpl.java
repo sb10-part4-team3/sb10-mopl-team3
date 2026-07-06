@@ -4,6 +4,7 @@ import static com.example.sb10_MoPl_team3.content.entity.QContent.content;
 import static com.example.sb10_MoPl_team3.content.entity.QContentStats.contentStats;
 import static com.example.sb10_MoPl_team3.content.entity.QContentTag.contentTag;
 
+import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.global.cursor.Cursor;
 import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
@@ -31,7 +32,7 @@ public class ContentRepositoryCustomImpl implements ContentRepositoryCustom {
   @Override
   public List<Content> findContentsByCursor(
       CursorPageRequest pageRequest,
-      String typeEqual,
+      ContentType typeEqual,
       String keywordLike,
       List<String> tagsIn
   ) {
@@ -41,11 +42,11 @@ public class ContentRepositoryCustomImpl implements ContentRepositoryCustom {
     String sortBy = normalizeSortBy(pageRequest.sortBy());
     OrderSpecifier<?> orderSpecifier = switch (sortBy) {
       case "watcherCount" -> pageRequest.isAscending()
-          ? contentStats.viewerCount.asc()
-          : contentStats.viewerCount.desc();
+          ? contentStats.viewerCount.asc().nullsLast()
+          : contentStats.viewerCount.desc().nullsLast();
       case "rate" -> pageRequest.isAscending()
-          ? contentStats.averageRating.asc()
-          : contentStats.averageRating.desc();
+          ? contentStats.averageRating.asc().nullsLast()
+          : contentStats.averageRating.desc().nullsLast();
       default -> pageRequest.isAscending()
           ? content.createdAt.asc()
           : content.createdAt.desc();
@@ -110,7 +111,7 @@ public class ContentRepositoryCustomImpl implements ContentRepositoryCustom {
   }
 
   @Override
-  public long countContents(String typeEqual, String keywordLike, List<String> tagsIn) {
+  public long countContents(ContentType typeEqual, String keywordLike, List<String> tagsIn) {
     BooleanBuilder builder = buildBaseCondition(typeEqual, keywordLike, tagsIn);
 
     Long count = queryFactory
@@ -122,12 +123,12 @@ public class ContentRepositoryCustomImpl implements ContentRepositoryCustom {
     return count != null ? count : 0L;
   }
 
-  private BooleanBuilder buildBaseCondition(String typeEqual, String keywordLike,
+  private BooleanBuilder buildBaseCondition(ContentType typeEqual, String keywordLike,
       List<String> tagsIn) {
     BooleanBuilder builder = new BooleanBuilder();
 
     if (typeEqual != null) {
-      builder.and(content.type.stringValue().eq(typeEqual));
+      builder.and(content.type.eq(typeEqual));
     }
     if (keywordLike != null && !keywordLike.isBlank()) {
       builder.and(content.title.containsIgnoreCase(keywordLike));

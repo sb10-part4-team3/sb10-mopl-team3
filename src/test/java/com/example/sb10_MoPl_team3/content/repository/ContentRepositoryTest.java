@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.entity.Content;
+import com.example.sb10_MoPl_team3.content.entity.ContentStats;
 import com.example.sb10_MoPl_team3.content.entity.ContentTag;
 import com.example.sb10_MoPl_team3.content.entity.Tag;
 import com.example.sb10_MoPl_team3.global.config.JpaAuditingConfig;
@@ -31,6 +32,9 @@ class ContentRepositoryTest {
 
     @Autowired
     private TagRepository tagRepository;
+
+    @Autowired
+    private ContentStatsRepository contentStatsRepository;
 
     @Autowired
     private EntityManager em;
@@ -108,7 +112,7 @@ class ContentRepositoryTest {
         contentRepository.save(buildContent(ContentType.TV_SERIES, "드라마1", "ext-cnt-005"));
         em.flush();
 
-        long count = contentRepository.countContents("MOVIE", null, null);
+        long count = contentRepository.countContents(ContentType.MOVIE, null, null);
 
         assertThat(count).isEqualTo(2);
     }
@@ -174,7 +178,7 @@ class ContentRepositoryTest {
         em.flush();
 
         CursorPageRequest pageRequest = new CursorPageRequest(null, null, 10, "createdAt", "ASC");
-        List<Content> result = contentRepository.findContentsByCursor(pageRequest, "MOVIE", null, null);
+        List<Content> result = contentRepository.findContentsByCursor(pageRequest, ContentType.MOVIE, null, null);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getType()).isEqualTo(ContentType.MOVIE);
@@ -232,10 +236,39 @@ class ContentRepositoryTest {
         em.flush();
 
         CursorPageRequest pageRequest = new CursorPageRequest(null, null, 10, "createdAt", "ASC");
-        List<Content> result = contentRepository.findContentsByCursor(pageRequest, "MOVIE", "액션", null);
+        List<Content> result = contentRepository.findContentsByCursor(pageRequest, ContentType.MOVIE, "액션", null);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getTitle()).isEqualTo("액션 영화");
+    }
+
+    // --- findAllWithoutStats ---
+
+    @Test
+    void findAllWithoutStats_ContentStats가_없는_콘텐츠만_조회() {
+        Content withStats = contentRepository.saveAndFlush(
+            buildContent(ContentType.MOVIE, "통계있는 영화", "ext-stats-001"));
+        contentStatsRepository.saveAndFlush(ContentStats.createDefault(withStats));
+
+        Content withoutStats = contentRepository.saveAndFlush(
+            buildContent(ContentType.MOVIE, "통계없는 영화", "ext-stats-002"));
+        em.clear();
+
+        List<Content> result = contentRepository.findAllWithoutStats();
+
+        assertThat(result).extracting(Content::getId).containsExactly(withoutStats.getId());
+    }
+
+    @Test
+    void findAllWithoutStats_누락된_콘텐츠가_없으면_빈_목록() {
+        Content withStats = contentRepository.saveAndFlush(
+            buildContent(ContentType.MOVIE, "통계있는 영화", "ext-stats-003"));
+        contentStatsRepository.saveAndFlush(ContentStats.createDefault(withStats));
+        em.clear();
+
+        List<Content> result = contentRepository.findAllWithoutStats();
+
+        assertThat(result).isEmpty();
     }
 
     private Content buildContent(ContentType type, String title, String externalId) {

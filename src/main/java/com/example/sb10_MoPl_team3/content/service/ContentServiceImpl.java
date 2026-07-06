@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.content.service;
 
+import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.dto.ContentCreateRequest;
 import com.example.sb10_MoPl_team3.content.dto.ContentDto;
 import com.example.sb10_MoPl_team3.content.dto.ContentUpdateRequest;
@@ -138,13 +139,16 @@ public class ContentServiceImpl implements ContentService {
       String keywordLike,
       List<String> tagsIn
   ) {
+
+    ContentType type = ContentType.fromValue(typeEqual);
+
     // 1. Repository에서 콘텐츠 목록 조회 (size+1개, 정렬/커서 적용됨)
     List<Content> contents = contentRepository.findContentsByCursor(
-        pageRequest, typeEqual, keywordLike, tagsIn
+        pageRequest, type, keywordLike, tagsIn
     );
 
     // 2. 전체 개수 조회 (필터 조건만 적용)
-    long totalCount = contentRepository.countContents(typeEqual, keywordLike, tagsIn);
+    long totalCount = contentRepository.countContents(type, keywordLike, tagsIn);
 
     // 3. ContentStats, Tag 배치 조회 (N+1 방지)
     List<UUID> contentIds = contents.stream().map(Content::getId).toList();
