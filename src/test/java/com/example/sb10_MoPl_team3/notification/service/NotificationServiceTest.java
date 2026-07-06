@@ -25,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
@@ -46,6 +47,7 @@ class NotificationServiceTest {
     void handle_persistsNotification() {
         UUID receiverId = UUID.randomUUID();
         User receiver = user();
+        ReflectionTestUtils.setField(receiver, "id", receiverId);
         NotificationEvent event = new NotificationEvent(
                 receiverId, "제목", "내용", NotificationLevel.INFO);
         given(userRepository.findById(receiverId)).willReturn(Optional.of(receiver));
@@ -65,7 +67,7 @@ class NotificationServiceTest {
                 org.mockito.ArgumentMatchers.eq(receiverId),
                 org.mockito.ArgumentMatchers.eq(SseEventPublisher.NOTIFICATIONS_EVENT),
                 dtoCaptor.capture());
-        assertThat(dtoCaptor.getValue().receiverId()).isEqualTo(receiver.getId());
+        assertThat(dtoCaptor.getValue().receiverId()).isEqualTo(receiverId);
         assertThat(dtoCaptor.getValue().title()).isEqualTo("제목");
         assertThat(dtoCaptor.getValue().content()).isEqualTo("내용");
         assertThat(dtoCaptor.getValue().level()).isEqualTo(NotificationLevel.INFO);

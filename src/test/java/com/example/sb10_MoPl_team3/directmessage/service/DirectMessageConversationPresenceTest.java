@@ -23,4 +23,19 @@ class DirectMessageConversationPresenceTest {
         presence.disconnect("session-2");
         assertThat(presence.isActive(userId, conversationId)).isFalse();
     }
+
+    @Test
+    void replacingSubscriptionMovesActiveConversationIndex() {
+        UUID userId = UUID.randomUUID();
+        UUID previousConversationId = UUID.randomUUID();
+        UUID nextConversationId = UUID.randomUUID();
+        presence.subscribe(
+                "session-1", "subscription-1", userId, previousConversationId);
+
+        presence.subscribe(
+                "session-1", "subscription-1", userId, nextConversationId);
+
+        assertThat(presence.isActive(userId, previousConversationId)).isFalse();
+        assertThat(presence.isActive(userId, nextConversationId)).isTrue();
+    }
 }

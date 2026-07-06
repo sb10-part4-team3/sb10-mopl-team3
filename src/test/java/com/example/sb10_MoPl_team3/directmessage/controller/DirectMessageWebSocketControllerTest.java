@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 
 @ExtendWith(MockitoExtension.class)
 class DirectMessageWebSocketControllerTest {
@@ -91,6 +92,52 @@ class DirectMessageWebSocketControllerTest {
         then(messagingTemplate).should().convertAndSend(
                 "/sub/conversations/" + conversationId + "/direct-messages", message);
         then(sseEventPublisher).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("WebSocket 발행에 실패해도 DM을 SSE로 대체 전송한다")
+    void send_fallsBackToSseWhenWebSocketPublishFails() {
+        UUID conversationId = UUID.randomUUID();
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        AuthUser authUser = new AuthUser(senderId, UserRole.USER, UUID.randomUUID());
+        var authentication = new UsernamePasswordAuthenticationToken(
+                authUser, null, authUser.authorities());
+        DirectMessageDto message = message(conversationId, senderId, receiverId);
+        given(asyncService.saveAsync(conversationId, senderId, "메시지"))
+                .willReturn(CompletableFuture.completedFuture(message));
+        willThrow(new IllegalStateException("broker unavailable"))
+                .given(messagingTemplate).convertAndSend(
+                        "/sub/conversations/" + conversationId + "/direct-messages", message);
+
+        controller.send(
+                conversationId, new DirectMessageSendRequest("메시지"), authentication).join();
+
+        then(sseEventPublisher).should().publish(
+                receiverId, SseEventPublisher.DIRECT_MESSAGES_EVENT, message);
+    }
+
+    @Test
+    @DisplayName("SSE 대체 전송 실패가 WebSocket 발행 결과를 무효화하지 않는다")
+    void send_isolatesSseFallbackFailure() {
+        UUID conversationId = UUID.randomUUID();
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        AuthUser authUser = new AuthUser(senderId, UserRole.USER, UUID.randomUUID());
+        var authentication = new UsernamePasswordAuthenticationToken(
+                authUser, null, authUser.authorities());
+        DirectMessageDto message = message(conversationId, senderId, receiverId);
+        given(asyncService.saveAsync(conversationId, senderId, "메시지"))
+                .willReturn(CompletableFuture.completedFuture(message));
+        willThrow(new IllegalStateException("SSE cache unavailable"))
+                .given(sseEventPublisher).publish(
+                        receiverId, SseEventPublisher.DIRECT_MESSAGES_EVENT, message);
+
+        controller.send(
+                conversationId, new DirectMessageSendRequest("메시지"), authentication).join();
+
+        then(messagingTemplate).should().convertAndSend(
+                "/sub/conversations/" + conversationId + "/direct-messages", message);
     }
 
     @Test
@@ -163,5 +210,12 @@ class DirectMessageWebSocketControllerTest {
                             .isInstanceOf(TaskRejectedException.class);
                 });
         then(messagingTemplate).shouldHaveNoInteractions();
+    }
+
+    private DirectMessageDto message(UUID conversationId, UUID senderId, UUID receiverId) {
+        return new DirectMessageDto(
+                UUID.randomUUID(), conversationId, Instant.now(),
+                new UserSummary(senderId, "발신자", null),
+                new UserSummary(receiverId, "수신자", null), "메시지");
     }
 }

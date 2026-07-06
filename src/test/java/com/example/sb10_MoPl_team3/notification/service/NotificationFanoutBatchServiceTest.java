@@ -3,9 +3,11 @@ package com.example.sb10_MoPl_team3.notification.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.times;
 
 import com.example.sb10_MoPl_team3.notification.entity.Notification;
 import com.example.sb10_MoPl_team3.global.sse.SseEventPublisher;
+import com.example.sb10_MoPl_team3.notification.dto.NotificationDto;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
 import com.example.sb10_MoPl_team3.notification.event.NotificationAudienceType;
 import com.example.sb10_MoPl_team3.notification.event.NotificationFanoutEvent;
@@ -82,14 +84,22 @@ class NotificationFanoutBatchServiceTest {
                 .containsOnly("내용");
         assertThat(notifications).extracting(Notification::getLevel)
                 .containsOnly(NotificationLevel.INFO);
-        then(sseEventPublisher).should().publishAfterCommit(
-                org.mockito.ArgumentMatchers.eq(firstId),
+        ArgumentCaptor<UUID> receiverIdCaptor = ArgumentCaptor.forClass(UUID.class);
+        ArgumentCaptor<NotificationDto> dtoCaptor =
+                ArgumentCaptor.forClass(NotificationDto.class);
+        then(sseEventPublisher).should(times(2)).publishAfterCommit(
+                receiverIdCaptor.capture(),
                 org.mockito.ArgumentMatchers.eq(SseEventPublisher.NOTIFICATIONS_EVENT),
-                org.mockito.ArgumentMatchers.any());
-        then(sseEventPublisher).should().publishAfterCommit(
-                org.mockito.ArgumentMatchers.eq(secondId),
-                org.mockito.ArgumentMatchers.eq(SseEventPublisher.NOTIFICATIONS_EVENT),
-                org.mockito.ArgumentMatchers.any());
+                dtoCaptor.capture());
+        assertThat(receiverIdCaptor.getAllValues()).containsExactly(firstId, secondId);
+        assertThat(dtoCaptor.getAllValues()).extracting(NotificationDto::receiverId)
+                .containsExactly(firstId, secondId);
+        assertThat(dtoCaptor.getAllValues()).extracting(NotificationDto::title)
+                .containsOnly("제목");
+        assertThat(dtoCaptor.getAllValues()).extracting(NotificationDto::content)
+                .containsOnly("내용");
+        assertThat(dtoCaptor.getAllValues()).extracting(NotificationDto::level)
+                .containsOnly(NotificationLevel.INFO);
         assertThat(savedCount).isEqualTo(2);
     }
 
