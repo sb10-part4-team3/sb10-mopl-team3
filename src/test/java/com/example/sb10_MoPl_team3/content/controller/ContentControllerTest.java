@@ -76,7 +76,7 @@ class ContentControllerTest {
                 .with(authentication(userAuth())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(CONTENT_ID.toString()))
-            .andExpect(jsonPath("$.type").value("MOVIE"))
+            .andExpect(jsonPath("$.type").value("movie"))
             .andExpect(jsonPath("$.title").value("테스트 영화"))
             .andExpect(jsonPath("$.tags[0]").value("액션"))
             .andExpect(jsonPath("$.averageRating").value(4.5))
@@ -113,13 +113,13 @@ class ContentControllerTest {
 
         mockMvc.perform(multipart("/api/contents")
                 .part(jsonPart("request", """
-                    {"type":"MOVIE","title":"테스트 영화","description":"설명","tags":["액션"]}
+                    {"type":"movie","title":"테스트 영화","description":"설명","tags":["액션"]}
                     """))
                 .with(csrf())
                 .with(authentication(adminAuth())))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.id").value(CONTENT_ID.toString()))
-            .andExpect(jsonPath("$.type").value("MOVIE"))
+            .andExpect(jsonPath("$.type").value("movie"))
             .andExpect(jsonPath("$.title").value("테스트 영화"));
     }
 
@@ -127,7 +127,7 @@ class ContentControllerTest {
     void create_USER_권한으로_접근_시_403과_ACCESS_DENIED_반환() throws Exception {
         mockMvc.perform(multipart("/api/contents")
                 .part(jsonPart("request", """
-                    {"type":"MOVIE","title":"테스트 영화","tags":[]}
+                    {"type":"movie","title":"테스트 영화","tags":[]}
                     """))
                 .with(csrf())
                 .with(authentication(userAuth())))
@@ -142,7 +142,7 @@ class ContentControllerTest {
     void create_미인증_접근_시_401_반환() throws Exception {
         mockMvc.perform(multipart("/api/contents")
                 .part(jsonPart("request", """
-                    {"type":"MOVIE","title":"테스트 영화","tags":[]}
+                    {"type":"movie","title":"테스트 영화","tags":[]}
                     """))
                 .with(csrf()))
             .andExpect(status().isUnauthorized());
@@ -166,7 +166,7 @@ class ContentControllerTest {
     void create_title_누락_시_400과_INVALID_INPUT_VALUE_반환() throws Exception {
         mockMvc.perform(multipart("/api/contents")
                 .part(jsonPart("request", """
-                    {"type":"MOVIE","tags":[]}
+                    {"type":"movie","tags":[]}
                     """))
                 .with(csrf())
                 .with(authentication(adminAuth())))
@@ -287,6 +287,23 @@ class ContentControllerTest {
             .andExpect(jsonPath("$.hasNext").value(false))
             .andExpect(jsonPath("$.sortBy").value("createdAt"))
             .andExpect(jsonPath("$.sortDirection").value("ASC"));
+    }
+
+    @Test
+    void findContents_잘못된_type_파라미터면_400과_INVALID_CONTENT_TYPE_반환() throws Exception {
+        given(contentService.getContents(any(), eq("aaa"), any(), any()))
+            .willThrow(new BusinessException(ErrorCode.INVALID_CONTENT_TYPE));
+
+        mockMvc.perform(get("/api/contents")
+                .param("typeEqual", "aaa")
+                .param("limit", "10")
+                .param("sortBy", "createdAt")
+                .param("sortDirection", "ASC")
+                .with(authentication(userAuth())))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_CONTENT_TYPE"))
+            .andExpect(jsonPath("$.message").value(ErrorCode.INVALID_CONTENT_TYPE.getMessage()))
+            .andExpect(jsonPath("$.status").value(400));
     }
 
     @Test

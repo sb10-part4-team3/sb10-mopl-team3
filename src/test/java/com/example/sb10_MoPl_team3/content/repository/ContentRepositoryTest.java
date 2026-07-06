@@ -108,7 +108,7 @@ class ContentRepositoryTest {
         contentRepository.save(buildContent(ContentType.TV_SERIES, "드라마1", "ext-cnt-005"));
         em.flush();
 
-        long count = contentRepository.countContents("MOVIE", null, null);
+        long count = contentRepository.countContents(ContentType.MOVIE, null, null);
 
         assertThat(count).isEqualTo(2);
     }
@@ -174,7 +174,7 @@ class ContentRepositoryTest {
         em.flush();
 
         CursorPageRequest pageRequest = new CursorPageRequest(null, null, 10, "createdAt", "ASC");
-        List<Content> result = contentRepository.findContentsByCursor(pageRequest, "MOVIE", null, null);
+        List<Content> result = contentRepository.findContentsByCursor(pageRequest, ContentType.MOVIE, null, null);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getType()).isEqualTo(ContentType.MOVIE);
@@ -232,7 +232,7 @@ class ContentRepositoryTest {
         em.flush();
 
         CursorPageRequest pageRequest = new CursorPageRequest(null, null, 10, "createdAt", "ASC");
-        List<Content> result = contentRepository.findContentsByCursor(pageRequest, "MOVIE", "액션", null);
+        List<Content> result = contentRepository.findContentsByCursor(pageRequest, ContentType.MOVIE, "액션", null);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getTitle()).isEqualTo("액션 영화");

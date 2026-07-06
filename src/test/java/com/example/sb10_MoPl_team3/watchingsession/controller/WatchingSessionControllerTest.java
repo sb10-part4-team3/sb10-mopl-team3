@@ -84,7 +84,7 @@ class WatchingSessionControllerTest {
                 .andExpect(jsonPath("$.watcher.name").value("사용자"))
                 .andExpect(jsonPath("$.watcher.profileImageUrl").doesNotExist())
                 .andExpect(jsonPath("$.content.id").value(contentId.toString()))
-                .andExpect(jsonPath("$.content.type").value("MOVIE"))
+                .andExpect(jsonPath("$.content.type").value("movie"))
                 .andExpect(jsonPath("$.content.title").value("콘텐츠"))
                 .andExpect(jsonPath("$.content.tags[0]").value("tag"))
                 .andExpect(jsonPath("$.content.averageRating").value(4.5))

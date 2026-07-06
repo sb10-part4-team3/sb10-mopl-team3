@@ -26,6 +26,7 @@ public enum ErrorCode {
 
     // 콘텐츠
     CONTENT_NOT_FOUND(HttpStatus.NOT_FOUND, "콘텐츠를 찾을 수 없습니다."),
+    INVALID_CONTENT_TYPE(HttpStatus.BAD_REQUEST, "콘텐츠 타입이 올바르지 않습니다."),
 
     // 대화
     CONVERSATION_NOT_FOUND(HttpStatus.NOT_FOUND, "대화방을 찾을 수 없습니다."),
