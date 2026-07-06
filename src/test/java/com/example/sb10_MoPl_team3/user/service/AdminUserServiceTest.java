@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.user.service;
 
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.auth.service.AuthSessionLockManager;
 import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
@@ -38,6 +39,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,6 +52,9 @@ class AdminUserServiceTest {
     private AuthSessionRepository authSessionRepository;
 
     @Mock
+    private AuthSessionLockManager authSessionLockManager;
+
+    @Mock
     private Clock clock;
 
     @Mock
@@ -57,6 +62,14 @@ class AdminUserServiceTest {
 
     @InjectMocks
     private AdminUserService adminUserService;
+
+    private void givenAuthSessionLockExecutesRunnable() {
+        willAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(1);
+            runnable.run();
+            return null;
+        }).given(authSessionLockManager).executeWithLock(any(UUID.class), any(Runnable.class));
+    }
 
     @Test
     @DisplayName("사용자 목록을 조건에 따라 조회하고 커서 페이지 응답으로 반환한다")
@@ -303,7 +316,10 @@ class AdminUserServiceTest {
 
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(authSessionRepository.findAllByUserId(userId)).willReturn(List.of(session1, session2));
+        given(authSessionRepository.findById(session1.getId())).willReturn(Optional.of(session1));
+        given(authSessionRepository.findById(session2.getId())).willReturn(Optional.of(session2));
         given(clock.instant()).willReturn(now);
+        givenAuthSessionLockExecutesRunnable();
 
         // when
         UserDto response = adminUserService.updateUserRole(userId, request);
@@ -319,7 +335,10 @@ class AdminUserServiceTest {
 
         then(userRepository).should().findById(userId);
         then(authSessionRepository).should().findAllByUserId(userId);
-        then(authSessionRepository).should().saveAll(List.of(session1, session2));
+        then(authSessionRepository).should().findById(session1.getId());
+        then(authSessionRepository).should().findById(session2.getId());
+        then(authSessionRepository).should().save(session1);
+        then(authSessionRepository).should().save(session2);
         ArgumentCaptor<NotificationEvent> eventCaptor =
                 ArgumentCaptor.forClass(NotificationEvent.class);
         then(eventPublisher).should().publishEvent(eventCaptor.capture());
@@ -379,7 +398,10 @@ class AdminUserServiceTest {
 
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(authSessionRepository.findAllByUserId(userId)).willReturn(List.of(session1, session2));
+        given(authSessionRepository.findById(session1.getId())).willReturn(Optional.of(session1));
+        given(authSessionRepository.findById(session2.getId())).willReturn(Optional.of(session2));
         given(clock.instant()).willReturn(now);
+        givenAuthSessionLockExecutesRunnable();
 
         // when
         UserDto response = adminUserService.updateUserLocked(userId, request);
@@ -395,7 +417,10 @@ class AdminUserServiceTest {
 
         then(userRepository).should().findById(userId);
         then(authSessionRepository).should().findAllByUserId(userId);
-        then(authSessionRepository).should().saveAll(List.of(session1, session2));
+        then(authSessionRepository).should().findById(session1.getId());
+        then(authSessionRepository).should().findById(session2.getId());
+        then(authSessionRepository).should().save(session1);
+        then(authSessionRepository).should().save(session2);
     }
 
     @Test
@@ -426,7 +451,7 @@ class AdminUserServiceTest {
 
         then(userRepository).should().findById(userId);
         then(authSessionRepository).should(never()).findAllByUserId(userId);
-        then(authSessionRepository).should(never()).saveAll(any());
+        then(authSessionRepository).should(never()).save(any(AuthSession.class));
     }
 
     @Test
