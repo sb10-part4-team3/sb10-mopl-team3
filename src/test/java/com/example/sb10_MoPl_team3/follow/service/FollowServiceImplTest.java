@@ -14,6 +14,7 @@ import com.example.sb10_MoPl_team3.follow.mapper.FollowMapper;
 import com.example.sb10_MoPl_team3.follow.repository.FollowRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
@@ -31,6 +32,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class FollowServiceImplTest {
@@ -46,6 +48,9 @@ class FollowServiceImplTest {
 
     @Mock
     private PlatformTransactionManager transactionManager;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private FollowServiceImpl followService;
@@ -77,6 +82,10 @@ class FollowServiceImplTest {
         then(followRepository).should().saveAndFlush(followCaptor.capture());
         assertThat(followCaptor.getValue().getFollower()).isEqualTo(follower);
         assertThat(followCaptor.getValue().getFollowee()).isEqualTo(followee);
+        ArgumentCaptor<NotificationEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().receiverId()).isEqualTo(followeeId);
     }
 
     @Test
@@ -102,6 +111,7 @@ class FollowServiceImplTest {
         assertThat(response.created()).isFalse();
         then(userRepository).should(never()).findById(any());
         then(followRepository).should(never()).saveAndFlush(any());
+        then(eventPublisher).shouldHaveNoInteractions();
     }
 
     @Test

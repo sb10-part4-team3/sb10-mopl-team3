@@ -25,11 +25,16 @@ import com.example.sb10_MoPl_team3.playlist.repository.PlaylistRepository;
 import com.example.sb10_MoPl_team3.playlist.repository.PlaylistRepositoryCustom;
 import com.example.sb10_MoPl_team3.playlist.repository.PlaylistSubscriptionRepository;
 import com.example.sb10_MoPl_team3.review.dto.response.CursorResponsePlaylistDto;
+import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
+import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
+import com.example.sb10_MoPl_team3.notification.event.NotificationAudienceType;
+import com.example.sb10_MoPl_team3.notification.event.NotificationFanoutEvent;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
@@ -47,8 +52,10 @@ public class PlaylistServiceImpl implements PlaylistService{
     private final ContentRepository contentRepository;
     private final ContentTagRepository contentTagRepository;
     private final ContentStatsRepository contentStatsRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 플레이리스트 생성
+    @Transactional
     @Override
     public PlaylistDto create(PlaylistCreateRequest request) {
         UUID requestUserId = getAuthenticatedUserId();
@@ -62,6 +69,14 @@ public class PlaylistServiceImpl implements PlaylistService{
                 .build();
 
         Playlist savedPlaylist = playlistRepository.save(newPlaylist);
+        eventPublisher.publishEvent(new NotificationFanoutEvent(
+                NotificationAudienceType.FOLLOWERS,
+                owner.getId(),
+                "새 플레이리스트",
+                "%s님이 새 플레이리스트 '%s'을(를) 등록했습니다."
+                        .formatted(owner.getName(), savedPlaylist.getTitle()),
+                NotificationLevel.INFO
+        ));
         PlaylistDto playlistDto = playlistMapper.toDto(savedPlaylist, false);
 
         return playlistDto;
@@ -214,6 +229,12 @@ public class PlaylistServiceImpl implements PlaylistService{
         if (updated == 0) {
             throw new PlaylistNotFoundException(playlistId);
         }
+        eventPublisher.publishEvent(new NotificationEvent(
+                playlist.getOwner().getId(),
+                "플레이리스트 구독",
+                "'%s' 플레이리스트에 새로운 구독자가 있습니다.".formatted(playlist.getTitle()),
+                NotificationLevel.INFO
+        ));
     }
 
     // 플레이리스트 구독 취소
@@ -263,6 +284,14 @@ public class PlaylistServiceImpl implements PlaylistService{
         if (inserted == 0) {
             return;
         }
+        eventPublisher.publishEvent(new NotificationFanoutEvent(
+                NotificationAudienceType.PLAYLIST_SUBSCRIBERS,
+                playlistId,
+                "플레이리스트 업데이트",
+                "'%s' 플레이리스트에 '%s' 콘텐츠가 추가되었습니다."
+                        .formatted(playlist.getTitle(), content.getTitle()),
+                NotificationLevel.INFO
+        ));
     }
 
     // 플레이리스트 콘텐츠 제거

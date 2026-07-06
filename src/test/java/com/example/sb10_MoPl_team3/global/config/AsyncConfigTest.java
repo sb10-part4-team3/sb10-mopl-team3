@@ -55,7 +55,7 @@ class AsyncConfigTest {
             assertThat(executor.getThreadPoolExecutor().getQueue().remainingCapacity())
                     .isEqualTo(100);
             assertThat(executor.getThreadPoolExecutor().getRejectedExecutionHandler())
-                    .isInstanceOf(ThreadPoolExecutor.CallerRunsPolicy.class);
+                    .isInstanceOf(ThreadPoolExecutor.AbortPolicy.class);
         } finally {
             executor.shutdown();
         }
