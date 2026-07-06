@@ -3,6 +3,7 @@ package com.example.sb10_MoPl_team3.user.service;
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.password.service.PasswordResetService;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.auth.service.AuthSessionLockManager;
 import com.example.sb10_MoPl_team3.global.file.FileStorageService;
 import com.example.sb10_MoPl_team3.global.security.UserAuthorizationService;
 import com.example.sb10_MoPl_team3.user.dto.request.UserCreateRequest;
@@ -30,8 +31,6 @@ import com.example.sb10_MoPl_team3.user.dto.request.UserPasswordUpdateRequest;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 
@@ -45,6 +44,7 @@ public class UserService {
     private final FileStorageService fileStorageService;
     private final UserAuthorizationService userAuthorizationService;
     private final AuthSessionRepository authSessionRepository;
+    private final AuthSessionLockManager authSessionLockManager;
     private final Clock clock;
     private final ApplicationEventPublisher eventPublisher;
     private final PasswordResetService passwordResetService;
@@ -161,14 +161,24 @@ public class UserService {
         Instant now = Instant.now(clock);
 
         Iterable<AuthSession> sessions = authSessionRepository.findAllByUserId(userId);
-        List<AuthSession> revokedSessions = new ArrayList<>();
 
         for (AuthSession session : sessions) {
-            session.revoke(now);
-            revokedSessions.add(session);
+            revokeSessionIfOwnedBy(session.getId(), userId, now);
         }
+    }
 
-        authSessionRepository.saveAll(revokedSessions);
+    private void revokeSessionIfOwnedBy(UUID sessionId, UUID userId, Instant now) {
+        authSessionLockManager.executeWithLock(sessionId, () -> {
+            AuthSession currentSession = authSessionRepository.findById(sessionId)
+                    .orElse(null);
+
+            if (currentSession == null || !currentSession.getUserId().equals(userId)) {
+                return;
+            }
+
+            currentSession.revoke(now);
+            authSessionRepository.save(currentSession);
+        });
     }
 
     private void deletePreviousProfileImage(
