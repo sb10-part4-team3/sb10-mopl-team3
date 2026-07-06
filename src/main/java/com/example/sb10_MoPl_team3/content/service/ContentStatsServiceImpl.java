@@ -11,12 +11,15 @@ import java.math.RoundingMode;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ContentStatsServiceImpl implements ContentStatsService {
 
   private final ContentRepository contentRepository;
@@ -39,8 +42,9 @@ public class ContentStatsServiceImpl implements ContentStatsService {
       // 그 행을 안전하게 이어서 쓸 수 있다.
       try {
         contentStatsRepository.createDefaultIgnoringConflict(contentId);
-      } catch (DataAccessException e) {
+      } catch (DataIntegrityViolationException e) {
         // 다른 인스턴스/스레드가 먼저 만들었거나 만드는 중인 경우: 무시하고 아래에서 다시 조회한다.
+        log.debug("ContentStats 기본값 생성 충돌, 기존 값을 재조회합니다. contentId={}", contentId, e);
       }
       stats = contentStatsRepository.findByIdForUpdate(contentId)
           .orElseThrow(() -> new IllegalStateException(
