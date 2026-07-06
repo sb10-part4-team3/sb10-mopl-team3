@@ -17,7 +17,7 @@ public enum ContentType {
 		if (value == null || value.isBlank()) {
 			return null;
 		}
-		return switch (value.toLowerCase()) {
+		return switch (value.toLowerCase().replace("_", "")) {
 			case "movie" -> MOVIE;
 			case "tvseries" -> TV_SERIES;
 			case "sport" -> SPORT;
