@@ -9,9 +9,12 @@ import com.example.sb10_MoPl_team3.directmessage.repository.DirectMessageReposit
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
+import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
@@ -23,6 +26,7 @@ public class DirectMessageAsyncService {
 
     private final DirectMessageRepository directMessageRepository;
     private final ConversationRepository conversationRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Async("directMessageExecutor")
     @Transactional
@@ -42,6 +46,13 @@ public class DirectMessageAsyncService {
                         participants.receiver(),
                         content
                 ));
+        eventPublisher.publishEvent(new NotificationEvent(
+                participants.receiver().getId(),
+                "새 쪽지",
+                "%s님이 새로운 쪽지를 보냈습니다."
+                        .formatted(participants.sender().getName()),
+                NotificationLevel.INFO
+        ));
         return CompletableFuture.completedFuture(DirectMessageMapper.toDto(saved));
     }
 

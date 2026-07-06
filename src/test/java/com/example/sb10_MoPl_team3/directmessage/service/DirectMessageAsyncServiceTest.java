@@ -6,15 +6,18 @@ import com.example.sb10_MoPl_team3.directmessage.entity.DirectMessage;
 import com.example.sb10_MoPl_team3.directmessage.repository.DirectMessageRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -31,6 +34,7 @@ class DirectMessageAsyncServiceTest {
 
     @Mock DirectMessageRepository directMessageRepository;
     @Mock ConversationRepository conversationRepository;
+    @Mock ApplicationEventPublisher eventPublisher;
     @InjectMocks DirectMessageAsyncService service;
 
     @Test
@@ -59,6 +63,10 @@ class DirectMessageAsyncServiceTest {
         assertThat(result.receiver().userId()).isEqualTo(receiver.getId());
         assertThat(result.content()).isEqualTo("안녕하세요");
         then(directMessageRepository).should().saveAndFlush(any(DirectMessage.class));
+        ArgumentCaptor<NotificationEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().receiverId()).isEqualTo(receiver.getId());
     }
 
     @Test
