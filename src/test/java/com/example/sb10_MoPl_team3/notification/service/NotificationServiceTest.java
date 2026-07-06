@@ -7,6 +7,8 @@ import static org.mockito.BDDMockito.then;
 
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.global.sse.SseEventPublisher;
+import com.example.sb10_MoPl_team3.notification.dto.NotificationDto;
 import com.example.sb10_MoPl_team3.notification.entity.Notification;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
 import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
@@ -23,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
@@ -33,6 +36,9 @@ class NotificationServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private SseEventPublisher sseEventPublisher;
+
     @InjectMocks
     private NotificationService notificationService;
 
@@ -41,9 +47,12 @@ class NotificationServiceTest {
     void handle_persistsNotification() {
         UUID receiverId = UUID.randomUUID();
         User receiver = user();
+        ReflectionTestUtils.setField(receiver, "id", receiverId);
         NotificationEvent event = new NotificationEvent(
                 receiverId, "제목", "내용", NotificationLevel.INFO);
         given(userRepository.findById(receiverId)).willReturn(Optional.of(receiver));
+        given(notificationRepository.save(org.mockito.ArgumentMatchers.any(Notification.class)))
+                .willAnswer(invocation -> invocation.getArgument(0));
 
         notificationService.handle(event);
 
@@ -53,6 +62,15 @@ class NotificationServiceTest {
         assertThat(captor.getValue().getTitle()).isEqualTo("제목");
         assertThat(captor.getValue().getContent()).isEqualTo("내용");
         assertThat(captor.getValue().getLevel()).isEqualTo(NotificationLevel.INFO);
+        ArgumentCaptor<NotificationDto> dtoCaptor = ArgumentCaptor.forClass(NotificationDto.class);
+        then(sseEventPublisher).should().publishAfterCommit(
+                org.mockito.ArgumentMatchers.eq(receiverId),
+                org.mockito.ArgumentMatchers.eq(SseEventPublisher.NOTIFICATIONS_EVENT),
+                dtoCaptor.capture());
+        assertThat(dtoCaptor.getValue().receiverId()).isEqualTo(receiverId);
+        assertThat(dtoCaptor.getValue().title()).isEqualTo("제목");
+        assertThat(dtoCaptor.getValue().content()).isEqualTo("내용");
+        assertThat(dtoCaptor.getValue().level()).isEqualTo(NotificationLevel.INFO);
     }
 
     @Test
