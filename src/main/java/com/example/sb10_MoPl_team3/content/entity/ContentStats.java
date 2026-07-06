@@ -64,4 +64,10 @@ public class ContentStats {
     this.averageRating = averageRating;
     this.reviewCount = reviewCount;
   }
+
+  public static ContentStats createDefault(Content content) {
+    return ContentStats.builder()
+        .content(content)
+        .build();
+  }
 }

@@ -30,7 +30,8 @@ public class TmdbContentUpsertExecutor {
       return;
     }
 
-    Content content = contentRepository.findByExternalIdAndSource(payload.externalId(), TmdbConstants.SOURCE_TMDB)
+    Content content = contentRepository.findByExternalIdAndSource(payload.externalId(),
+            TmdbConstants.SOURCE_TMDB)
         .map(existing -> {
           existing.syncFromExternal(
               payload.title(),
@@ -41,12 +42,7 @@ public class TmdbContentUpsertExecutor {
         })
         .orElseGet(() -> {
           Content newContent = contentRepository.save(payload.newContentSupplier().get());
-          contentStatsRepository.save(ContentStats.builder()
-              .content(newContent)
-              .averageRating(BigDecimal.ZERO)
-              .reviewCount(0)
-              .viewerCount(0)
-              .build());
+          contentStatsRepository.save(ContentStats.createDefault(newContent));
           return newContent;
         });
 
