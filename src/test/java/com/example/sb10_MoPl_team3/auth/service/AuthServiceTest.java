@@ -37,6 +37,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -150,6 +151,11 @@ class AuthServiceTest {
         given(jwtProperties.refreshTokenExpiration()).willReturn(refreshTokenExpiration);
         given(authSessionRepository.findAllByUserId(userId))
                 .willReturn(List.of(existingSession1, existingSession2));
+        given(authSessionRepository.findById(existingSession1.getId()))
+                .willReturn(Optional.of(existingSession1));
+        given(authSessionRepository.findById(existingSession2.getId()))
+                .willReturn(Optional.of(existingSession2));
+        givenAuthSessionLockExecutesSupplier();
         given(tokenService.issueRefreshToken()).willReturn("new-refresh-token");
         given(tokenService.hashRefreshToken("new-refresh-token")).willReturn("new-refresh-token-hash");
         given(tokenService.issueAccessToken(any(User.class), any(UUID.class))).willReturn("new-access-token");
@@ -167,12 +173,14 @@ class AuthServiceTest {
         assertThat(existingSession2.getRevokedAt()).isEqualTo(now);
 
         then(authSessionRepository).should().findAllByUserId(userId);
-        then(authSessionRepository).should().saveAll(any());
 
         ArgumentCaptor<AuthSession> authSessionCaptor = ArgumentCaptor.forClass(AuthSession.class);
-        then(authSessionRepository).should().save(authSessionCaptor.capture());
+        then(authSessionRepository).should(times(3)).save(authSessionCaptor.capture());
 
-        AuthSession newSession = authSessionCaptor.getValue();
+        AuthSession newSession = authSessionCaptor.getAllValues().stream()
+                .filter(session -> !session.isRevoked())
+                .findFirst()
+                .orElseThrow();
         assertThat(newSession.getUserId()).isEqualTo(userId);
         assertThat(newSession.getRefreshTokenHash()).isEqualTo("new-refresh-token-hash");
         assertThat(newSession.isRevoked()).isFalse();
@@ -558,6 +566,7 @@ class AuthServiceTest {
 
         given(clock.instant()).willReturn(now);
         given(authSessionRepository.findById(sessionId)).willReturn(Optional.of(authSession));
+        givenAuthSessionLockExecutesSupplier();
 
         authService.signOut(authUser);
 
@@ -576,6 +585,7 @@ class AuthServiceTest {
         AuthUser authUser = new AuthUser(userId, UserRole.USER, sessionId);
 
         given(authSessionRepository.findById(sessionId)).willReturn(Optional.empty());
+        givenAuthSessionLockExecutesSupplier();
 
         authService.signOut(authUser);
 
@@ -599,6 +609,7 @@ class AuthServiceTest {
         ReflectionTestUtils.setField(authSession, "id", sessionId);
 
         given(authSessionRepository.findById(sessionId)).willReturn(Optional.of(authSession));
+        givenAuthSessionLockExecutesSupplier();
 
         assertThatThrownBy(() -> authService.signOut(authUser))
                 .isInstanceOf(InvalidCredentialException.class);

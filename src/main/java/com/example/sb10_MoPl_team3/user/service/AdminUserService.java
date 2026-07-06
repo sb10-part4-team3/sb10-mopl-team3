@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.user.service;
 
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.auth.service.AuthSessionLockManager;
 import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
@@ -39,6 +40,7 @@ public class AdminUserService {
 
     private final UserRepository userRepository;
     private final AuthSessionRepository authSessionRepository;
+    private final AuthSessionLockManager authSessionLockManager;
     private final Clock clock;
 
     public CursorResponse<UserDto> findUsers(UserSearchCondition condition) {
@@ -109,14 +111,24 @@ public class AdminUserService {
         Instant now = Instant.now(clock);
 
         Iterable<AuthSession> sessions = authSessionRepository.findAllByUserId(userId);
-        List<AuthSession> revokedSessions = new ArrayList<>();
 
         for (AuthSession session : sessions) {
-            session.revoke(now);
-            revokedSessions.add(session);
+            revokeSessionIfOwnedBy(session.getId(), userId, now);
         }
+    }
 
-        authSessionRepository.saveAll(revokedSessions);
+    private void revokeSessionIfOwnedBy(UUID sessionId, UUID userId, Instant now) {
+        authSessionLockManager.executeWithLock(sessionId, () -> {
+            AuthSession currentSession = authSessionRepository.findById(sessionId)
+                    .orElse(null);
+
+            if (currentSession == null || !currentSession.getUserId().equals(userId)) {
+                return;
+            }
+
+            currentSession.revoke(now);
+            authSessionRepository.save(currentSession);
+        });
     }
 
     private String normalizeSortBy(String sortBy) {

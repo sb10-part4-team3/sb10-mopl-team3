@@ -28,6 +28,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionSynchronizationUtils;
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.auth.service.AuthSessionLockManager;
 import com.example.sb10_MoPl_team3.user.dto.request.UserPasswordUpdateRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import java.util.Optional;
@@ -62,6 +64,9 @@ class UserServiceTest {
     private AuthSessionRepository authSessionRepository;
 
     @Mock
+    private AuthSessionLockManager authSessionLockManager;
+
+    @Mock
     private Clock clock;
 
     @Mock
@@ -69,6 +74,14 @@ class UserServiceTest {
 
     @InjectMocks
     private UserService userService;
+
+    private void givenAuthSessionLockExecutesRunnable() {
+        willAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(1);
+            runnable.run();
+            return null;
+        }).given(authSessionLockManager).executeWithLock(any(UUID.class), any(Runnable.class));
+    }
 
     @Test
     @DisplayName("회원가입 성공 시 비밀번호를 암호화하고 기본 권한 USER와 활성 상태로 저장한다")
@@ -375,7 +388,10 @@ class UserServiceTest {
 
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(authSessionRepository.findAllByUserId(userId)).willReturn(List.of(session1, session2));
+        given(authSessionRepository.findById(session1.getId())).willReturn(Optional.of(session1));
+        given(authSessionRepository.findById(session2.getId())).willReturn(Optional.of(session2));
         given(clock.instant()).willReturn(now);
+        givenAuthSessionLockExecutesRunnable();
 
         // when
         userService.withdrawUser(userId);
@@ -384,7 +400,10 @@ class UserServiceTest {
         then(userAuthorizationService).should().validateSelf(userId);
         then(userRepository).should().findById(userId);
         then(authSessionRepository).should().findAllByUserId(userId);
-        then(authSessionRepository).should().saveAll(List.of(session1, session2));
+        then(authSessionRepository).should().findById(session1.getId());
+        then(authSessionRepository).should().findById(session2.getId());
+        then(authSessionRepository).should().save(session1);
+        then(authSessionRepository).should().save(session2);
         then(eventPublisher).should().publishEvent(new UserWithdrawnEvent(userId));
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
