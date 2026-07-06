@@ -41,11 +41,11 @@ public class ContentRepositoryCustomImpl implements ContentRepositoryCustom {
     String sortBy = normalizeSortBy(pageRequest.sortBy());
     OrderSpecifier<?> orderSpecifier = switch (sortBy) {
       case "watcherCount" -> pageRequest.isAscending()
-          ? contentStats.viewerCount.asc()
-          : contentStats.viewerCount.desc();
+          ? contentStats.viewerCount.asc().nullsLast()
+          : contentStats.viewerCount.desc().nullsLast();
       case "rate" -> pageRequest.isAscending()
-          ? contentStats.averageRating.asc()
-          : contentStats.averageRating.desc();
+          ? contentStats.averageRating.asc().nullsLast()
+          : contentStats.averageRating.desc().nullsLast();
       default -> pageRequest.isAscending()
           ? content.createdAt.asc()
           : content.createdAt.desc();

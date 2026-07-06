@@ -63,6 +63,12 @@ class SportsDbContentSyncServiceIntegrationTest {
             "DELETE FROM content_tags WHERE content_id IN (SELECT id FROM contents WHERE external_id IN (:ids))")
         .setParameter("ids", ids)
         .executeUpdate();
+
+    entityManager.createNativeQuery(
+            "DELETE FROM content_stats WHERE content_id IN (SELECT id FROM contents WHERE external_id IN (:ids))")
+        .setParameter("ids", ids)
+        .executeUpdate();
+
     entityManager.createNativeQuery("DELETE FROM contents WHERE external_id IN (:ids)")
         .setParameter("ids", ids)
         .executeUpdate();
