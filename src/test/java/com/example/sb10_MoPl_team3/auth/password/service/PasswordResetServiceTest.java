@@ -2,7 +2,7 @@ package com.example.sb10_MoPl_team3.auth.password.service;
 
 import com.example.sb10_MoPl_team3.auth.password.dto.TemporaryPasswordIssueRequest;
 import com.example.sb10_MoPl_team3.auth.password.entity.PasswordResetToken;
-import com.example.sb10_MoPl_team3.auth.password.notification.TemporaryPasswordNotifier;
+import com.example.sb10_MoPl_team3.auth.password.event.TemporaryPasswordIssuedEvent;
 import com.example.sb10_MoPl_team3.auth.password.repository.PasswordResetTokenRepository;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
@@ -14,6 +14,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -49,7 +50,7 @@ class PasswordResetServiceTest {
     private TemporaryPasswordGenerator temporaryPasswordGenerator;
 
     @Mock
-    private TemporaryPasswordNotifier temporaryPasswordNotifier;
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private PasswordResetService passwordResetService;
@@ -102,8 +103,16 @@ class PasswordResetServiceTest {
 
         then(temporaryPasswordGenerator).should().generate();
         then(passwordEncoder).should().encode("random-temporary-password");
-        then(temporaryPasswordNotifier).should()
-                .send("user@test.com", "random-temporary-password");
+
+        ArgumentCaptor<TemporaryPasswordIssuedEvent> eventCaptor =
+                ArgumentCaptor.forClass(TemporaryPasswordIssuedEvent.class);
+
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+
+        TemporaryPasswordIssuedEvent event = eventCaptor.getValue();
+
+        assertThat(event.email()).isEqualTo("user@test.com");
+        assertThat(event.temporaryPassword()).isEqualTo("random-temporary-password");
     }
 
     @Test
@@ -153,8 +162,15 @@ class PasswordResetServiceTest {
                 .save(any(PasswordResetToken.class));
         then(temporaryPasswordGenerator).should().generate();
         then(passwordEncoder).should().encode("random-temporary-password");
-        then(temporaryPasswordNotifier).should()
-                .send("user@test.com", "random-temporary-password");
+        ArgumentCaptor<TemporaryPasswordIssuedEvent> eventCaptor =
+                ArgumentCaptor.forClass(TemporaryPasswordIssuedEvent.class);
+
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+
+        TemporaryPasswordIssuedEvent event = eventCaptor.getValue();
+
+        assertThat(event.email()).isEqualTo("user@test.com");
+        assertThat(event.temporaryPassword()).isEqualTo("random-temporary-password");
 
     }
 
@@ -173,7 +189,7 @@ class PasswordResetServiceTest {
         then(passwordEncoder).should(never()).encode(any());
 
         then(temporaryPasswordGenerator).shouldHaveNoInteractions();
-        then(temporaryPasswordNotifier).shouldHaveNoInteractions();
+        then(eventPublisher).shouldHaveNoInteractions();
     }
 
     @Test
