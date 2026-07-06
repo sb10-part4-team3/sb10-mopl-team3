@@ -6,6 +6,7 @@ import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
+import com.example.sb10_MoPl_team3.auth.password.service.PasswordResetService;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
@@ -37,6 +38,7 @@ public class AuthService {
     private final AuthSessionRepository authSessionRepository;
     private final JwtProperties jwtProperties;
     private final Clock clock;
+    private final PasswordResetService passwordResetService;
 
     @Transactional
     public AuthTokenResult signIn(SignInRequest request) {
@@ -46,8 +48,10 @@ public class AuthService {
         if (user.getStatus() == UserStatus.LOCKED || user.getStatus() == UserStatus.WITHDRAWN)
             throw new InvalidCredentialException();
 
-        if (!passwordEncoder.matches(request.password(), user.getPassword()))
+        if (!passwordEncoder.matches(request.password(), user.getPassword())
+                && !passwordResetService.matchesTemporaryPassword(user, request.password())) {
             throw new InvalidCredentialException();
+        }
 
         Instant now = Instant.now(clock);
         revokeExistingSessions(user.getId(), now);

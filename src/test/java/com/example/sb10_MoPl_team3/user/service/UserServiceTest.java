@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.user.service;
 
+import com.example.sb10_MoPl_team3.auth.password.service.PasswordResetService;
 import com.example.sb10_MoPl_team3.user.exception.DuplicatedEmailException;
 import com.example.sb10_MoPl_team3.user.dto.request.UserCreateRequest;
 import com.example.sb10_MoPl_team3.user.entity.User;
@@ -66,6 +67,9 @@ class UserServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private PasswordResetService passwordResetService;
 
     @InjectMocks
     private UserService userService;
@@ -456,6 +460,8 @@ class UserServiceTest {
         then(userRepository).should().findById(userId);
         then(passwordEncoder).should()
                 .encode(request.password());
+        then(passwordResetService).should()
+                .discardTemporaryPasswords(user);
 
         assertThat(user.getPassword()).isEqualTo("encoded-new-password");
     }
@@ -476,6 +482,7 @@ class UserServiceTest {
 
         then(userAuthorizationService).should().validateSelf(userId);
         then(passwordEncoder).shouldHaveNoInteractions();
+        then(passwordResetService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -495,5 +502,6 @@ class UserServiceTest {
 
         then(userRepository).shouldHaveNoInteractions();
         then(passwordEncoder).shouldHaveNoInteractions();
+        then(passwordResetService).shouldHaveNoInteractions();
     }
 }

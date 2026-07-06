@@ -1,6 +1,7 @@
 package com.example.sb10_MoPl_team3.user.service;
 
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
+import com.example.sb10_MoPl_team3.auth.password.service.PasswordResetService;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 import com.example.sb10_MoPl_team3.global.file.FileStorageService;
 import com.example.sb10_MoPl_team3.global.security.UserAuthorizationService;
@@ -46,6 +47,7 @@ public class UserService {
     private final AuthSessionRepository authSessionRepository;
     private final Clock clock;
     private final ApplicationEventPublisher eventPublisher;
+    private final PasswordResetService passwordResetService;
 
     @Transactional
     public UserDto createUser(UserCreateRequest request) {
@@ -116,6 +118,7 @@ public class UserService {
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
         user.changePassword(passwordEncoder.encode(request.password()));
+        passwordResetService.discardTemporaryPasswords(user);
     }
 
     @Transactional
