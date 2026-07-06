@@ -10,12 +10,15 @@ import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
+import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +33,7 @@ public class FollowServiceImpl implements FollowService {
     private final UserRepository userRepository;
     private final FollowMapper followMapper;
     private final PlatformTransactionManager transactionManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public FollowCreateResult create(UUID followerId, FollowRequest request) {
@@ -39,9 +43,18 @@ public class FollowServiceImpl implements FollowService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
-        return findFollow(followerId, followeeId)
+        FollowCreateResult result = findFollow(followerId, followeeId)
                 .map(follow -> new FollowCreateResult(follow, false))
                 .orElseGet(() -> createOrFindFollow(followerId, followeeId));
+        if (result.created()) {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    followeeId,
+                    "새 팔로워",
+                    "새로운 사용자가 회원님을 팔로우했습니다.",
+                    NotificationLevel.INFO
+            ));
+        }
+        return result;
     }
 
     @Override
@@ -60,6 +73,13 @@ public class FollowServiceImpl implements FollowService {
     @Transactional(readOnly = true)
     public long getFollowerCount(UUID followeeId) {
         return followRepository.countByFollowee_Id(followeeId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FollowDto isFollowedByMe(UUID followerId, UUID followeeId) {
+        return findFollow(followerId, followeeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.FOLLOW_NOT_FOUND));
     }
 
     private FollowCreateResult createOrFindFollow(UUID followerId, UUID followeeId) {

@@ -5,6 +5,7 @@ import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
+import com.example.sb10_MoPl_team3.auth.password.service.PasswordResetService;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
@@ -63,8 +64,8 @@ class AuthServiceTest {
     @Mock
     private AuthSessionLockManager authSessionLockManager;
 
-    @InjectMocks
-    private AuthService authService;
+    @Mock
+    private PasswordResetService passwordResetService;
 
     @SuppressWarnings("unchecked")
     private void givenAuthSessionLockExecutesSupplier() {
@@ -74,6 +75,9 @@ class AuthServiceTest {
                     return supplier.get();
                 });
     }
+
+    @InjectMocks
+    private AuthService authService;
 
     @Test
     @DisplayName("이메일과 비밀번호가 일치하면 로그인에 성공하고 토큰과 세션을 생성한다")
@@ -118,6 +122,7 @@ class AuthServiceTest {
         then(tokenService).should().issueRefreshToken();
         then(tokenService).should().hashRefreshToken("refresh-token");
         then(tokenService).should().issueAccessToken(user, savedAuthSession.getId());
+        then(passwordResetService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -186,6 +191,7 @@ class AuthServiceTest {
         assertThat(newSession.isRevoked()).isFalse();
 
         then(tokenService).should().issueAccessToken(user, newSession.getId());
+        then(passwordResetService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -202,6 +208,7 @@ class AuthServiceTest {
         then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
+        then(passwordResetService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -212,13 +219,59 @@ class AuthServiceTest {
 
         given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
         given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(false);
+        given(passwordResetService.matchesTemporaryPassword(user, request.password())).willReturn(false);
 
         assertThatThrownBy(() -> authService.signIn(request))
                 .isInstanceOf(InvalidCredentialException.class);
 
+        then(passwordResetService).should().matchesTemporaryPassword(user, request.password());
         then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("일반 비밀번호가 틀려도 유효한 임시 비밀번호이면 로그인에 성공한다")
+    void signIn_temporaryPasswordSuccess() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-28T00:00:00Z");
+        Duration refreshTokenExpiration = Duration.ofDays(7);
+        SignInRequest request = new SignInRequest("user@test.com", "temporary-password");
+        User user = new User("user@test.com", "User", "encoded-password", null, UserRole.USER);
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
+        given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(false);
+        given(passwordResetService.matchesTemporaryPassword(user, request.password())).willReturn(true);
+        given(clock.instant()).willReturn(now);
+        given(jwtProperties.refreshTokenExpiration()).willReturn(refreshTokenExpiration);
+        given(authSessionRepository.findAllByUserId(userId)).willReturn(List.of());
+        given(tokenService.issueRefreshToken()).willReturn("refresh-token");
+        given(tokenService.hashRefreshToken("refresh-token")).willReturn("refresh-token-hash");
+        given(tokenService.issueAccessToken(any(User.class), any(UUID.class))).willReturn("access-token");
+
+        AuthTokenResult response = authService.signIn(request);
+
+        assertThat(response.jwtDto().accessToken()).isEqualTo("access-token");
+        assertThat(response.refreshToken()).isEqualTo("refresh-token");
+        assertThat(response.jwtDto().userDto().email()).isEqualTo("user@test.com");
+        assertThat(response.jwtDto().userDto().locked()).isFalse();
+
+        ArgumentCaptor<AuthSession> authSessionCaptor = ArgumentCaptor.forClass(AuthSession.class);
+        then(authSessionRepository).should().save(authSessionCaptor.capture());
+
+        AuthSession savedAuthSession = authSessionCaptor.getValue();
+        assertThat(savedAuthSession.getId()).isNotNull();
+        assertThat(savedAuthSession.getUserId()).isEqualTo(userId);
+        assertThat(savedAuthSession.getRefreshTokenHash()).isEqualTo("refresh-token-hash");
+        assertThat(savedAuthSession.getExpiresAt()).isEqualTo(now.plus(refreshTokenExpiration));
+        assertThat(savedAuthSession.isRevoked()).isFalse();
+
+        then(passwordResetService).should().matchesTemporaryPassword(user, request.password());
+        then(authSessionRepository).should().findAllByUserId(userId);
+        then(tokenService).should().issueRefreshToken();
+        then(tokenService).should().hashRefreshToken("refresh-token");
+        then(tokenService).should().issueAccessToken(user, savedAuthSession.getId());
     }
 
     @Test
@@ -237,6 +290,7 @@ class AuthServiceTest {
         then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
+        then(passwordResetService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -255,6 +309,7 @@ class AuthServiceTest {
         then(tokenService).should(never()).issueRefreshToken();
         then(tokenService).should(never()).issueAccessToken(any(User.class), any());
         then(authSessionRepository).should(never()).save(any());
+        then(passwordResetService).shouldHaveNoInteractions();
     }
 
     @Test

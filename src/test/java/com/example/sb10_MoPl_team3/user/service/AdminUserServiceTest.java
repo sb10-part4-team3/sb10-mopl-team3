@@ -7,6 +7,8 @@ import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
+import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import com.example.sb10_MoPl_team3.user.dto.request.UserLockUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserRoleUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
@@ -23,6 +25,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -53,6 +56,9 @@ class AdminUserServiceTest {
 
     @Mock
     private Clock clock;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private AdminUserService adminUserService;
@@ -333,6 +339,14 @@ class AdminUserServiceTest {
         then(authSessionRepository).should().findById(session2.getId());
         then(authSessionRepository).should().save(session1);
         then(authSessionRepository).should().save(session2);
+        ArgumentCaptor<NotificationEvent> eventCaptor =
+                ArgumentCaptor.forClass(NotificationEvent.class);
+        then(eventPublisher).should().publishEvent(eventCaptor.capture());
+        NotificationEvent event = eventCaptor.getValue();
+        assertThat(event.receiverId()).isEqualTo(userId);
+        assertThat(event.title()).isEqualTo("권한 변경");
+        assertThat(event.content()).isEqualTo("사용자 권한이 ADMIN(으)로 변경되었습니다.");
+        assertThat(event.level()).isEqualTo(NotificationLevel.INFO);
     }
 
     @Test

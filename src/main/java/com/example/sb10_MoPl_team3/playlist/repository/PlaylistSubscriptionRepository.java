@@ -9,6 +9,8 @@ import org.springframework.stereotype.Repository;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import java.util.UUID;
 
 @Repository
@@ -33,4 +35,8 @@ public interface PlaylistSubscriptionRepository extends JpaRepository<PlaylistSu
            and ps.playlist.id in :playlistIds
         """)
     Set<UUID> findSubscribedPlaylistIds(UUID userId, Collection<UUID> playlistIds);
+
+    @Query("select subscriber.user.id from PlaylistSubscriber subscriber "
+            + "where subscriber.playlist.id = :playlistId order by subscriber.id")
+    Slice<UUID> findSubscriberUserIdsByPlaylistId(UUID playlistId, Pageable pageable);
 }

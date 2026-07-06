@@ -15,8 +15,11 @@ import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
+import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -42,6 +45,7 @@ public class AdminUserService {
     private final AuthSessionRepository authSessionRepository;
     private final AuthSessionLockManager authSessionLockManager;
     private final Clock clock;
+    private final ApplicationEventPublisher eventPublisher;
 
     public CursorResponse<UserDto> findUsers(UserSearchCondition condition) {
         String sortBy = normalizeSortBy(condition.sortBy());
@@ -85,6 +89,12 @@ public class AdminUserService {
         user.changeRole(request.role());
 
         revokeUserSessions(userId);
+        eventPublisher.publishEvent(new NotificationEvent(
+                userId,
+                "권한 변경",
+                "사용자 권한이 %s(으)로 변경되었습니다.".formatted(request.role()),
+                NotificationLevel.INFO
+        ));
 
         return UserMapper.toDto(user);
     }
