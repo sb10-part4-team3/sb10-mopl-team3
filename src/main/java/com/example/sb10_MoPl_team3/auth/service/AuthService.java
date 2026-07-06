@@ -35,6 +35,7 @@ public class AuthService {
     private final TokenService tokenService;
 
     private final AuthSessionRepository authSessionRepository;
+    private final AuthSessionLockManager authSessionLockManager;
     private final JwtProperties jwtProperties;
     private final Clock clock;
 
@@ -80,35 +81,37 @@ public class AuthService {
         AuthSession authSession = authSessionRepository.findByRefreshTokenHash(refreshTokenHash)
                 .orElseThrow(InvalidRefreshTokenException::new);
 
-        AuthSession currentSession = authSessionRepository.findById(authSession.getId())
-                .orElseThrow(InvalidRefreshTokenException::new);
+        return authSessionLockManager.executeWithLock(authSession.getId(), () -> {
+            AuthSession currentSession = authSessionRepository.findById(authSession.getId())
+                    .orElseThrow(InvalidRefreshTokenException::new);
 
-        validateRefreshSession(currentSession, refreshTokenHash, now);
+            validateRefreshSession(currentSession, refreshTokenHash, now);
 
-        User user = userRepository.findById(currentSession.getUserId())
-                .orElseThrow(InvalidRefreshTokenException::new);
+            User user = userRepository.findById(currentSession.getUserId())
+                    .orElseThrow(InvalidRefreshTokenException::new);
 
-        if (user.getStatus() == UserStatus.LOCKED || user.getStatus() == UserStatus.WITHDRAWN) {
-            throw new InvalidRefreshTokenException();
-        }
+            if (user.getStatus() == UserStatus.LOCKED || user.getStatus() == UserStatus.WITHDRAWN) {
+                throw new InvalidRefreshTokenException();
+            }
 
-        String newRefreshToken = tokenService.issueRefreshToken();
-        String newRefreshTokenHash = tokenService.hashRefreshToken(newRefreshToken);
+            String newRefreshToken = tokenService.issueRefreshToken();
+            String newRefreshTokenHash = tokenService.hashRefreshToken(newRefreshToken);
 
-        currentSession.rotateRefreshToken(
-                newRefreshTokenHash,
-                now.plus(jwtProperties.refreshTokenExpiration()),
-                now
-        );
+            currentSession.rotateRefreshToken(
+                    newRefreshTokenHash,
+                    now.plus(jwtProperties.refreshTokenExpiration()),
+                    now
+            );
 
-        String accessToken = tokenService.issueAccessToken(user, currentSession.getId());
+            String accessToken = tokenService.issueAccessToken(user, currentSession.getId());
 
-        authSessionRepository.save(currentSession);
+            authSessionRepository.save(currentSession);
 
-        return new AuthTokenResult(
-                new JwtDto(UserMapper.toDto(user), accessToken),
-                newRefreshToken
-        );
+            return new AuthTokenResult(
+                    new JwtDto(UserMapper.toDto(user), accessToken),
+                    newRefreshToken
+            );
+        });
     }
 
     private void validateRefreshSession(AuthSession authSession, String refreshTokenHash, Instant now) {

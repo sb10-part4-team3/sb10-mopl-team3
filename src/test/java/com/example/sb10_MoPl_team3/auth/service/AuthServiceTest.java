@@ -59,8 +59,20 @@ class AuthServiceTest {
     @Mock
     private Clock clock;
 
+    @Mock
+    private AuthSessionLockManager authSessionLockManager;
+
     @InjectMocks
     private AuthService authService;
+
+    @SuppressWarnings("unchecked")
+    private void givenAuthSessionLockExecutesSupplier() {
+        given(authSessionLockManager.executeWithLock(any(UUID.class), any(java.util.function.Supplier.class)))
+                .willAnswer(invocation -> {
+                    java.util.function.Supplier<AuthTokenResult> supplier = invocation.getArgument(1);
+                    return supplier.get();
+                });
+    }
 
     @Test
     @DisplayName("이메일과 비밀번호가 일치하면 로그인에 성공하고 토큰과 세션을 생성한다")
@@ -272,6 +284,7 @@ class AuthServiceTest {
                 .willReturn(Optional.of(authSession));
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(tokenService.issueAccessToken(user, authSession.getId())).willReturn("new-access-token");
+        givenAuthSessionLockExecutesSupplier();
 
         AuthTokenResult response = authService.reissueToken(refreshToken);
 
@@ -321,6 +334,7 @@ class AuthServiceTest {
                 .willReturn(Optional.of(firstLookupSession));
         given(authSessionRepository.findById(firstLookupSession.getId()))
                 .willReturn(Optional.of(reloadedSession));
+        givenAuthSessionLockExecutesSupplier();
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
@@ -361,6 +375,7 @@ class AuthServiceTest {
                 .willReturn(Optional.of(firstLookupSession));
         given(authSessionRepository.findById(firstLookupSession.getId()))
                 .willReturn(Optional.of(reloadedSession));
+        givenAuthSessionLockExecutesSupplier();
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
@@ -411,6 +426,7 @@ class AuthServiceTest {
                 .willReturn(Optional.of(authSession));
         given(authSessionRepository.findById(authSession.getId()))
                 .willReturn(Optional.of(authSession));
+        givenAuthSessionLockExecutesSupplier();
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
@@ -441,6 +457,7 @@ class AuthServiceTest {
                 .willReturn(Optional.of(authSession));
         given(authSessionRepository.findById(authSession.getId()))
                 .willReturn(Optional.of(authSession));
+        givenAuthSessionLockExecutesSupplier();
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
@@ -471,7 +488,7 @@ class AuthServiceTest {
         given(authSessionRepository.findById(authSession.getId()))
                 .willReturn(Optional.of(authSession));
         given(userRepository.findById(userId)).willReturn(Optional.empty());
-        given(userRepository.findById(userId)).willReturn(Optional.empty());
+        givenAuthSessionLockExecutesSupplier();
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
@@ -512,7 +529,7 @@ class AuthServiceTest {
         given(authSessionRepository.findById(authSession.getId()))
                 .willReturn(Optional.of(authSession));
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
-        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        givenAuthSessionLockExecutesSupplier();
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
