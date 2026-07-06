@@ -2,6 +2,8 @@ package com.example.sb10_MoPl_team3.notification.service;
 
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.global.sse.SseEventPublisher;
+import com.example.sb10_MoPl_team3.notification.dto.NotificationDto;
 import com.example.sb10_MoPl_team3.notification.entity.Notification;
 import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import com.example.sb10_MoPl_team3.notification.event.NotificationEventHandler;
@@ -19,18 +21,23 @@ public class NotificationService implements NotificationEventHandler {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final SseEventPublisher sseEventPublisher;
 
     @Override
     @Transactional
     public void handle(NotificationEvent event) {
         User receiver = userRepository.findById(event.receiverId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        notificationRepository.save(new Notification(
+        Notification notification = notificationRepository.save(new Notification(
                 receiver,
                 event.title(),
                 event.content(),
                 event.level()
         ));
+        sseEventPublisher.publishAfterCommit(
+                event.receiverId(),
+                SseEventPublisher.NOTIFICATIONS_EVENT,
+                NotificationDto.from(notification));
     }
 
     @Transactional

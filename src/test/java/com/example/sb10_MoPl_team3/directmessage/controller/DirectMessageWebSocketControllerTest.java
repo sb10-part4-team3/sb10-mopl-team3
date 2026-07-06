@@ -3,9 +3,11 @@ package com.example.sb10_MoPl_team3.directmessage.controller;
 import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageDto;
 import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageSendRequest;
 import com.example.sb10_MoPl_team3.directmessage.service.DirectMessageAsyncService;
+import com.example.sb10_MoPl_team3.directmessage.service.DirectMessageConversationPresence;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.global.sse.SseEventPublisher;
 import com.example.sb10_MoPl_team3.user.dto.response.UserSummary;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import org.junit.jupiter.api.Test;
@@ -33,6 +35,8 @@ class DirectMessageWebSocketControllerTest {
 
     @Mock DirectMessageAsyncService asyncService;
     @Mock SimpMessagingTemplate messagingTemplate;
+    @Mock DirectMessageConversationPresence conversationPresence;
+    @Mock SseEventPublisher sseEventPublisher;
     @InjectMocks DirectMessageWebSocketController controller;
 
     @Test
@@ -60,6 +64,33 @@ class DirectMessageWebSocketControllerTest {
 
         then(messagingTemplate).should().convertAndSend(
                 "/sub/conversations/" + conversationId + "/direct-messages", message);
+        then(sseEventPublisher).should().publish(
+                receiverId, SseEventPublisher.DIRECT_MESSAGES_EVENT, message);
+    }
+
+    @Test
+    @DisplayName("수신자가 해당 대화를 구독 중이면 DM을 SSE로 중복 발행하지 않는다")
+    void send_doesNotFallbackToSseWhenReceiverConversationIsActive() {
+        UUID conversationId = UUID.randomUUID();
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        AuthUser authUser = new AuthUser(senderId, UserRole.USER, UUID.randomUUID());
+        var authentication = new UsernamePasswordAuthenticationToken(
+                authUser, null, authUser.authorities());
+        DirectMessageDto message = new DirectMessageDto(
+                UUID.randomUUID(), conversationId, Instant.now(),
+                new UserSummary(senderId, "발신자", null),
+                new UserSummary(receiverId, "수신자", null), "메시지");
+        given(asyncService.saveAsync(conversationId, senderId, "메시지"))
+                .willReturn(CompletableFuture.completedFuture(message));
+        given(conversationPresence.isActive(receiverId, conversationId)).willReturn(true);
+
+        controller.send(
+                conversationId, new DirectMessageSendRequest("메시지"), authentication).join();
+
+        then(messagingTemplate).should().convertAndSend(
+                "/sub/conversations/" + conversationId + "/direct-messages", message);
+        then(sseEventPublisher).shouldHaveNoInteractions();
     }
 
     @Test

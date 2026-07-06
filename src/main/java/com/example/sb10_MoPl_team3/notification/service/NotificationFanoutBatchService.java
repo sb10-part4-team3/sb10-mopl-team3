@@ -1,5 +1,7 @@
 package com.example.sb10_MoPl_team3.notification.service;
 
+import com.example.sb10_MoPl_team3.global.sse.SseEventPublisher;
+import com.example.sb10_MoPl_team3.notification.dto.NotificationDto;
 import com.example.sb10_MoPl_team3.notification.entity.Notification;
 import com.example.sb10_MoPl_team3.notification.event.NotificationFanoutEvent;
 import com.example.sb10_MoPl_team3.notification.repository.NotificationRepository;
@@ -18,6 +20,7 @@ public class NotificationFanoutBatchService {
 
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
+    private final SseEventPublisher sseEventPublisher;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int saveBatch(List<UUID> receiverIds, NotificationFanoutEvent event) {
@@ -30,7 +33,11 @@ public class NotificationFanoutBatchService {
                 .map(receiver -> new Notification(
                         receiver, event.title(), event.content(), event.level()))
                 .toList();
-        notificationRepository.saveAll(notifications);
-        return notifications.size();
+        List<Notification> savedNotifications = notificationRepository.saveAll(notifications);
+        savedNotifications.forEach(notification -> sseEventPublisher.publishAfterCommit(
+                notification.getReceiver().getId(),
+                SseEventPublisher.NOTIFICATIONS_EVENT,
+                NotificationDto.from(notification)));
+        return savedNotifications.size();
     }
 }
