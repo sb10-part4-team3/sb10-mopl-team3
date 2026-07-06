@@ -11,6 +11,7 @@ import static org.mockito.Mockito.never;
 import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
+import com.example.sb10_MoPl_team3.content.service.ContentStatsService;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
@@ -60,6 +61,9 @@ class ReviewServiceImplTest {
 
     @Mock
     private ContentRepository contentRepository;
+
+    @Mock
+    private ContentStatsService contentStatsService;
 
     @InjectMocks
     private ReviewServiceImpl reviewService;
