@@ -13,7 +13,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface ContentStatsRepository extends JpaRepository<ContentStats, UUID> {
+public interface ContentStatsRepository extends JpaRepository<ContentStats, UUID>,
+    ContentStatsRepositoryCustom {
 
     List<ContentStats> findByIdIn(Collection<UUID> ids);
 
