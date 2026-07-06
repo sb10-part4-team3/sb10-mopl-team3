@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.entity.Content;
+import com.example.sb10_MoPl_team3.content.entity.ContentStats;
 import com.example.sb10_MoPl_team3.content.entity.ContentTag;
 import com.example.sb10_MoPl_team3.content.entity.Tag;
 import com.example.sb10_MoPl_team3.global.config.JpaAuditingConfig;
@@ -31,6 +32,9 @@ class ContentRepositoryTest {
 
     @Autowired
     private TagRepository tagRepository;
+
+    @Autowired
+    private ContentStatsRepository contentStatsRepository;
 
     @Autowired
     private EntityManager em;
@@ -236,6 +240,35 @@ class ContentRepositoryTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getTitle()).isEqualTo("액션 영화");
+    }
+
+    // --- findAllWithoutStats ---
+
+    @Test
+    void findAllWithoutStats_ContentStats가_없는_콘텐츠만_조회() {
+        Content withStats = contentRepository.saveAndFlush(
+            buildContent(ContentType.MOVIE, "통계있는 영화", "ext-stats-001"));
+        contentStatsRepository.saveAndFlush(ContentStats.createDefault(withStats));
+
+        Content withoutStats = contentRepository.saveAndFlush(
+            buildContent(ContentType.MOVIE, "통계없는 영화", "ext-stats-002"));
+        em.clear();
+
+        List<Content> result = contentRepository.findAllWithoutStats();
+
+        assertThat(result).extracting(Content::getId).containsExactly(withoutStats.getId());
+    }
+
+    @Test
+    void findAllWithoutStats_누락된_콘텐츠가_없으면_빈_목록() {
+        Content withStats = contentRepository.saveAndFlush(
+            buildContent(ContentType.MOVIE, "통계있는 영화", "ext-stats-003"));
+        contentStatsRepository.saveAndFlush(ContentStats.createDefault(withStats));
+        em.clear();
+
+        List<Content> result = contentRepository.findAllWithoutStats();
+
+        assertThat(result).isEmpty();
     }
 
     private Content buildContent(ContentType type, String title, String externalId) {
