@@ -268,6 +268,8 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken("new-refresh-token")).willReturn("new-refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
+        given(authSessionRepository.findById(authSession.getId()))
+                .willReturn(Optional.of(authSession));
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(tokenService.issueAccessToken(user, authSession.getId())).willReturn("new-access-token");
 
@@ -407,6 +409,8 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
+        given(authSessionRepository.findById(authSession.getId()))
+                .willReturn(Optional.of(authSession));
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
@@ -435,6 +439,8 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
+        given(authSessionRepository.findById(authSession.getId()))
+                .willReturn(Optional.of(authSession));
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
                 .isInstanceOf(InvalidRefreshTokenException.class);
@@ -462,6 +468,9 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
+        given(authSessionRepository.findById(authSession.getId()))
+                .willReturn(Optional.of(authSession));
+        given(userRepository.findById(userId)).willReturn(Optional.empty());
         given(userRepository.findById(userId)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))
@@ -500,6 +509,9 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken(refreshToken)).willReturn("refresh-token-hash");
         given(authSessionRepository.findByRefreshTokenHash("refresh-token-hash"))
                 .willReturn(Optional.of(authSession));
+        given(authSessionRepository.findById(authSession.getId()))
+                .willReturn(Optional.of(authSession));
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
 
         assertThatThrownBy(() -> authService.reissueToken(refreshToken))

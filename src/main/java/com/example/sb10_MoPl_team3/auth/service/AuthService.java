@@ -80,11 +80,12 @@ public class AuthService {
         AuthSession authSession = authSessionRepository.findByRefreshTokenHash(refreshTokenHash)
                 .orElseThrow(InvalidRefreshTokenException::new);
 
-        if (authSession.isRevoked() || !authSession.getExpiresAt().isAfter(now)) {
-            throw new InvalidRefreshTokenException();
-        }
+        AuthSession currentSession = authSessionRepository.findById(authSession.getId())
+                .orElseThrow(InvalidRefreshTokenException::new);
 
-        User user = userRepository.findById(authSession.getUserId())
+        validateRefreshSession(currentSession, refreshTokenHash, now);
+
+        User user = userRepository.findById(currentSession.getUserId())
                 .orElseThrow(InvalidRefreshTokenException::new);
 
         if (user.getStatus() == UserStatus.LOCKED || user.getStatus() == UserStatus.WITHDRAWN) {
@@ -94,20 +95,30 @@ public class AuthService {
         String newRefreshToken = tokenService.issueRefreshToken();
         String newRefreshTokenHash = tokenService.hashRefreshToken(newRefreshToken);
 
-        authSession.rotateRefreshToken(
+        currentSession.rotateRefreshToken(
                 newRefreshTokenHash,
                 now.plus(jwtProperties.refreshTokenExpiration()),
                 now
         );
 
-        String accessToken = tokenService.issueAccessToken(user, authSession.getId());
+        String accessToken = tokenService.issueAccessToken(user, currentSession.getId());
 
-        authSessionRepository.save(authSession);
+        authSessionRepository.save(currentSession);
 
         return new AuthTokenResult(
                 new JwtDto(UserMapper.toDto(user), accessToken),
                 newRefreshToken
         );
+    }
+
+    private void validateRefreshSession(AuthSession authSession, String refreshTokenHash, Instant now) {
+        if (authSession.isRevoked() || !authSession.getExpiresAt().isAfter(now)) {
+            throw new InvalidRefreshTokenException();
+        }
+
+        if (!authSession.getRefreshTokenHash().equals(refreshTokenHash)) {
+            throw new InvalidRefreshTokenException();
+        }
     }
 
     @Transactional
