@@ -43,7 +43,7 @@ class MailTemporaryPasswordNotifierTest {
 
         assertThat(message.getFrom()).isEqualTo("no-reply@mopl.test");
         assertThat(message.getTo()).containsExactly("user@test.com");
-        assertThat(message.getSubject()).isNotBlank();
+        assertThat(message.getSubject()).isEqualTo("[모두의 플리] 임시 비밀번호 안내");
         assertThat(message.getText())
                 .contains("tempPassword1!");
     }

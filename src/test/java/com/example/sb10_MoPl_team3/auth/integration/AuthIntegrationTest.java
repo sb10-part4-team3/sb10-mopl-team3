@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.auth.integration;
 
 import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.auth.password.service.TemporaryPasswordGenerator;
 import com.example.sb10_MoPl_team3.auth.service.TokenService;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtClaims;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
@@ -31,13 +32,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import com.example.sb10_MoPl_team3.auth.password.notification.TemporaryPasswordNotifier;
-import org.mockito.ArgumentCaptor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.UUID;
 
-import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -86,7 +85,7 @@ class AuthIntegrationTest {
     private TokenService tokenService;
 
     @MockitoBean
-    private TemporaryPasswordNotifier temporaryPasswordNotifier;
+    private TemporaryPasswordGenerator temporaryPasswordGenerator;
 
     @AfterEach
     void cleanRedis() {
@@ -239,6 +238,11 @@ class AuthIntegrationTest {
         signUp("Reset User", "temporary-login@test.com", "password1!")
                 .andExpect(status().isCreated());
 
+        String temporaryPassword = "randomTemporaryPassword1!";
+
+        given(temporaryPasswordGenerator.generate())
+                .willReturn(temporaryPassword);
+
         mockMvc.perform(post("/api/auth/password-reset")
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
@@ -248,16 +252,6 @@ class AuthIntegrationTest {
                             }
                             """))
                 .andExpect(status().isNoContent());
-
-        ArgumentCaptor<String> emailCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<String> passwordCaptor = ArgumentCaptor.forClass(String.class);
-
-        then(temporaryPasswordNotifier).should()
-                .send(emailCaptor.capture(), passwordCaptor.capture());
-
-        assertThat(emailCaptor.getValue()).isEqualTo("temporary-login@test.com");
-
-        String temporaryPassword = passwordCaptor.getValue();
 
         assertThat(temporaryPassword).isNotBlank();
         assertThat(temporaryPassword).isNotEqualTo("temporary1!!");

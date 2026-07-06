@@ -2,11 +2,12 @@ package com.example.sb10_MoPl_team3.auth.password.service;
 
 import com.example.sb10_MoPl_team3.auth.password.dto.TemporaryPasswordIssueRequest;
 import com.example.sb10_MoPl_team3.auth.password.entity.PasswordResetToken;
-import com.example.sb10_MoPl_team3.auth.password.notification.TemporaryPasswordNotifier;
+import com.example.sb10_MoPl_team3.auth.password.event.TemporaryPasswordIssuedEvent;
 import com.example.sb10_MoPl_team3.auth.password.repository.PasswordResetTokenRepository;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +29,7 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
-    private final TemporaryPasswordNotifier temporaryPasswordNotifier;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void issueTemporaryPassword(TemporaryPasswordIssueRequest request) {
@@ -59,7 +60,9 @@ public class PasswordResetService {
         );
 
         passwordResetTokenRepository.save(token);
-        temporaryPasswordNotifier.send(user.getEmail(), temporaryPassword);
+        eventPublisher.publishEvent(
+                new TemporaryPasswordIssuedEvent(user.getEmail(), temporaryPassword)
+        );
     }
 
     @Transactional

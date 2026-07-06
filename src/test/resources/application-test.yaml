@@ -34,4 +34,4 @@ auth:
     secure: false
 
   password-reset-mail:
-    from: no-reply@test.mopl
+    from: no-reply@mopl.test
