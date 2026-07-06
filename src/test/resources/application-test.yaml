@@ -32,3 +32,6 @@ admin:
 auth:
   refresh-token-cookie:
     secure: false
+
+  password-reset-mail:
+    from: no-reply@test.mopl
