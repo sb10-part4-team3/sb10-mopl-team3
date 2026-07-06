@@ -2,6 +2,9 @@ package com.example.sb10_MoPl_team3.directmessage.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -37,5 +40,30 @@ class DirectMessageConversationPresenceTest {
 
         assertThat(presence.isActive(userId, previousConversationId)).isFalse();
         assertThat(presence.isActive(userId, nextConversationId)).isTrue();
+    }
+
+    @Test
+    void concurrentResubscribeLeavesOnlyOneConversationActive() {
+        UUID userId = UUID.randomUUID();
+        UUID firstConversationId = UUID.randomUUID();
+        UUID secondConversationId = UUID.randomUUID();
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            CompletableFuture<Void> first = CompletableFuture.runAsync(
+                    () -> presence.subscribe(
+                            "session-1", "subscription-1", userId, firstConversationId),
+                    executor);
+            CompletableFuture<Void> second = CompletableFuture.runAsync(
+                    () -> presence.subscribe(
+                            "session-1", "subscription-1", userId, secondConversationId),
+                    executor);
+
+            CompletableFuture.allOf(first, second).join();
+
+            assertThat(presence.isActive(userId, firstConversationId)
+                    ^ presence.isActive(userId, secondConversationId)).isTrue();
+        } finally {
+            executor.shutdownNow();
+        }
     }
 }

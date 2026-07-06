@@ -14,7 +14,7 @@ public class DirectMessageConversationPresence {
     private final Map<ActiveConversation, Set<SubscriptionKey>> activeSubscriptions =
             new ConcurrentHashMap<>();
 
-    public void subscribe(
+    public synchronized void subscribe(
             String sessionId,
             String subscriptionId,
             UUID userId,
@@ -34,7 +34,7 @@ public class DirectMessageConversationPresence {
         });
     }
 
-    public void unsubscribe(String sessionId, String subscriptionId) {
+    public synchronized void unsubscribe(String sessionId, String subscriptionId) {
         SubscriptionKey key = new SubscriptionKey(sessionId, subscriptionId);
         ActiveConversation removed = subscriptions.remove(key);
         if (removed != null) {
@@ -42,7 +42,7 @@ public class DirectMessageConversationPresence {
         }
     }
 
-    public void disconnect(String sessionId) {
+    public synchronized void disconnect(String sessionId) {
         subscriptions.forEach((key, activeConversation) -> {
             if (key.sessionId().equals(sessionId)
                     && subscriptions.remove(key, activeConversation)) {
@@ -51,7 +51,7 @@ public class DirectMessageConversationPresence {
         });
     }
 
-    public boolean isActive(UUID userId, UUID conversationId) {
+    public synchronized boolean isActive(UUID userId, UUID conversationId) {
         Set<SubscriptionKey> keys = activeSubscriptions.get(
                 new ActiveConversation(userId, conversationId));
         return keys != null && !keys.isEmpty();

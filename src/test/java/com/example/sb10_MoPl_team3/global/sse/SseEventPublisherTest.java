@@ -40,7 +40,8 @@ class SseEventPublisherTest {
         UUID userId = UUID.randomUUID();
         given(connectionRepository.findEmittersByUserId(userId)).willReturn(Map.of());
 
-        publisher.publishAfterCommit(userId, "notifications", "data");
+        publisher.publishAfterCommit(
+                userId, SseEventPublisher.NOTIFICATIONS_EVENT, "data");
 
         then(connectionRepository).should().saveEvent(
                 org.mockito.ArgumentMatchers.eq(userId), any(SseEventCache.class));
@@ -52,7 +53,8 @@ class SseEventPublisherTest {
         given(connectionRepository.findEmittersByUserId(userId)).willReturn(Map.of());
         TransactionSynchronizationManager.initSynchronization();
 
-        publisher.publishAfterCommit(userId, "notifications", "data");
+        publisher.publishAfterCommit(
+                userId, SseEventPublisher.NOTIFICATIONS_EVENT, "data");
 
         then(connectionRepository).should(never()).saveEvent(
                 org.mockito.ArgumentMatchers.eq(userId), any(SseEventCache.class));
@@ -69,13 +71,15 @@ class SseEventPublisherTest {
         given(connectionRepository.findEmittersByUserId(userId))
                 .willReturn(Map.of("emitter-id", emitter));
 
-        String eventId = publisher.publish(userId, "notifications", "data");
+        String eventId = publisher.publish(
+                userId, SseEventPublisher.NOTIFICATIONS_EVENT, "data");
 
         ArgumentCaptor<SseEventCache> cacheCaptor = ArgumentCaptor.forClass(SseEventCache.class);
         then(connectionRepository).should().saveEvent(
                 org.mockito.ArgumentMatchers.eq(userId), cacheCaptor.capture());
         assertThat(cacheCaptor.getValue().id()).isEqualTo(eventId);
-        assertThat(cacheCaptor.getValue().name()).isEqualTo("notifications");
+        assertThat(cacheCaptor.getValue().name())
+                .isEqualTo(SseEventPublisher.NOTIFICATIONS_EVENT);
         assertThat(cacheCaptor.getValue().data()).isEqualTo("data");
         then(emitter).should().send(any(SseEmitter.SseEventBuilder.class));
     }
@@ -88,7 +92,7 @@ class SseEventPublisherTest {
         willThrow(new IOException("connection closed"))
                 .given(emitter).send(any(SseEmitter.SseEventBuilder.class));
 
-        publisher.publish(userId, "direct-messages", "data");
+        publisher.publish(userId, SseEventPublisher.DIRECT_MESSAGES_EVENT, "data");
 
         then(connectionRepository).should().deleteEmitter(userId, "failed-emitter");
     }
