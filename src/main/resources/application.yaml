@@ -65,7 +65,8 @@ auth:
     secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
 
   password-reset-mail:
-    from: ${MAIL_FROM:${MAIL_USERNAME:}}
+
+    from: ${MAIL_FROM:no-reply@mopl.local}
 
 sportsdb:
   base-url: https://www.thesportsdb.com/api/v1/json
