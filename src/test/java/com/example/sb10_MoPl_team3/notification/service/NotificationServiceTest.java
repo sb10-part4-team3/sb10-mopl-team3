@@ -145,6 +145,23 @@ class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("알림 목록 조회 정렬 기준이 없거나 올바르지 않으면 입력값 예외를 던진다")
+    void findAll_invalidSortBy() {
+        UUID receiverId = UUID.randomUUID();
+        NotificationFindAllRequest request = new NotificationFindAllRequest(
+                null,
+                null,
+                20,
+                "DESCENDING",
+                "");
+
+        assertThatThrownBy(() -> notificationService.findAll(receiverId, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode())
+                                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+    }
+
+    @Test
     @DisplayName("알림 목록 조회 limit이 0 이하이면 입력값 예외를 던진다")
     void findAll_invalidLimit() {
         UUID receiverId = UUID.randomUUID();
@@ -159,6 +176,24 @@ class NotificationServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode())
                                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+    }
+
+    @Test
+    @DisplayName("알림 목록 조회 커서 형식이 올바르지 않으면 원인 예외를 보존한다")
+    void findAll_invalidCursorFormat_preservesCause() {
+        UUID receiverId = UUID.randomUUID();
+        NotificationFindAllRequest request = new NotificationFindAllRequest(
+                "invalid-cursor",
+                UUID.randomUUID(),
+                20,
+                "DESCENDING",
+                "createdAt");
+
+        assertThatThrownBy(() -> notificationService.findAll(receiverId, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception -> {
+                    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_CURSOR);
+                    assertThat(exception.getCause()).isInstanceOf(RuntimeException.class);
+                });
     }
 
     @Test

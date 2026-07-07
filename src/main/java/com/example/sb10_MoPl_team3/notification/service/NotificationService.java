@@ -106,7 +106,7 @@ public class NotificationService implements NotificationEventHandler {
     }
 
     private String normalizeSortBy(String sortBy) {
-        if (sortBy == null || sortBy.isBlank() || "createdAt".equalsIgnoreCase(sortBy)) {
+        if ("createdAt".equalsIgnoreCase(sortBy)) {
             return "createdAt";
         }
 
@@ -115,7 +115,7 @@ public class NotificationService implements NotificationEventHandler {
 
     private String normalizeSortDirection(String sortDirection) {
         if (sortDirection == null || sortDirection.isBlank()) {
-            return "DESCENDING";
+            throw new BusinessException(ErrorCode.INVALID_SORT_DIRECTION);
         }
 
         String normalized = sortDirection.toUpperCase(Locale.ROOT);
@@ -149,7 +149,7 @@ public class NotificationService implements NotificationEventHandler {
         try {
             return Instant.parse(cursor);
         } catch (RuntimeException exception) {
-            throw new BusinessException(ErrorCode.INVALID_CURSOR);
+            throw new BusinessException(ErrorCode.INVALID_CURSOR, exception);
         }
     }
 }
