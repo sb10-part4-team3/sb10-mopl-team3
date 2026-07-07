@@ -36,7 +36,8 @@ public class SportsDbContentUpsertExecutor {
           existing.syncFromExternal(
               payload.title(),
               payload.description(),
-              payload.thumbnailUrl()
+              payload.thumbnailUrl(),
+              payload.eventDate()
           );
           return existing;
         })

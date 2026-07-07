@@ -198,7 +198,8 @@ public class ContentServiceImpl implements ContentService {
     return switch (sortBy) {
       case "watcherCount" -> String.valueOf(stats != null ? stats.getViewerCount() : 0);
       case "rate" -> String.valueOf(stats != null ? stats.getAverageRating() : BigDecimal.ZERO);
-      default -> content.getCreatedAt().toString();
+      default -> (content.getEventDate() != null ? content.getEventDate() : content.getCreatedAt())
+          .toString();
     };
   }
 

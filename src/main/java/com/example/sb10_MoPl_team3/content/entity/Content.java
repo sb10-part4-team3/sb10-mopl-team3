@@ -54,9 +54,13 @@ public class Content extends BaseEntity {
   @Column(name = "deleted_at")
   private Instant deletedAt;
 
+  // 정렬용 콘텐츠 기준 일시. 스포츠는 경기 일자, 영화/TV는 값이 없어 createdAt으로 대체된다.
+  @Column(name = "event_date")
+  private Instant eventDate;
+
   @Builder
   private Content(ContentType type, String title, String description, String thumbnailUrl,
-      String externalId, String source) {
+      String externalId, String source, Instant eventDate) {
 
     if (type == null) {
       throw new IllegalArgumentException("type은 필수입니다");
@@ -77,6 +81,7 @@ public class Content extends BaseEntity {
     this.thumbnailUrl = thumbnailUrl;
     this.externalId = externalId;
     this.source = source;
+    this.eventDate = eventDate;
   }
 
   public void update(String title, String description) {
@@ -91,13 +96,15 @@ public class Content extends BaseEntity {
     }
   }
 
-  public void syncFromExternal(String title, String description, String thumbnailUrl) {
+  public void syncFromExternal(String title, String description, String thumbnailUrl,
+      Instant eventDate) {
     if (title == null || title.isBlank()) {
       throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
     }
     this.title = title;
     this.description = description;
     this.thumbnailUrl = thumbnailUrl;
+    this.eventDate = eventDate;
   }
 
 }
