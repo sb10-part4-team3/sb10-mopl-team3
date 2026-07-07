@@ -35,8 +35,8 @@ class NotificationRepositoryCustomImplTest {
     private EntityManager em;
 
     @Test
-    @DisplayName("수신자 본인의 알림만 createdAt 오름차순으로 조회한다")
-    void findByReceiverIdAsc_onlyReceiver() {
+    @DisplayName("수신자 본인의 미읽음 알림만 createdAt 오름차순으로 조회한다")
+    void findByReceiverIdAsc_onlyReceiverUnread() {
         User receiver = saveUser("receiver@test.com", "수신자");
         User other = saveUser("other@test.com", "다른사용자");
         Notification older = saveNotification(
@@ -48,6 +48,12 @@ class NotificationRepositoryCustomImplTest {
                 "최근 알림",
                 Instant.parse("2026-06-29T00:01:00Z"));
         saveNotification(other, "다른 사용자 알림", Instant.parse("2026-06-29T00:02:00Z"));
+        Notification read = saveNotification(
+                receiver,
+                "읽은 알림",
+                Instant.parse("2026-06-29T00:03:00Z"));
+        read.markAsRead();
+        notificationRepository.saveAndFlush(read);
 
         em.clear();
 
@@ -56,7 +62,7 @@ class NotificationRepositoryCustomImplTest {
                 null,
                 null,
                 PageRequest.of(0, 10));
-        long count = notificationRepository.countByReceiverId(receiver.getId());
+        long count = notificationRepository.countUnreadByReceiverId(receiver.getId());
 
         assertThat(result)
                 .extracting(Notification::getId)
