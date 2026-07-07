@@ -4,6 +4,8 @@ import com.example.sb10_MoPl_team3.sportsdb.SportsDbConstants;
 import com.example.sb10_MoPl_team3.sportsdb.dto.SportsDbEventsResponse.SportsDbEvent;
 import com.example.sb10_MoPl_team3.sportsdb.mapper.SportsDbContentMapper;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -27,7 +29,9 @@ public class SportsDbContentPersister {
   }
 
   private SportsDbSyncPayload toPayload(SportsDbEvent event) {
-    List<String> tagNames = List.of("Soccer", event.venue());
+    List<String> tagNames = Stream.of("Soccer", event.venue())
+        .filter(Objects::nonNull)
+        .toList();
 
     return new SportsDbSyncPayload(
         SportsDbConstants.externalId(event.idEvent()),

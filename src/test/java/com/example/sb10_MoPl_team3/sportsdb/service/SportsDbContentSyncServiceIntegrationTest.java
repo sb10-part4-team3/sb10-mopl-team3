@@ -147,7 +147,7 @@ class SportsDbContentSyncServiceIntegrationTest {
     List<ContentTagProjection> updatedContentTags =
         contentTagRepository.findTagsByContentIds(List.of(updated.getId()));
     assertThat(updatedContentTags).extracting(ContentTagProjection::tagName)
-        .contains("Soccer", "인천축구전용경기장");
+        .containsExactlyInAnyOrder("Soccer", "인천축구전용경기장");
 
     // then: 새 경기는 정상적으로 저장되고 태그가 붙는다
     Content created = contentRepository.findByExternalIdAndSource(NEW_EXTERNAL_ID, SportsDbConstants.SOURCE_SPORTS_DB)
