@@ -1,0 +1,24 @@
+# OS 찌꺼기 파일
+.DS_Store
+**/.DS_Store
+
+# IDE 및 도구 설정 파일
+.git
+.github
+.gradle
+.idea
+.agents
+.codex
+*.iml
+
+# 빌드 산출물 (도커 내부에서 어차피 새로 빌드하므로 제외)
+build/
+out/
+*.log
+
+# 환경 변수 및 민감 정보 (주입은 docker-compose.yml에서 하므로 이미지 빌드 시엔 제외)
+.env
+.env.*
+
+# 프론트엔드/기타 의존성 라이브러리 찌꺼기 방지 (있을 경우를 대비)
+**/node_modules/

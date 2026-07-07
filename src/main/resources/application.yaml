@@ -77,3 +77,9 @@ sportsdb:
     - 4331  # German Bundesliga
     - 4332  # Italian Serie A
     - 4334  # French Ligue 1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
