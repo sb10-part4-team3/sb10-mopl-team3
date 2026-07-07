@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.sse.SseEventPublisher;
+import com.example.sb10_MoPl_team3.notification.dto.NotificationFindAllRequest;
 import com.example.sb10_MoPl_team3.notification.dto.NotificationDto;
 import com.example.sb10_MoPl_team3.notification.entity.Notification;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
@@ -16,6 +18,8 @@ import com.example.sb10_MoPl_team3.notification.repository.NotificationRepositor
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -25,6 +29,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,6 +46,120 @@ class NotificationServiceTest {
 
     @InjectMocks
     private NotificationService notificationService;
+
+    @Test
+    @DisplayName("본인의 알림 목록을 커서 응답으로 반환한다")
+    void findAll_success() {
+        UUID receiverId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        User receiver = user();
+        ReflectionTestUtils.setField(receiver, "id", receiverId);
+        Notification first = notification(
+                UUID.fromString("00000000-0000-0000-0000-000000000011"),
+                receiver,
+                "첫 알림",
+                Instant.parse("2026-06-29T00:00:00Z"));
+        Notification second = notification(
+                UUID.fromString("00000000-0000-0000-0000-000000000012"),
+                receiver,
+                "두 번째 알림",
+                Instant.parse("2026-06-29T00:01:00Z"));
+        Notification extra = notification(
+                UUID.fromString("00000000-0000-0000-0000-000000000013"),
+                receiver,
+                "추가 알림",
+                Instant.parse("2026-06-29T00:02:00Z"));
+        NotificationFindAllRequest request = new NotificationFindAllRequest(
+                "2026-06-29T00:00:00Z",
+                first.getId(),
+                2,
+                "ASCENDING",
+                "createdAt");
+
+        given(notificationRepository.findByReceiverIdAsc(
+                org.mockito.ArgumentMatchers.eq(receiverId),
+                org.mockito.ArgumentMatchers.eq(Instant.parse("2026-06-29T00:00:00Z")),
+                org.mockito.ArgumentMatchers.eq(first.getId()),
+                org.mockito.ArgumentMatchers.any(Pageable.class)
+        )).willReturn(List.of(first, second, extra));
+        given(notificationRepository.countByReceiverId(receiverId)).willReturn(3L);
+
+        var response = notificationService.findAll(receiverId, request);
+
+        assertThat(response.data()).hasSize(2);
+        assertThat(response.data().get(0).title()).isEqualTo("첫 알림");
+        assertThat(response.hasNext()).isTrue();
+        assertThat(response.nextCursor()).isEqualTo("2026-06-29T00:01:00Z");
+        assertThat(response.nextIdAfter()).isEqualTo(second.getId());
+        assertThat(response.totalCount()).isEqualTo(3L);
+        assertThat(response.sortBy()).isEqualTo("createdAt");
+        assertThat(response.sortDirection()).isEqualTo("ASCENDING");
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        then(notificationRepository).should().findByReceiverIdAsc(
+                org.mockito.ArgumentMatchers.eq(receiverId),
+                org.mockito.ArgumentMatchers.eq(Instant.parse("2026-06-29T00:00:00Z")),
+                org.mockito.ArgumentMatchers.eq(first.getId()),
+                pageableCaptor.capture()
+        );
+        assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(3);
+        then(notificationRepository).should(never()).findByReceiverIdDesc(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        );
+    }
+
+    @Test
+    @DisplayName("알림 목록 조회에서 커서와 보조 커서가 함께 전달되지 않으면 커서 예외를 던진다")
+    void findAll_invalidCursorPair() {
+        UUID receiverId = UUID.randomUUID();
+        NotificationFindAllRequest request = new NotificationFindAllRequest(
+                "2026-06-29T00:00:00Z",
+                null,
+                20,
+                "DESCENDING",
+                "createdAt");
+
+        assertThatThrownBy(() -> notificationService.findAll(receiverId, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_CURSOR));
+    }
+
+    @Test
+    @DisplayName("알림 목록 조회 정렬 방향이 올바르지 않으면 정렬 예외를 던진다")
+    void findAll_invalidSortDirection() {
+        UUID receiverId = UUID.randomUUID();
+        NotificationFindAllRequest request = new NotificationFindAllRequest(
+                null,
+                null,
+                20,
+                "INVALID",
+                "createdAt");
+
+        assertThatThrownBy(() -> notificationService.findAll(receiverId, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode())
+                                .isEqualTo(ErrorCode.INVALID_SORT_DIRECTION));
+    }
+
+    @Test
+    @DisplayName("알림 목록 조회 limit이 0 이하이면 입력값 예외를 던진다")
+    void findAll_invalidLimit() {
+        UUID receiverId = UUID.randomUUID();
+        NotificationFindAllRequest request = new NotificationFindAllRequest(
+                null,
+                null,
+                0,
+                "DESCENDING",
+                "createdAt");
+
+        assertThatThrownBy(() -> notificationService.findAll(receiverId, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode())
+                                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+    }
 
     @Test
     @DisplayName("알림 이벤트를 수신하면 알림 엔티티를 저장한다")
@@ -107,5 +226,12 @@ class NotificationServiceTest {
 
     private User user() {
         return new User("user@test.com", "사용자", "password", null, UserRole.USER);
+    }
+
+    private Notification notification(UUID id, User receiver, String title, Instant createdAt) {
+        Notification notification = new Notification(receiver, title, "내용", NotificationLevel.INFO);
+        ReflectionTestUtils.setField(notification, "id", id);
+        ReflectionTestUtils.setField(notification, "createdAt", createdAt);
+        return notification;
     }
 }
