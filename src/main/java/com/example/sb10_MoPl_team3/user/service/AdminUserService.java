@@ -55,7 +55,7 @@ public class AdminUserService {
         int limit = normalizeLimit(condition.limit());
 
         UserSearchCondition normalizedCondition = new UserSearchCondition(
-                condition.emailLike(),
+                condition.keyword(),
                 condition.roleEqual(),
                 condition.isLocked(),
                 condition.cursor(),

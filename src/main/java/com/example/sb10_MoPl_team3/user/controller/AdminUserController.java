@@ -27,7 +27,7 @@ public class AdminUserController {
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CursorResponse<UserDto>> findUsers(
-            @RequestParam(required = false) String emailLike,
+            @RequestParam(name = "emailLike", required = false) String keyword,
             @RequestParam(required = false) UserRole roleEqual,
             @RequestParam(required = false) Boolean isLocked,
             @RequestParam(required = false) String cursor,
@@ -37,7 +37,7 @@ public class AdminUserController {
             @RequestParam(required = false) String sortBy
     ) {
         UserSearchCondition condition = new UserSearchCondition(
-                emailLike,
+                keyword,
                 roleEqual,
                 isLocked,
                 cursor,

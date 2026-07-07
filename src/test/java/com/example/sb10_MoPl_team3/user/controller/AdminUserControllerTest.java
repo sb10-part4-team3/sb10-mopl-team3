@@ -119,7 +119,7 @@ class AdminUserControllerTest {
 
         UserSearchCondition condition = conditionCaptor.getValue();
 
-        assertThat(condition.emailLike()).isEqualTo("test");
+        assertThat(condition.keyword()).isEqualTo("test");
         assertThat(condition.roleEqual()).isEqualTo(UserRole.USER);
         assertThat(condition.isLocked()).isFalse();
         assertThat(condition.cursor()).isEqualTo("cursor-value");

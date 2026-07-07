@@ -75,8 +75,8 @@ public class UserRepositoryImpl implements UserRepositoryCustom {
     ) {
         List<Predicate> predicates = new ArrayList<>();
 
-        if (condition.emailLike() != null && !condition.emailLike().isBlank()) {
-            String keyword = "%" + condition.emailLike().toLowerCase(Locale.ROOT) + "%";
+        if (condition.keyword() != null && !condition.keyword().isBlank()) {
+            String keyword = "%" + condition.keyword().toLowerCase(Locale.ROOT) + "%";
 
             predicates.add(cb.or(
                     cb.like(cb.lower(root.get("email")), keyword),
