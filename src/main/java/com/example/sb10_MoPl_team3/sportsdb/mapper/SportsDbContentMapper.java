@@ -17,6 +17,7 @@ public class SportsDbContentMapper {
         .thumbnailUrl(event.thumbnail())
         .externalId(SportsDbConstants.externalId(event.idEvent()))
         .source(SportsDbConstants.SOURCE_SPORTS_DB)
+        .eventDate(SportsDbConstants.parseEventDate(event.dateEvent()))
         .build();
   }
 }
