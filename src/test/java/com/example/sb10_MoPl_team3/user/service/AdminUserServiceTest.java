@@ -9,6 +9,7 @@ import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
 import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
+import com.example.sb10_MoPl_team3.user.config.AdminAccountProperties;
 import com.example.sb10_MoPl_team3.user.dto.request.UserLockUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserRoleUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
@@ -59,6 +60,9 @@ class AdminUserServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private AdminAccountProperties adminAccountProperties;
 
     @InjectMocks
     private AdminUserService adminUserService;
@@ -288,6 +292,7 @@ class AdminUserServiceTest {
     void updateUserRole_success() {
         // given
         UUID userId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-29T00:00:00Z");
 
         User user = createUser(
@@ -322,7 +327,7 @@ class AdminUserServiceTest {
         givenAuthSessionLockExecutesRunnable();
 
         // when
-        UserDto response = adminUserService.updateUserRole(userId, request);
+        UserDto response = adminUserService.updateUserRole(requesterId, userId, request);
 
         // then
         assertThat(user.getRole()).isEqualTo(UserRole.ADMIN);
@@ -354,15 +359,74 @@ class AdminUserServiceTest {
     void updateUserRole_userNotFound() {
         // given
         UUID userId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
+
         UserRoleUpdateRequest request = new UserRoleUpdateRequest(UserRole.ADMIN);
 
         given(userRepository.findById(userId)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> adminUserService.updateUserRole(userId, request))
+        assertThatThrownBy(() -> adminUserService.updateUserRole(requesterId, userId, request))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("관리자는 자기 자신의 권한을 변경할 수 없다")
+    void updateUserRole_selfNotAllowed() {
+        // given
+        UUID requesterId = UUID.randomUUID();
+        User user = createUser(
+                requesterId,
+                "admin@test.com",
+                "Admin",
+                UserRole.ADMIN,
+                "2026-06-28T00:00:00Z"
+        );
+
+        UserRoleUpdateRequest request = new UserRoleUpdateRequest(UserRole.USER);
+
+        given(userRepository.findById(requesterId)).willReturn(Optional.of(user));
+
+        // when & then
+        assertThatThrownBy(() -> adminUserService.updateUserRole(requesterId, requesterId, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.SELF_ROLE_CHANGE_NOT_ALLOWED);
+
+        then(authSessionRepository).should(never()).findAllByUserId(any(UUID.class));
+        then(eventPublisher).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("시스템 관리자 계정의 권한은 변경할 수 없다")
+    void updateUserRole_systemAdminNotAllowed() {
+        // given
+        UUID requesterId = UUID.randomUUID();
+        UUID systemAdminId = UUID.randomUUID();
+
+        User systemAdmin = createUser(
+                systemAdminId,
+                "admin@mopl.com",
+                "Admin",
+                UserRole.ADMIN,
+                "2026-06-28T00:00:00Z"
+        );
+
+        UserRoleUpdateRequest request = new UserRoleUpdateRequest(UserRole.USER);
+
+        given(userRepository.findById(systemAdminId)).willReturn(Optional.of(systemAdmin));
+        given(adminAccountProperties.email()).willReturn("admin@mopl.com");
+
+        // when & then
+        assertThatThrownBy(() -> adminUserService.updateUserRole(requesterId, systemAdminId, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.SYSTEM_ADMIN_ROLE_CHANGE_NOT_ALLOWED);
+
+        then(authSessionRepository).should(never()).findAllByUserId(any(UUID.class));
+        then(eventPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -370,6 +434,7 @@ class AdminUserServiceTest {
     void updateUserLocked_lock_success() {
         // given
         UUID userId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-29T00:00:00Z");
 
         User user = createUser(
@@ -404,7 +469,7 @@ class AdminUserServiceTest {
         givenAuthSessionLockExecutesRunnable();
 
         // when
-        UserDto response = adminUserService.updateUserLocked(userId, request);
+        UserDto response = adminUserService.updateUserLocked(requesterId, userId, request);
 
         // then
         assertThat(user.getStatus()).isEqualTo(UserStatus.LOCKED);
@@ -428,6 +493,7 @@ class AdminUserServiceTest {
     void updateUserLocked_unlock_success() {
         // given
         UUID userId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
 
         User user = createUser(
                 userId,
@@ -443,7 +509,7 @@ class AdminUserServiceTest {
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
 
         // when
-        UserDto response = adminUserService.updateUserLocked(userId, request);
+        UserDto response = adminUserService.updateUserLocked(requesterId, userId, request);
 
         // then
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
@@ -459,15 +525,73 @@ class AdminUserServiceTest {
     void updateUserLocked_userNotFound() {
         // given
         UUID userId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
+
         UserLockUpdateRequest request = new UserLockUpdateRequest(true);
 
         given(userRepository.findById(userId)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> adminUserService.updateUserLocked(userId, request))
+        assertThatThrownBy(() -> adminUserService.updateUserLocked(requesterId, userId, request))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("관리자는 자기 자신의 계정을 잠글 수 없다")
+    void updateUserLocked_selfNotAllowed() {
+        // given
+        UUID requesterId = UUID.randomUUID();
+
+        User user = createUser(
+                requesterId,
+                "admin@test.com",
+                "Admin",
+                UserRole.ADMIN,
+                "2026-06-28T00:00:00Z"
+        );
+
+        UserLockUpdateRequest request = new UserLockUpdateRequest(true);
+
+        given(userRepository.findById(requesterId)).willReturn(Optional.of(user));
+
+        // when & then
+        assertThatThrownBy(() -> adminUserService.updateUserLocked(requesterId, requesterId, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.ACCESS_DENIED);
+
+        then(authSessionRepository).should(never()).findAllByUserId(any(UUID.class));
+    }
+
+    @Test
+    @DisplayName("시스템 관리자 계정은 잠글 수 없다")
+    void updateUserLocked_systemAdminNotAllowed() {
+        // given
+        UUID requesterId = UUID.randomUUID();
+        UUID systemAdminId = UUID.randomUUID();
+
+        User systemAdmin = createUser(
+                systemAdminId,
+                "admin@mopl.com",
+                "Admin",
+                UserRole.ADMIN,
+                "2026-06-28T00:00:00Z"
+        );
+
+        UserLockUpdateRequest request = new UserLockUpdateRequest(true);
+
+        given(userRepository.findById(systemAdminId)).willReturn(Optional.of(systemAdmin));
+        given(adminAccountProperties.email()).willReturn("admin@mopl.com");
+
+        // when & then
+        assertThatThrownBy(() -> adminUserService.updateUserLocked(requesterId, systemAdminId, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.SYSTEM_ADMIN_LOCK_NOT_ALLOWED);
+
+        then(authSessionRepository).should(never()).findAllByUserId(any(UUID.class));
     }
 
     private User createUser(

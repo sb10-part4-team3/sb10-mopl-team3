@@ -3,6 +3,7 @@ package com.example.sb10_MoPl_team3.user.controller;
 import com.example.sb10_MoPl_team3.global.config.SecurityConfig;
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
 import com.example.sb10_MoPl_team3.global.exception.GlobalExceptionHandler;
+import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
 import com.example.sb10_MoPl_team3.user.dto.request.UserLockUpdateRequest;
@@ -19,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -30,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -116,7 +119,7 @@ class AdminUserControllerTest {
 
         UserSearchCondition condition = conditionCaptor.getValue();
 
-        assertThat(condition.emailLike()).isEqualTo("test");
+        assertThat(condition.keyword()).isEqualTo("test");
         assertThat(condition.roleEqual()).isEqualTo(UserRole.USER);
         assertThat(condition.isLocked()).isFalse();
         assertThat(condition.cursor()).isEqualTo("cursor-value");
@@ -151,6 +154,7 @@ class AdminUserControllerTest {
     @DisplayName("관리자는 사용자의 권한을 변경할 수 있다")
     void updateUserRole_success() throws Exception {
         UUID userId = UUID.randomUUID();
+        AuthUser authUser = adminAuthUser();
 
         UserRoleUpdateRequest request = new UserRoleUpdateRequest(UserRole.ADMIN);
 
@@ -164,11 +168,14 @@ class AdminUserControllerTest {
                 false
         );
 
-        given(adminUserService.updateUserRole(any(UUID.class), any(UserRoleUpdateRequest.class)))
-                .willReturn(response);
+        given(adminUserService.updateUserRole(
+                any(UUID.class),
+                any(UUID.class),
+                any(UserRoleUpdateRequest.class)
+        )).willReturn(response);
 
         mockMvc.perform(patch("/api/users/{userId}/role", userId)
-                        .with(user("admin").roles("ADMIN"))
+                        .with(authentication(authenticationOf(authUser)))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -179,13 +186,19 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.role").value("ADMIN"))
                 .andExpect(jsonPath("$.locked").value(false));
 
+        ArgumentCaptor<UUID> requesterIdCaptor = ArgumentCaptor.forClass(UUID.class);
         ArgumentCaptor<UUID> userIdCaptor = ArgumentCaptor.forClass(UUID.class);
         ArgumentCaptor<UserRoleUpdateRequest> requestCaptor =
                 ArgumentCaptor.forClass(UserRoleUpdateRequest.class);
 
         then(adminUserService).should()
-                .updateUserRole(userIdCaptor.capture(), requestCaptor.capture());
+                .updateUserRole(
+                        requesterIdCaptor.capture(),
+                        userIdCaptor.capture(),
+                        requestCaptor.capture()
+                );
 
+        assertThat(requesterIdCaptor.getValue()).isEqualTo(authUser.userId());
         assertThat(userIdCaptor.getValue()).isEqualTo(userId);
         assertThat(requestCaptor.getValue().role()).isEqualTo(UserRole.ADMIN);
     }
@@ -227,9 +240,10 @@ class AdminUserControllerTest {
     @DisplayName("변경할 권한 값이 없으면 권한 변경 요청에 실패한다")
     void updateUserRole_invalidRole() throws Exception {
         UUID userId = UUID.randomUUID();
+        AuthUser authUser = adminAuthUser();
 
         mockMvc.perform(patch("/api/users/{userId}/role", userId)
-                        .with(user("admin").roles("ADMIN"))
+                        .with(authentication(authenticationOf(authUser)))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -246,6 +260,7 @@ class AdminUserControllerTest {
     @DisplayName("관리자는 사용자 계정을 잠글 수 있다")
     void updateUserLocked_lock_success() throws Exception {
         UUID userId = UUID.randomUUID();
+        AuthUser authUser = adminAuthUser();
 
         UserLockUpdateRequest request = new UserLockUpdateRequest(true);
 
@@ -259,11 +274,14 @@ class AdminUserControllerTest {
                 true
         );
 
-        given(adminUserService.updateUserLocked(any(UUID.class), any(UserLockUpdateRequest.class)))
-                .willReturn(response);
+        given(adminUserService.updateUserLocked(
+                any(UUID.class),
+                any(UUID.class),
+                any(UserLockUpdateRequest.class)
+        )).willReturn(response);
 
         mockMvc.perform(patch("/api/users/{userId}/locked", userId)
-                        .with(user("admin").roles("ADMIN"))
+                        .with(authentication(authenticationOf(authUser)))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -274,13 +292,19 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.role").value("USER"))
                 .andExpect(jsonPath("$.locked").value(true));
 
+        ArgumentCaptor<UUID> requesterIdCaptor = ArgumentCaptor.forClass(UUID.class);
         ArgumentCaptor<UUID> userIdCaptor = ArgumentCaptor.forClass(UUID.class);
         ArgumentCaptor<UserLockUpdateRequest> requestCaptor =
                 ArgumentCaptor.forClass(UserLockUpdateRequest.class);
 
         then(adminUserService).should()
-                .updateUserLocked(userIdCaptor.capture(), requestCaptor.capture());
+                .updateUserLocked(
+                        requesterIdCaptor.capture(),
+                        userIdCaptor.capture(),
+                        requestCaptor.capture()
+                );
 
+        assertThat(requesterIdCaptor.getValue()).isEqualTo(authUser.userId());
         assertThat(userIdCaptor.getValue()).isEqualTo(userId);
         assertThat(requestCaptor.getValue().locked()).isTrue();
     }
@@ -289,6 +313,7 @@ class AdminUserControllerTest {
     @DisplayName("관리자는 사용자 계정 잠금을 해제할 수 있다")
     void updateUserLocked_unlock_success() throws Exception {
         UUID userId = UUID.randomUUID();
+        AuthUser authUser = adminAuthUser();
 
         UserLockUpdateRequest request = new UserLockUpdateRequest(false);
 
@@ -302,11 +327,14 @@ class AdminUserControllerTest {
                 false
         );
 
-        given(adminUserService.updateUserLocked(any(UUID.class), any(UserLockUpdateRequest.class)))
-                .willReturn(response);
+        given(adminUserService.updateUserLocked(
+                any(UUID.class),
+                any(UUID.class),
+                any(UserLockUpdateRequest.class)
+        )).willReturn(response);
 
         mockMvc.perform(patch("/api/users/{userId}/locked", userId)
-                        .with(user("admin").roles("ADMIN"))
+                        .with(authentication(authenticationOf(authUser)))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -314,12 +342,20 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.id").value(userId.toString()))
                 .andExpect(jsonPath("$.locked").value(false));
 
+        ArgumentCaptor<UUID> requesterIdCaptor = ArgumentCaptor.forClass(UUID.class);
+        ArgumentCaptor<UUID> userIdCaptor = ArgumentCaptor.forClass(UUID.class);
         ArgumentCaptor<UserLockUpdateRequest> requestCaptor =
                 ArgumentCaptor.forClass(UserLockUpdateRequest.class);
 
         then(adminUserService).should()
-                .updateUserLocked(any(UUID.class), requestCaptor.capture());
+                .updateUserLocked(
+                        requesterIdCaptor.capture(),
+                        userIdCaptor.capture(),
+                        requestCaptor.capture()
+                );
 
+        assertThat(requesterIdCaptor.getValue()).isEqualTo(authUser.userId());
+        assertThat(userIdCaptor.getValue()).isEqualTo(userId);
         assertThat(requestCaptor.getValue().locked()).isFalse();
     }
 
@@ -360,9 +396,10 @@ class AdminUserControllerTest {
     @DisplayName("잠금 여부 값이 없으면 계정 잠금 상태 변경 요청이 실패한다")
     void updateUserLocked_invalidLocked() throws Exception {
         UUID userId = UUID.randomUUID();
+        AuthUser authUser = adminAuthUser();
 
         mockMvc.perform(patch("/api/users/{userId}/locked", userId)
-                        .with(user("admin").roles("ADMIN"))
+                        .with(authentication(authenticationOf(authUser)))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -373,5 +410,21 @@ class AdminUserControllerTest {
                 .andExpect(status().isBadRequest());
 
         then(adminUserService).shouldHaveNoInteractions();
+    }
+
+    private AuthUser adminAuthUser() {
+        return new AuthUser(
+                UUID.randomUUID(),
+                UserRole.ADMIN,
+                UUID.randomUUID()
+        );
+    }
+
+    private UsernamePasswordAuthenticationToken authenticationOf(AuthUser authUser) {
+        return new UsernamePasswordAuthenticationToken(
+                authUser,
+                null,
+                authUser.authorities()
+        );
     }
 }

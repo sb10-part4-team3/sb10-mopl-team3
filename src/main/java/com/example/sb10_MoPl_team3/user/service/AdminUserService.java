@@ -7,6 +7,7 @@ import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
 import com.example.sb10_MoPl_team3.global.cursor.CursorResponse;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.user.config.AdminAccountProperties;
 import com.example.sb10_MoPl_team3.user.dto.request.UserLockUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserRoleUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
@@ -46,6 +47,7 @@ public class AdminUserService {
     private final AuthSessionLockManager authSessionLockManager;
     private final Clock clock;
     private final ApplicationEventPublisher eventPublisher;
+    private final AdminAccountProperties adminAccountProperties;
 
     public CursorResponse<UserDto> findUsers(UserSearchCondition condition) {
         String sortBy = normalizeSortBy(condition.sortBy());
@@ -53,7 +55,7 @@ public class AdminUserService {
         int limit = normalizeLimit(condition.limit());
 
         UserSearchCondition normalizedCondition = new UserSearchCondition(
-                condition.emailLike(),
+                condition.keyword(),
                 condition.roleEqual(),
                 condition.isLocked(),
                 condition.cursor(),
@@ -82,9 +84,11 @@ public class AdminUserService {
     }
 
     @Transactional
-    public UserDto updateUserRole(UUID userId, UserRoleUpdateRequest request) {
+    public UserDto updateUserRole(UUID requesterId, UUID userId, UserRoleUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        validateRoleChangeAllowed(requesterId, user);
 
         user.changeRole(request.role());
 
@@ -100,9 +104,11 @@ public class AdminUserService {
     }
 
     @Transactional
-    public UserDto updateUserLocked(UUID userId, UserLockUpdateRequest request) {
+    public UserDto updateUserLocked(UUID requesterId, UUID userId, UserLockUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        validateLockChangeAllowed(requesterId, user, request.locked());
 
         UserStatus status = request.locked()
                 ? UserStatus.LOCKED
@@ -115,6 +121,34 @@ public class AdminUserService {
         }
 
         return UserMapper.toDto(user);
+    }
+
+    private void validateRoleChangeAllowed(UUID requesterId, User targetUser) {
+        if (targetUser.getId().equals(requesterId)) {
+            throw new BusinessException(ErrorCode.SELF_ROLE_CHANGE_NOT_ALLOWED);
+        }
+
+        if (isSystemAdmin(targetUser)) {
+            throw new BusinessException(ErrorCode.SYSTEM_ADMIN_ROLE_CHANGE_NOT_ALLOWED);
+        }
+    }
+
+    private void validateLockChangeAllowed(UUID requesterId, User targetUser, boolean locked) {
+        if (!locked) {
+            return;
+        }
+
+        if (targetUser.getId().equals(requesterId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+
+        if (isSystemAdmin(targetUser)) {
+            throw new BusinessException(ErrorCode.SYSTEM_ADMIN_LOCK_NOT_ALLOWED);
+        }
+    }
+
+    private boolean isSystemAdmin(User user) {
+        return user.getEmail().equalsIgnoreCase(adminAccountProperties.email());
     }
 
     private void revokeUserSessions(UUID userId) {
