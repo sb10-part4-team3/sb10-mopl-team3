@@ -38,6 +38,7 @@ public class SportsDbContentPersister {
         event.eventName(),
         SportsDbConstants.buildDescription(event.league(), event.dateEvent()),
         event.thumbnail(),
+        SportsDbConstants.parseEventDate(event.dateEvent()),
         tagNames,
         () -> sportsDbContentMapper.toContent(event)
     );

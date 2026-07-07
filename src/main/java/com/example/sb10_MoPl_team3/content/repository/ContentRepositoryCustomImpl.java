@@ -11,6 +11,7 @@ import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.DateTimeExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.math.BigDecimal;
@@ -48,8 +49,8 @@ public class ContentRepositoryCustomImpl implements ContentRepositoryCustom {
           ? contentStats.averageRating.asc().nullsLast()
           : contentStats.averageRating.desc().nullsLast();
       default -> pageRequest.isAscending()
-          ? content.createdAt.asc()
-          : content.createdAt.desc();
+          ? sortDate().asc()
+          : sortDate().desc();
     };
 
     // 커서 조건 (첫 페이지가 아닐 때만)
@@ -101,13 +102,21 @@ public class ContentRepositoryCustomImpl implements ContentRepositoryCustom {
         Cursor<Instant> cursor = Cursor.from(pageRequest, Instant::parse);
         Instant sortValue = cursor.sortValue();
         BooleanExpression compare = ascending
-            ? content.createdAt.gt(sortValue)
-            : content.createdAt.lt(sortValue);
-        BooleanExpression tieBreak = content.createdAt.eq(sortValue)
+            ? sortDate().gt(sortValue)
+            : sortDate().lt(sortValue);
+        BooleanExpression tieBreak = sortDate().eq(sortValue)
             .and(content.id.gt(cursor.id()));
         yield compare.or(tieBreak);
       }
     };
+  }
+
+  /**
+   * "최신순" 정렬 기준. 스포츠처럼 실제 사건 일자(eventDate)가 있으면 그 값을, 없으면(영화/TV 등)
+   * DB 저장 시각(createdAt)을 기준으로 삼는다.
+   */
+  private DateTimeExpression<Instant> sortDate() {
+    return content.eventDate.coalesce(content.createdAt);
   }
 
   @Override

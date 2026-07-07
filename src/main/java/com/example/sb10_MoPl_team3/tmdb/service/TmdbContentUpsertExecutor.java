@@ -36,7 +36,8 @@ public class TmdbContentUpsertExecutor {
           existing.syncFromExternal(
               payload.title(),
               payload.overview(),
-              TmdbConstants.toFullImageUrl(payload.posterPath())
+              TmdbConstants.toFullImageUrl(payload.posterPath()),
+              null
           );
           return existing;
         })
