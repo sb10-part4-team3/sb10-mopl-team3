@@ -28,6 +28,7 @@ public class NotificationRepositoryCustomImpl implements NotificationRepositoryC
                 .join(notification.receiver).fetchJoin()
                 .where(
                         notification.receiver.id.eq(receiverId),
+                        notification.read.isFalse(),
                         cursorAfterCondition(cursor, idAfter)
                 )
                 .orderBy(notification.createdAt.asc(), notification.id.asc())
@@ -47,6 +48,7 @@ public class NotificationRepositoryCustomImpl implements NotificationRepositoryC
                 .join(notification.receiver).fetchJoin()
                 .where(
                         notification.receiver.id.eq(receiverId),
+                        notification.read.isFalse(),
                         cursorBeforeCondition(cursor, idAfter)
                 )
                 .orderBy(notification.createdAt.desc(), notification.id.desc())
@@ -55,11 +57,14 @@ public class NotificationRepositoryCustomImpl implements NotificationRepositoryC
     }
 
     @Override
-    public long countByReceiverId(UUID receiverId) {
+    public long countUnreadByReceiverId(UUID receiverId) {
         Long count = queryFactory
                 .select(notification.count())
                 .from(notification)
-                .where(notification.receiver.id.eq(receiverId))
+                .where(
+                        notification.receiver.id.eq(receiverId),
+                        notification.read.isFalse()
+                )
                 .fetchOne();
 
         return count == null ? 0L : count;

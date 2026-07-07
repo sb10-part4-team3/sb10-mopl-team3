@@ -28,8 +28,8 @@ import java.util.UUID;
         name = "notifications",
         indexes = {
                 @Index(
-                        name = "idx_notifications_receiver_created_at_id",
-                        columnList = "receiver_id, created_at, id"
+                        name = "idx_notifications_receiver_read_created_at_id",
+                        columnList = "receiver_id, is_read, created_at, id"
                 )
         }
 )

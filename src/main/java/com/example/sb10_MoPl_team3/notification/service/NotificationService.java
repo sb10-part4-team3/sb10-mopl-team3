@@ -68,7 +68,7 @@ public class NotificationService implements NotificationEventHandler {
         List<NotificationDto> data = notifications.stream()
                 .map(NotificationDto::from)
                 .toList();
-        long totalCount = notificationRepository.countByReceiverId(receiverId);
+        long totalCount = notificationRepository.countUnreadByReceiverId(receiverId);
 
         return new CursorResponseNotificationDto<>(
                 data,

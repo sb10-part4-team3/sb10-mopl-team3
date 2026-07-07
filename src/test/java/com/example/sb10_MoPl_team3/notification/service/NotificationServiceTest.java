@@ -81,7 +81,7 @@ class NotificationServiceTest {
                 org.mockito.ArgumentMatchers.eq(first.getId()),
                 org.mockito.ArgumentMatchers.any(Pageable.class)
         )).willReturn(List.of(first, second, extra));
-        given(notificationRepository.countByReceiverId(receiverId)).willReturn(3L);
+        given(notificationRepository.countUnreadByReceiverId(receiverId)).willReturn(3L);
 
         var response = notificationService.findAll(receiverId, request);
 
