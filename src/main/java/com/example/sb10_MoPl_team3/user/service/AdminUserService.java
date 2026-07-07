@@ -82,7 +82,7 @@ public class AdminUserService {
     }
 
     @Transactional
-    public UserDto updateUserRole(UUID userId, UserRoleUpdateRequest request) {
+    public UserDto updateUserRole(UUID requesterId, UUID userId, UserRoleUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
@@ -100,7 +100,7 @@ public class AdminUserService {
     }
 
     @Transactional
-    public UserDto updateUserLocked(UUID userId, UserLockUpdateRequest request) {
+    public UserDto updateUserLocked(UUID requesterId, UUID userId, UserLockUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
