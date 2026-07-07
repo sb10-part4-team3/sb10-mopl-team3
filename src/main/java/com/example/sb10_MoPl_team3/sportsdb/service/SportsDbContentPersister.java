@@ -27,7 +27,7 @@ public class SportsDbContentPersister {
   }
 
   private SportsDbSyncPayload toPayload(SportsDbEvent event) {
-    List<String> tagNames = List.of("스포츠", "Soccer", event.venue());
+    List<String> tagNames = List.of("Soccer", event.venue());
 
     return new SportsDbSyncPayload(
         SportsDbConstants.externalId(event.idEvent()),
