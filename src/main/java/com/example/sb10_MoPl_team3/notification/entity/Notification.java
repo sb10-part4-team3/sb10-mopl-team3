@@ -10,6 +10,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -23,7 +24,15 @@ import java.util.UUID;
 
 @Getter
 @Entity
-@Table(name = "notifications")
+@Table(
+        name = "notifications",
+        indexes = {
+                @Index(
+                        name = "idx_notifications_receiver_created_at_id",
+                        columnList = "receiver_id, created_at, id"
+                )
+        }
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Notification {
 
