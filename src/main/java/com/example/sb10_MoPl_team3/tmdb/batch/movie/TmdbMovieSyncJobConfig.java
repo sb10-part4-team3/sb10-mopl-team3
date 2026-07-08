@@ -39,6 +39,9 @@ public class TmdbMovieSyncJobConfig {
         .reader(tmdbMovieItemReader)
         .processor(tmdbMoviePayloadProcessor)
         .writer(tmdbContentItemWriter)
+        .faultTolerant()
+        .skipLimit(50)
+        .skip(Exception.class)
         .build();
   }
 }

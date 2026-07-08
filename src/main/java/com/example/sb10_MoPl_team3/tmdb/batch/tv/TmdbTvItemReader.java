@@ -41,6 +41,10 @@ public class TmdbTvItemReader implements ItemReader<TmdbTvResult> {
       pageLimit = (maxPages > 0) ? Math.min(maxPages, totalPages) : totalPages;
 
       List<TmdbTvResult> results = response.results();
+      if (results == null || results.isEmpty()) {
+        currentPage++;
+        continue;
+      }
       currentIterator = results.iterator();
       currentPage++;
 

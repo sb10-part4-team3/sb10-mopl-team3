@@ -39,6 +39,9 @@ public class TmdbTvSyncJobConfig {
         .reader(tmdbTvItemReader)
         .processor(tmdbTvPayloadProcessor)
         .writer(tmdbContentItemWriter)
+        .faultTolerant()
+        .skipLimit(50)
+        .skip(Exception.class)
         .build();
   }
 }

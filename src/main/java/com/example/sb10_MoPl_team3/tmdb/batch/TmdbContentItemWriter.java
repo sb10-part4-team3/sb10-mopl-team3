@@ -18,11 +18,7 @@ public class TmdbContentItemWriter implements ItemWriter<SyncPayload> {
   @Override
   public void write(Chunk<? extends SyncPayload> chunk) {
     for (SyncPayload payload : chunk) {
-      try {
-        tmdbContentUpsertExecutor.upsert(payload);
-      } catch (Exception e) {
-        log.warn("콘텐츠 upsert 실패, externalId={}", payload.externalId(), e);
-      }
+      tmdbContentUpsertExecutor.upsert(payload);
     }
   }
 }

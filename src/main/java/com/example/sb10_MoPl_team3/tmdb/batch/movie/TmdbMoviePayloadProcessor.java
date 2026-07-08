@@ -1,38 +1,59 @@
 package com.example.sb10_MoPl_team3.tmdb.batch.movie;
 
-import com.example.sb10_MoPl_team3.tmdb.TmdbConstants;
+import com.example.sb10_MoPl_team3.content.entity.Content;
+import com.example.sb10_MoPl_team3.tmdb.batch.TmdbPayloadProcessorSupport;
 import com.example.sb10_MoPl_team3.tmdb.cache.TmdbGenreCache;
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbMoviePopularResponse.TmdbMovieResult;
 import com.example.sb10_MoPl_team3.tmdb.mapper.TmdbContentMapper;
-import com.example.sb10_MoPl_team3.tmdb.service.SyncPayload;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class TmdbMoviePayloadProcessor implements ItemProcessor<TmdbMovieResult, SyncPayload> {
+public class TmdbMoviePayloadProcessor extends TmdbPayloadProcessorSupport<TmdbMovieResult> {
 
   private final TmdbGenreCache tmdbGenreCache;
   private final TmdbContentMapper tmdbContentMapper;
 
   @Override
-  public SyncPayload process(TmdbMovieResult result) {
-    Map<Integer, String> genreMap = tmdbGenreCache.getMovieGenres();
+  protected Map<Integer, String> getGenreMap() {
+    return tmdbGenreCache.getMovieGenres();
+  }
 
-    List<String> genreNames = result.genreIds().stream()
-        .map(id -> genreMap.getOrDefault(id, "기타"))
-        .toList();
+  @Override
+  protected String externalIdPrefix() {
+    return "MOVIE";
+  }
 
-    return new SyncPayload(
-        TmdbConstants.externalId("MOVIE", result.id()),
-        result.title(),
-        result.overview(),
-        result.posterPath(),
-        genreNames,
-        () -> tmdbContentMapper.toContent(result)
-    );
+  @Override
+  protected long id(TmdbMovieResult result) {
+    return result.id();
+  }
+
+  @Override
+  protected String title(TmdbMovieResult result) {
+    return result.title();
+  }
+
+  @Override
+  protected String overview(TmdbMovieResult result) {
+    return result.overview();
+  }
+
+  @Override
+  protected String posterPath(TmdbMovieResult result) {
+    return result.posterPath();
+  }
+
+  @Override
+  protected List<Integer> genreIds(TmdbMovieResult result) {
+    return result.genreIds();
+  }
+
+  @Override
+  protected Content toContent(TmdbMovieResult result) {
+    return tmdbContentMapper.toContent(result);
   }
 }
