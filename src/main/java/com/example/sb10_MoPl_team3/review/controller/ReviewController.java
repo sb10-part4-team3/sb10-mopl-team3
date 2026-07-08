@@ -42,10 +42,10 @@ public class ReviewController {
     // 리뷰 목록 조회
     @GetMapping
     public ResponseEntity<CursorResponseReviewDto<ReviewDto>> findAllReviews(
-        @Valid @RequestBody ReviewFindAllRequest request
+            @Valid @ModelAttribute ReviewFindAllRequest request
     ) {
         CursorResponseReviewDto<ReviewDto> response = reviewService.findAll(request);
-        return ResponseEntity.status(HttpStatus.OK).body(response);
+        return ResponseEntity.ok(response);
     }
 
     // 리뷰 삭제
