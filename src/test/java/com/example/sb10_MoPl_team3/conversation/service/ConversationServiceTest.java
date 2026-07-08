@@ -265,6 +265,52 @@ class ConversationServiceTest {
     }
 
     @Test
+    @DisplayName("대화방 참여자가 ID로 조회하면 최신 쪽지와 안 읽음 여부를 포함해 반환한다")
+    void find_success() {
+        UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID conversationId = UUID.fromString("00000000-0000-0000-0000-000000000011");
+        User requestUser = user(requestUserId, "me@test.com", "나");
+        User otherUser = user(
+            UUID.fromString("00000000-0000-0000-0000-000000000002"),
+            "you@test.com",
+            "상대"
+        );
+        Conversation conversation = conversation(
+            conversationId,
+            requestUser,
+            otherUser,
+            Instant.parse("2026-06-29T00:00:00Z")
+        );
+        DirectMessage latestMessage = directMessage(
+            UUID.fromString("00000000-0000-0000-0000-000000000101"),
+            conversation,
+            otherUser,
+            requestUser,
+            "최근 메시지",
+            Instant.parse("2026-06-29T00:03:00Z")
+        );
+
+        given(conversationRepository.findWithUsersById(conversationId))
+            .willReturn(Optional.of(conversation));
+        given(directMessageRepository.findFirstByConversationIdOrderByCreatedAtDescIdDesc(conversationId))
+            .willReturn(Optional.of(latestMessage));
+        given(directMessageRepository.existsByConversationIdAndReceiverIdAndReadFalse(
+            conversationId, requestUserId))
+            .willReturn(true);
+
+        var response = conversationService.find(requestUserId, conversationId);
+
+        assertThat(response.id()).isEqualTo(conversationId);
+        assertThat(response.with().userId()).isEqualTo(otherUser.getId());
+        assertThat(response.lastestMessage().content()).isEqualTo("최근 메시지");
+        assertThat(response.hasUnread()).isTrue();
+        then(directMessageRepository).should()
+            .findFirstByConversationIdOrderByCreatedAtDescIdDesc(conversationId);
+        then(directMessageRepository).should()
+            .existsByConversationIdAndReceiverIdAndReadFalse(conversationId, requestUserId);
+    }
+
+    @Test
     @DisplayName("대화방 참여자가 아닌 사용자가 ID로 조회하면 대화방 없음 예외를 던진다")
     void find_notParticipant() {
         UUID requestUserId = UUID.fromString("00000000-0000-0000-0000-000000000003");
