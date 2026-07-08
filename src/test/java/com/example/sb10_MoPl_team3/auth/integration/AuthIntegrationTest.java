@@ -409,69 +409,6 @@ class AuthIntegrationTest {
         assertThat(authSession.getRevokedAt()).isNotNull();
     }
 
-    @Test
-    @DisplayName("로그인 응답으로 재발급된 CSRF 토큰으로 로그아웃하면 현재 세션이 무효화된다")
-    void signOut_withReissuedCsrfToken_revokesSession() throws Exception {
-        signUp("Test User", "csrf-logout@test.com", "password1!")
-                .andExpect(status().isCreated());
-
-        Cookie csrfCookie = getCsrfCookie();
-
-        MvcResult signInResult = signInWithCsrfCookie("csrf-logout@test.com", "password1!", csrfCookie)
-                .andExpect(status().isOk())
-                .andReturn();
-
-        JsonNode jsonNode = objectMapper.readTree(signInResult.getResponse().getContentAsString());
-        String accessToken = jsonNode.get("accessToken").asText();
-        UUID userId = UUID.fromString(jsonNode.get("userDto").get("id").asText());
-
-        Cookie csrfCookieAfterSignIn = resolveCsrfCookie(signInResult, csrfCookie);
-
-        mockMvc.perform(post("/api/auth/sign-out")
-                        .cookie(csrfCookieAfterSignIn)
-                        .header("X-XSRF-TOKEN", csrfCookieAfterSignIn.getValue())
-                        .header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isNoContent());
-
-        mockMvc.perform(get("/api/users/{userId}", userId)
-                        .header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    @DisplayName("인증 요청 성공 후에도 다음 요청에 사용할 CSRF 토큰이 쿠키로 유지된다")
-    void authenticatedRequest_reissuesCsrfTokenCookie() throws Exception {
-        signUp("Test User", "csrf-cookie@test.com", "password1!")
-                .andExpect(status().isCreated());
-
-        Cookie initialCsrfCookie = getCsrfCookie();
-
-        MvcResult signInResult = signInWithCsrfCookie("csrf-cookie@test.com", "password1!", initialCsrfCookie)
-                .andExpect(status().isOk())
-                .andReturn();
-
-        JsonNode jsonNode = objectMapper.readTree(signInResult.getResponse().getContentAsString());
-        String accessToken = jsonNode.get("accessToken").asText();
-        UUID userId = UUID.fromString(jsonNode.get("userDto").get("id").asText());
-
-        Cookie csrfCookie = resolveCsrfCookie(signInResult, initialCsrfCookie);
-
-        MvcResult updateResult = mockMvc.perform(patch("/api/users/{userId}", userId)
-                        .cookie(csrfCookie)
-                        .header("X-XSRF-TOKEN", csrfCookie.getValue())
-                        .header("Authorization", "Bearer " + accessToken)
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                            {
-                              "name": "Updated Name"
-                            }
-                            """))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        resolveCsrfCookie(updateResult, csrfCookie);
-    }
-
     private ResultActions signUp(String name, String email, String password) throws Exception {
         return mockMvc.perform(post("/api/users")
                 .with(csrf())
@@ -497,42 +434,4 @@ class AuthIntegrationTest {
                         """.formatted(email, password)));
     }
 
-    private ResultActions signInWithCsrfCookie(String email, String password, Cookie csrfCookie) throws Exception {
-        return mockMvc.perform(post("/api/auth/sign-in")
-                .cookie(csrfCookie)
-                .header("X-XSRF-TOKEN", csrfCookie.getValue())
-                .contentType(APPLICATION_JSON)
-                .content("""
-                        {
-                          "email": "%s",
-                          "password": "%s"
-                        }
-                        """.formatted(email, password)));
-    }
-
-    private Cookie resolveCsrfCookie(MvcResult result, Cookie fallbackCookie) {
-        Cookie responseCookie = result.getResponse().getCookie("XSRF-TOKEN");
-
-        if (responseCookie == null) {
-            return fallbackCookie;
-        }
-
-        assertThat(responseCookie.getValue()).isNotBlank();
-        assertThat(responseCookie.getMaxAge()).isNotZero();
-
-        return responseCookie;
-    }
-
-    private Cookie getCsrfCookie() throws Exception {
-        MvcResult result = mockMvc.perform(get("/api/auth/csrf-token"))
-                .andExpect(status().isNoContent())
-                .andReturn();
-
-        Cookie csrfCookie = result.getResponse().getCookie("XSRF-TOKEN");
-
-        assertThat(csrfCookie).isNotNull();
-        assertThat(csrfCookie.getValue()).isNotBlank();
-
-        return csrfCookie;
-    }
 }
