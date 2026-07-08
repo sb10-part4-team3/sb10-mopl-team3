@@ -44,7 +44,7 @@ public class TmdbTvSyncJobConfig {
         .retryLimit(3)
         .retry(TmdbApiException.class)
         .skipLimit(50)
-        .skip(Exception.class)
+        .skip(TmdbApiException.class)
         .build();
   }
 }
