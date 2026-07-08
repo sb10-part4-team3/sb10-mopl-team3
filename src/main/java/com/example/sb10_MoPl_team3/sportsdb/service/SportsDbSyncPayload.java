@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.function.Supplier;
 
-record SportsDbSyncPayload(
+public record SportsDbSyncPayload(
     String externalId,
     String title,
     String description,
