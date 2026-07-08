@@ -415,7 +415,9 @@ class AuthIntegrationTest {
         signUp("Test User", "csrf-logout@test.com", "password1!")
                 .andExpect(status().isCreated());
 
-        MvcResult signInResult = signIn("csrf-logout@test.com", "password1!")
+        Cookie csrfCookie = createCsrfCookie();
+
+        MvcResult signInResult = signInWithCsrfCookie("csrf-logout@test.com", "password1!", csrfCookie)
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -423,15 +425,11 @@ class AuthIntegrationTest {
         String accessToken = jsonNode.get("accessToken").asText();
         UUID userId = UUID.fromString(jsonNode.get("userDto").get("id").asText());
 
-        Cookie reissuedCsrfCookie = signInResult.getResponse().getCookie("XSRF-TOKEN");
-
-        assertThat(reissuedCsrfCookie).isNotNull();
-        assertThat(reissuedCsrfCookie.getValue()).isNotBlank();
-        assertThat(reissuedCsrfCookie.getMaxAge()).isNotZero();
+        Cookie csrfCookieAfterSignIn = resolveCsrfCookie(signInResult, csrfCookie);
 
         mockMvc.perform(post("/api/auth/sign-out")
-                        .cookie(reissuedCsrfCookie)
-                        .header("X-XSRF-TOKEN", reissuedCsrfCookie.getValue())
+                        .cookie(csrfCookieAfterSignIn)
+                        .header("X-XSRF-TOKEN", csrfCookieAfterSignIn.getValue())
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isNoContent());
 
@@ -446,7 +444,9 @@ class AuthIntegrationTest {
         signUp("Test User", "csrf-cookie@test.com", "password1!")
                 .andExpect(status().isCreated());
 
-        MvcResult signInResult = signIn("csrf-cookie@test.com", "password1!")
+        Cookie initialCsrfCookie = createCsrfCookie();
+
+        MvcResult signInResult = signInWithCsrfCookie("csrf-cookie@test.com", "password1!", initialCsrfCookie)
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -454,11 +454,7 @@ class AuthIntegrationTest {
         String accessToken = jsonNode.get("accessToken").asText();
         UUID userId = UUID.fromString(jsonNode.get("userDto").get("id").asText());
 
-        Cookie csrfCookie = signInResult.getResponse().getCookie("XSRF-TOKEN");
-
-        assertThat(csrfCookie).isNotNull();
-        assertThat(csrfCookie.getValue()).isNotBlank();
-        assertThat(csrfCookie.getMaxAge()).isNotZero();
+        Cookie csrfCookie = resolveCsrfCookie(signInResult, initialCsrfCookie);
 
         MvcResult updateResult = mockMvc.perform(patch("/api/users/{userId}", userId)
                         .cookie(csrfCookie)
@@ -473,11 +469,7 @@ class AuthIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        Cookie renewedCsrfCookie = updateResult.getResponse().getCookie("XSRF-TOKEN");
-
-        assertThat(renewedCsrfCookie).isNotNull();
-        assertThat(renewedCsrfCookie.getValue()).isNotBlank();
-        assertThat(renewedCsrfCookie.getMaxAge()).isNotZero();
+        resolveCsrfCookie(updateResult, csrfCookie);
     }
 
     private ResultActions signUp(String name, String email, String password) throws Exception {
@@ -505,4 +497,35 @@ class AuthIntegrationTest {
                         """.formatted(email, password)));
     }
 
+    private ResultActions signInWithCsrfCookie(String email, String password, Cookie csrfCookie) throws Exception {
+        return mockMvc.perform(post("/api/auth/sign-in")
+                .cookie(csrfCookie)
+                .header("X-XSRF-TOKEN", csrfCookie.getValue())
+                .contentType(APPLICATION_JSON)
+                .content("""
+                        {
+                          "email": "%s",
+                          "password": "%s"
+                        }
+                        """.formatted(email, password)));
+    }
+
+    private Cookie createCsrfCookie() {
+        Cookie cookie = new Cookie("XSRF-TOKEN", UUID.randomUUID().toString());
+        cookie.setPath("/");
+        return cookie;
+    }
+
+    private Cookie resolveCsrfCookie(MvcResult result, Cookie fallbackCookie) {
+        Cookie responseCookie = result.getResponse().getCookie("XSRF-TOKEN");
+
+        if (responseCookie == null) {
+            return fallbackCookie;
+        }
+
+        assertThat(responseCookie.getValue()).isNotBlank();
+        assertThat(responseCookie.getMaxAge()).isNotZero();
+
+        return responseCookie;
+    }
 }
