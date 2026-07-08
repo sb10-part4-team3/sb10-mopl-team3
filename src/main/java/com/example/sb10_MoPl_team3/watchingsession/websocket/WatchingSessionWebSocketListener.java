@@ -17,7 +17,9 @@ import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,7 +48,7 @@ public class WatchingSessionWebSocketListener {
                 accessor.getSessionId(), accessor.getSubscriptionId());
         var changes = presenceService.join(contentId, authUser.userId());
         presences.put(key, new Presence(contentId, authUser.userId()));
-        changes.forEach(this::publish);
+        changes.forEach(this::publishAfterSubscribeRegistered);
     }
 
     @EventListener
@@ -81,7 +83,8 @@ public class WatchingSessionWebSocketListener {
 
     private void leaveIfLastConnection(Presence disconnected) {
         if (!presences.containsValue(disconnected)) {
-            publish(presenceService.leave(disconnected.contentId(), disconnected.watcherId()));
+            presenceService.leave(disconnected.contentId(), disconnected.watcherId())
+                    .forEach(this::publish);
         }
     }
 
@@ -110,8 +113,15 @@ public class WatchingSessionWebSocketListener {
 
     private void publish(WatchingSessionChange change) {
         messagingTemplate.convertAndSend(
-                WATCH_DESTINATION_FORMAT.formatted(change.contentId()),
+                WATCH_DESTINATION_FORMAT.formatted(change.watchingSession().content().id()),
                 change
+        );
+    }
+
+    private void publishAfterSubscribeRegistered(WatchingSessionChange change) {
+        CompletableFuture.runAsync(
+                () -> publish(change),
+                CompletableFuture.delayedExecutor(100, TimeUnit.MILLISECONDS)
         );
     }
 
