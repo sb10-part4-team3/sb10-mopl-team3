@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.tmdb.batch.tv;
 
+import com.example.sb10_MoPl_team3.global.exception.TmdbApiException;
 import com.example.sb10_MoPl_team3.tmdb.batch.TmdbContentItemWriter;
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbTvPopularResponse.TmdbTvResult;
 import com.example.sb10_MoPl_team3.tmdb.service.SyncPayload;
@@ -40,6 +41,8 @@ public class TmdbTvSyncJobConfig {
         .processor(tmdbTvPayloadProcessor)
         .writer(tmdbContentItemWriter)
         .faultTolerant()
+        .retryLimit(3)
+        .retry(TmdbApiException.class)
         .skipLimit(50)
         .skip(Exception.class)
         .build();
