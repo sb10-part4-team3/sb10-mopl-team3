@@ -4,6 +4,7 @@ import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChange;
 import com.example.sb10_MoPl_team3.watchingsession.service.WatchingSessionPresenceService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
@@ -23,6 +24,7 @@ import java.util.regex.Pattern;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class WatchingSessionWebSocketListener {
 
     private static final Pattern WATCH_DESTINATION =
@@ -46,7 +48,7 @@ public class WatchingSessionWebSocketListener {
                 accessor.getSessionId(), accessor.getSubscriptionId());
         var changes = presenceService.join(contentId, authUser.userId());
         presences.put(key, new Presence(contentId, authUser.userId()));
-        changes.forEach(this::publish);
+        changes.forEach(change -> publish(change, "subscribe"));
     }
 
     @EventListener
@@ -81,7 +83,8 @@ public class WatchingSessionWebSocketListener {
 
     private void leaveIfLastConnection(Presence disconnected) {
         if (!presences.containsValue(disconnected)) {
-            publish(presenceService.leave(disconnected.contentId(), disconnected.watcherId()));
+            presenceService.leave(disconnected.contentId(), disconnected.watcherId())
+                    .forEach(change -> publish(change, "leave"));
         }
     }
 
@@ -108,11 +111,22 @@ public class WatchingSessionWebSocketListener {
         return null;
     }
 
-    private void publish(WatchingSessionChange change) {
-        messagingTemplate.convertAndSend(
-                WATCH_DESTINATION_FORMAT.formatted(change.contentId()),
-                change
-        );
+    private void publish(WatchingSessionChange change, String trigger) {
+        UUID contentId = change.watchingSession().content().id();
+        String destination = WATCH_DESTINATION_FORMAT.formatted(contentId);
+        try {
+            messagingTemplate.convertAndSend(destination, change);
+        } catch (RuntimeException exception) {
+            log.warn(
+                    "시청 세션 변경 메시지 발행에 실패했습니다. trigger={}, destination={}, type={}, contentId={}, watcherId={}",
+                    trigger,
+                    destination,
+                    change.type(),
+                    contentId,
+                    change.watchingSession().watcher().userId(),
+                    exception
+            );
+        }
     }
 
     private record Presence(UUID contentId, UUID watcherId) {
