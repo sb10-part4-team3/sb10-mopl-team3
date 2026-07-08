@@ -415,9 +415,7 @@ class AuthIntegrationTest {
         signUp("Test User", "csrf-logout@test.com", "password1!")
                 .andExpect(status().isCreated());
 
-        Cookie csrfCookie = getCsrfCookie();
-
-        MvcResult signInResult = signInWithCsrf("csrf-logout@test.com", "password1!", csrfCookie)
+        MvcResult signInResult = signIn("csrf-logout@test.com", "password1!")
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -456,7 +454,11 @@ class AuthIntegrationTest {
         String accessToken = jsonNode.get("accessToken").asText();
         UUID userId = UUID.fromString(jsonNode.get("userDto").get("id").asText());
 
-        Cookie csrfCookie = getCsrfCookie();
+        Cookie csrfCookie = signInResult.getResponse().getCookie("XSRF-TOKEN");
+
+        assertThat(csrfCookie).isNotNull();
+        assertThat(csrfCookie.getValue()).isNotBlank();
+        assertThat(csrfCookie.getMaxAge()).isNotZero();
 
         MvcResult updateResult = mockMvc.perform(patch("/api/users/{userId}", userId)
                         .cookie(csrfCookie)
@@ -503,29 +505,4 @@ class AuthIntegrationTest {
                         """.formatted(email, password)));
     }
 
-    private ResultActions signInWithCsrf(String email, String password, Cookie csrfCookie) throws Exception {
-        return mockMvc.perform(post("/api/auth/sign-in")
-                .cookie(csrfCookie)
-                .header("X-XSRF-TOKEN", csrfCookie.getValue())
-                .contentType(APPLICATION_JSON)
-                .content("""
-                    {
-                      "email": "%s",
-                      "password": "%s"
-                    }
-                    """.formatted(email, password)));
-    }
-
-    private Cookie getCsrfCookie() throws Exception {
-        MvcResult result = mockMvc.perform(get("/api/auth/csrf-token"))
-                .andExpect(status().isNoContent())
-                .andReturn();
-
-        Cookie csrfCookie = result.getResponse().getCookie("XSRF-TOKEN");
-
-        assertThat(csrfCookie).isNotNull();
-        assertThat(csrfCookie.getValue()).isNotBlank();
-
-        return csrfCookie;
-    }
 }
