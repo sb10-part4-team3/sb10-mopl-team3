@@ -22,5 +22,5 @@ public interface NotificationRepositoryCustom {
             Pageable pageable
     );
 
-    long countByReceiverId(UUID receiverId);
+    long countUnreadByReceiverId(UUID receiverId);
 }

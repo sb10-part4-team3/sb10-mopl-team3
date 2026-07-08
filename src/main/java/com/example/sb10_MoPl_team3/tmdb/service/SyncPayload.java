@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-record SyncPayload(
+public record SyncPayload(
     String externalId,
     String title,
     String overview,

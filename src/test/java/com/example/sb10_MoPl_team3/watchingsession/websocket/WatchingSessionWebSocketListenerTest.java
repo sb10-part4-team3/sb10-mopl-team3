@@ -1,11 +1,15 @@
 package com.example.sb10_MoPl_team3.watchingsession.websocket;
 
+import com.example.sb10_MoPl_team3.content.ContentType;
+import com.example.sb10_MoPl_team3.content.dto.ContentSummary;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.dto.response.UserSummary;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChange;
+import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChangeType;
+import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionDto;
 import com.example.sb10_MoPl_team3.watchingsession.service.WatchingSessionPresenceService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,6 +27,7 @@ import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,8 +52,8 @@ class WatchingSessionWebSocketListenerTest {
         AuthUser authUser = new AuthUser(watcherId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
-        WatchingSessionChange change = new WatchingSessionChange(
-                contentId, List.of(new UserSummary(watcherId, "시청자", null)));
+        WatchingSessionChange change = change(
+                WatchingSessionChangeType.JOIN, contentId, watcherId, "시청자", 1);
         given(presenceService.join(contentId, watcherId)).willReturn(List.of(change));
 
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
@@ -152,10 +157,12 @@ class WatchingSessionWebSocketListenerTest {
         AuthUser authUser = new AuthUser(watcherId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
-        WatchingSessionChange joined = new WatchingSessionChange(contentId, List.of());
-        WatchingSessionChange left = new WatchingSessionChange(contentId, List.of());
+        WatchingSessionChange joined = change(
+                WatchingSessionChangeType.JOIN, contentId, watcherId, "시청자", 1);
+        WatchingSessionChange left = change(
+                WatchingSessionChangeType.LEAVE, contentId, watcherId, "시청자", 0);
         given(presenceService.join(contentId, watcherId)).willReturn(List.of(joined));
-        given(presenceService.leave(contentId, watcherId)).willReturn(left);
+        given(presenceService.leave(contentId, watcherId)).willReturn(List.of(left));
 
         subscribe(contentId, authentication, "session-1", "subscription-1");
         subscribe(contentId, authentication, "session-2", "subscription-2");
@@ -198,11 +205,12 @@ class WatchingSessionWebSocketListenerTest {
         AuthUser authUser = new AuthUser(watcherId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
-        WatchingSessionChange joined = new WatchingSessionChange(
-                contentId, List.of(new UserSummary(watcherId, "시청자", null)));
-        WatchingSessionChange left = new WatchingSessionChange(contentId, List.of());
+        WatchingSessionChange joined = change(
+                WatchingSessionChangeType.JOIN, contentId, watcherId, "시청자", 1);
+        WatchingSessionChange left = change(
+                WatchingSessionChangeType.LEAVE, contentId, watcherId, "시청자", 0);
         given(presenceService.join(contentId, watcherId)).willReturn(List.of(joined));
-        given(presenceService.leave(contentId, watcherId)).willReturn(left);
+        given(presenceService.leave(contentId, watcherId)).willReturn(List.of(left));
 
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
         accessor.setDestination("/sub/contents/" + contentId + "/watch");
@@ -229,11 +237,12 @@ class WatchingSessionWebSocketListenerTest {
         AuthUser authUser = new AuthUser(watcherId, UserRole.USER, UUID.randomUUID());
         var authentication = new UsernamePasswordAuthenticationToken(
                 authUser, null, authUser.authorities());
-        WatchingSessionChange joined = new WatchingSessionChange(
-                contentId, List.of(new UserSummary(watcherId, "시청자", null)));
-        WatchingSessionChange left = new WatchingSessionChange(contentId, List.of());
+        WatchingSessionChange joined = change(
+                WatchingSessionChangeType.JOIN, contentId, watcherId, "시청자", 1);
+        WatchingSessionChange left = change(
+                WatchingSessionChangeType.LEAVE, contentId, watcherId, "시청자", 0);
         given(presenceService.join(contentId, watcherId)).willReturn(List.of(joined));
-        given(presenceService.leave(contentId, watcherId)).willReturn(left);
+        given(presenceService.leave(contentId, watcherId)).willReturn(List.of(left));
 
         StompHeaderAccessor subscribe = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
         subscribe.setDestination("/sub/contents/" + contentId + "/watch");
@@ -285,5 +294,33 @@ class WatchingSessionWebSocketListenerTest {
         accessor.setLeaveMutable(true);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
         listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, message, authentication));
+    }
+
+    private WatchingSessionChange change(
+            WatchingSessionChangeType type,
+            UUID contentId,
+            UUID watcherId,
+            String watcherName,
+            long watcherCount
+    ) {
+        return new WatchingSessionChange(
+                type,
+                new WatchingSessionDto(
+                        UUID.randomUUID(),
+                        Instant.now(),
+                        new UserSummary(watcherId, watcherName, null),
+                        new ContentSummary(
+                                contentId,
+                                ContentType.MOVIE,
+                                "콘텐츠",
+                                "설명",
+                                "thumbnail",
+                                List.of(),
+                                0.0,
+                                0
+                        )
+                ),
+                watcherCount
+        );
     }
 }
