@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.global.config;
 
+import com.example.sb10_MoPl_team3.global.security.csrf.CsrfCookieFilter;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtAuthenticationFilter;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
@@ -17,6 +18,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.session.SessionManagementFilter;
 
 @Configuration
 @EnableMethodSecurity
@@ -25,7 +27,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            CsrfCookieFilter csrfCookieFilter
+    ) throws Exception {
 
         CsrfTokenRequestAttributeHandler csrfTokenRequestHandler =
                 new CsrfTokenRequestAttributeHandler();
@@ -66,6 +70,8 @@ public class SecurityConfig {
                 ).permitAll()
                 .anyRequest().authenticated()
             )
+            // Ensure deferred CSRF tokens are materialized after stateless session handling.
+            .addFilterAfter(csrfCookieFilter, SessionManagementFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -82,5 +88,10 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public CsrfCookieFilter csrfCookieFilter() {
+        return new CsrfCookieFilter();
     }
 }

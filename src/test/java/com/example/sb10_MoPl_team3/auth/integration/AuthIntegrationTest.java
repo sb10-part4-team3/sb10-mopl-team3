@@ -45,6 +45,8 @@ import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -322,30 +324,7 @@ class AuthIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
-    private ResultActions signUp(String name, String email, String password) throws Exception {
-        return mockMvc.perform(post("/api/users")
-                .with(csrf())
-                .contentType(APPLICATION_JSON)
-                .content("""
-                        {
-                          "name": "%s",
-                          "email": "%s",
-                          "password": "%s"
-                        }
-                        """.formatted(name, email, password)));
-    }
 
-    private ResultActions signIn(String email, String password) throws Exception {
-        return mockMvc.perform(post("/api/auth/sign-in")
-                .with(csrf())
-                .contentType(APPLICATION_JSON)
-                .content("""
-                        {
-                          "email": "%s",
-                          "password": "%s"
-                        }
-                        """.formatted(email, password)));
-    }
 
     @Test
     @DisplayName("refresh token 쿠키가 유효하면 새 access token과 새 refresh token 쿠키를 발급한다")
@@ -429,4 +408,30 @@ class AuthIntegrationTest {
         assertThat(authSession.isRevoked()).isTrue();
         assertThat(authSession.getRevokedAt()).isNotNull();
     }
+
+    private ResultActions signUp(String name, String email, String password) throws Exception {
+        return mockMvc.perform(post("/api/users")
+                .with(csrf())
+                .contentType(APPLICATION_JSON)
+                .content("""
+                        {
+                          "name": "%s",
+                          "email": "%s",
+                          "password": "%s"
+                        }
+                        """.formatted(name, email, password)));
+    }
+
+    private ResultActions signIn(String email, String password) throws Exception {
+        return mockMvc.perform(post("/api/auth/sign-in")
+                .with(csrf())
+                .contentType(APPLICATION_JSON)
+                .content("""
+                        {
+                          "email": "%s",
+                          "password": "%s"
+                        }
+                        """.formatted(email, password)));
+    }
+
 }
