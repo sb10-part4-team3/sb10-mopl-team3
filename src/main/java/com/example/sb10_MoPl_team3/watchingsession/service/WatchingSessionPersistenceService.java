@@ -76,14 +76,13 @@ public class WatchingSessionPersistenceService {
     @Transactional
     public Optional<WatchingSessionDto> leave(UUID contentId, UUID watcherId) {
         Optional<WatchingSession> watchingSession = watchingSessionRepository.findByWatcherId(watcherId)
-                .filter(session -> session.getContent().getId().equals(contentId))
-                .stream()
-                .findFirst();
+                .filter(session -> session.getContent().getId().equals(contentId));
+        Optional<WatchingSessionDto> result = watchingSession.map(this::toDto);
         watchingSession.ifPresent(session -> {
             watchingSessionRepository.delete(session);
             decrementViewerCount(contentId);
         });
-        return watchingSession.map(this::toDto);
+        return result;
     }
 
     private void incrementViewerCount(UUID contentId) {

@@ -35,7 +35,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.timeout;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,7 +67,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleSubscribe(event);
 
         then(presenceService).should().join(contentId, watcherId);
-        then(messagingTemplate).should(timeout(500)).convertAndSend(
+        then(messagingTemplate).should().convertAndSend(
                 "/sub/contents/" + contentId + "/watch", change);
     }
 
