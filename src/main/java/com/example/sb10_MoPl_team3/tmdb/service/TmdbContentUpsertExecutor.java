@@ -20,6 +20,7 @@ public class TmdbContentUpsertExecutor {
   private final ContentTagService contentTagService;
   private final ContentStatsRepository contentStatsRepository;
 
+  @Transactional
   public void upsert(SyncPayload payload) {
     boolean isSoftDeleted = contentRepository.existsDeletedByExternalIdAndSource(
         payload.externalId(), TmdbConstants.SOURCE_TMDB
