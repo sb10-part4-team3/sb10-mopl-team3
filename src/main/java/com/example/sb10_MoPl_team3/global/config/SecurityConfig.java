@@ -70,6 +70,7 @@ public class SecurityConfig {
                 ).permitAll()
                 .anyRequest().authenticated()
             )
+            // Ensure deferred CSRF tokens are materialized after stateless session handling.
             .addFilterAfter(csrfCookieFilter, SessionManagementFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

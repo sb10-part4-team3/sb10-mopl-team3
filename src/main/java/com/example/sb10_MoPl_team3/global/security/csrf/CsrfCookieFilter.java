@@ -24,6 +24,7 @@ public class CsrfCookieFilter extends OncePerRequestFilter {
         }
 
         if (csrfToken != null) {
+            // Trigger DeferredCsrfToken initialization so the XSRF-TOKEN cookie is written.
             csrfToken.getToken();
         }
 
