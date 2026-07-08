@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.sportsdb.batch.next;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import com.example.sb10_MoPl_team3.sportsdb.client.SportsDbApiClient;
 import com.example.sb10_MoPl_team3.sportsdb.config.SportsDbProperties;
@@ -56,6 +57,7 @@ class SportsDbNextEventsSyncJobTest {
 
     // then
     assertThat(execution.getStatus().toString()).isEqualTo("COMPLETED");
+    then(sportsDbApiClient).should().getNextEventsByLeague(LEAGUE_ID);
   }
 
   private SportsDbEventsResponse sampleEventsResponse() {
