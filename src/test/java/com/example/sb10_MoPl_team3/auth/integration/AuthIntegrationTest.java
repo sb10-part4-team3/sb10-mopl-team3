@@ -415,7 +415,7 @@ class AuthIntegrationTest {
         signUp("Test User", "csrf-logout@test.com", "password1!")
                 .andExpect(status().isCreated());
 
-        Cookie csrfCookie = createCsrfCookie();
+        Cookie csrfCookie = getCsrfCookie();
 
         MvcResult signInResult = signInWithCsrfCookie("csrf-logout@test.com", "password1!", csrfCookie)
                 .andExpect(status().isOk())
@@ -444,7 +444,7 @@ class AuthIntegrationTest {
         signUp("Test User", "csrf-cookie@test.com", "password1!")
                 .andExpect(status().isCreated());
 
-        Cookie initialCsrfCookie = createCsrfCookie();
+        Cookie initialCsrfCookie = getCsrfCookie();
 
         MvcResult signInResult = signInWithCsrfCookie("csrf-cookie@test.com", "password1!", initialCsrfCookie)
                 .andExpect(status().isOk())
@@ -510,12 +510,6 @@ class AuthIntegrationTest {
                         """.formatted(email, password)));
     }
 
-    private Cookie createCsrfCookie() {
-        Cookie cookie = new Cookie("XSRF-TOKEN", UUID.randomUUID().toString());
-        cookie.setPath("/");
-        return cookie;
-    }
-
     private Cookie resolveCsrfCookie(MvcResult result, Cookie fallbackCookie) {
         Cookie responseCookie = result.getResponse().getCookie("XSRF-TOKEN");
 
@@ -527,5 +521,18 @@ class AuthIntegrationTest {
         assertThat(responseCookie.getMaxAge()).isNotZero();
 
         return responseCookie;
+    }
+
+    private Cookie getCsrfCookie() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/auth/csrf-token"))
+                .andExpect(status().isNoContent())
+                .andReturn();
+
+        Cookie csrfCookie = result.getResponse().getCookie("XSRF-TOKEN");
+
+        assertThat(csrfCookie).isNotNull();
+        assertThat(csrfCookie.getValue()).isNotBlank();
+
+        return csrfCookie;
     }
 }
