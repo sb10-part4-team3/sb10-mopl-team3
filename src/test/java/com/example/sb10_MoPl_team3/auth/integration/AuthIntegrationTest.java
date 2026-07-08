@@ -45,6 +45,8 @@ import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -322,30 +324,7 @@ class AuthIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
-    private ResultActions signUp(String name, String email, String password) throws Exception {
-        return mockMvc.perform(post("/api/users")
-                .with(csrf())
-                .contentType(APPLICATION_JSON)
-                .content("""
-                        {
-                          "name": "%s",
-                          "email": "%s",
-                          "password": "%s"
-                        }
-                        """.formatted(name, email, password)));
-    }
 
-    private ResultActions signIn(String email, String password) throws Exception {
-        return mockMvc.perform(post("/api/auth/sign-in")
-                .with(csrf())
-                .contentType(APPLICATION_JSON)
-                .content("""
-                        {
-                          "email": "%s",
-                          "password": "%s"
-                        }
-                        """.formatted(email, password)));
-    }
 
     @Test
     @DisplayName("refresh token 쿠키가 유효하면 새 access token과 새 refresh token 쿠키를 발급한다")
@@ -428,5 +407,79 @@ class AuthIntegrationTest {
 
         assertThat(authSession.isRevoked()).isTrue();
         assertThat(authSession.getRevokedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("인증 요청 성공 후에도 다음 요청에 사용할 CSRF 토큰이 쿠키로 유지된다")
+    void authenticatedRequest_reissuesCsrfTokenCookie() throws Exception {
+        signUp("Test User", "csrf-cookie@test.com", "password1!")
+                .andExpect(status().isCreated());
+
+        MvcResult signInResult = signIn("csrf-cookie@test.com", "password1!")
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode jsonNode = objectMapper.readTree(signInResult.getResponse().getContentAsString());
+        String accessToken = jsonNode.get("accessToken").asText();
+        UUID userId = UUID.fromString(jsonNode.get("userDto").get("id").asText());
+
+        Cookie csrfCookie = getCsrfCookie();
+
+        MvcResult updateResult = mockMvc.perform(patch("/api/users/{userId}", userId)
+                        .cookie(csrfCookie)
+                        .header("X-XSRF-TOKEN", csrfCookie.getValue())
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                            {
+                              "name": "Updated Name"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Cookie renewedCsrfCookie = updateResult.getResponse().getCookie("XSRF-TOKEN");
+
+        assertThat(renewedCsrfCookie).isNotNull();
+        assertThat(renewedCsrfCookie.getValue()).isNotBlank();
+        assertThat(renewedCsrfCookie.getMaxAge()).isNotZero();
+    }
+
+    private ResultActions signUp(String name, String email, String password) throws Exception {
+        return mockMvc.perform(post("/api/users")
+                .with(csrf())
+                .contentType(APPLICATION_JSON)
+                .content("""
+                        {
+                          "name": "%s",
+                          "email": "%s",
+                          "password": "%s"
+                        }
+                        """.formatted(name, email, password)));
+    }
+
+    private ResultActions signIn(String email, String password) throws Exception {
+        return mockMvc.perform(post("/api/auth/sign-in")
+                .with(csrf())
+                .contentType(APPLICATION_JSON)
+                .content("""
+                        {
+                          "email": "%s",
+                          "password": "%s"
+                        }
+                        """.formatted(email, password)));
+    }
+
+    private Cookie getCsrfCookie() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/auth/csrf-token"))
+                .andExpect(status().isNoContent())
+                .andReturn();
+
+        Cookie csrfCookie = result.getResponse().getCookie("XSRF-TOKEN");
+
+        assertThat(csrfCookie).isNotNull();
+        assertThat(csrfCookie.getValue()).isNotBlank();
+
+        return csrfCookie;
     }
 }
