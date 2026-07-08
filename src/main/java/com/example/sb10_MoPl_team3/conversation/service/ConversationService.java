@@ -7,6 +7,9 @@ import com.example.sb10_MoPl_team3.conversation.dto.response.ConversationDto;
 import com.example.sb10_MoPl_team3.conversation.entity.Conversation;
 import com.example.sb10_MoPl_team3.conversation.mapper.ConversationMapper;
 import com.example.sb10_MoPl_team3.conversation.repository.ConversationRepository;
+import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageDto;
+import com.example.sb10_MoPl_team3.directmessage.mapper.DirectMessageMapper;
+import com.example.sb10_MoPl_team3.directmessage.repository.DirectMessageRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
@@ -15,8 +18,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
@@ -30,6 +36,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class ConversationService {
 
     private final ConversationRepository conversationRepository;
+    private final DirectMessageRepository directMessageRepository;
     private final UserRepository userRepository;
     private final PlatformTransactionManager transactionManager;
 
@@ -77,8 +84,23 @@ public class ConversationService {
             nextIdAfter = lastConversation.getId();
         }
 
+        List<UUID> conversationIds = conversations.stream()
+            .map(Conversation::getId)
+            .toList();
+        Map<UUID, DirectMessageDto> latestMessageByConversationId =
+            findLatestMessageByConversationId(conversationIds);
+        Set<UUID> unreadConversationIds =
+            conversationIds.isEmpty()
+                ? Set.of()
+                : directMessageRepository.findUnreadConversationIds(conversationIds, requestUserId);
+
         List<ConversationDto> data = conversations.stream()
-            .map(conversation -> ConversationMapper.toDto(conversation, requestUserId))
+            .map(conversation -> ConversationMapper.toDto(
+                conversation,
+                requestUserId,
+                latestMessageByConversationId.get(conversation.getId()),
+                unreadConversationIds.contains(conversation.getId())
+            ))
             .toList();
 
         long totalCount = conversationRepository.countParticipatingConversations(
@@ -125,7 +147,7 @@ public class ConversationService {
             throw new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND);
         }
 
-        return ConversationMapper.toDto(conversation, requestUserId);
+        return toDto(conversation, requestUserId);
     }
 
     private ConversationDto createOrFindConversation(UUID requestUserId, UUID withUserId) {
@@ -142,7 +164,7 @@ public class ConversationService {
         UUID withUserId
     ) {
         return conversationRepository.findByUserIds(requestUserId, withUserId)
-            .map(conversation -> ConversationMapper.toDto(conversation, requestUserId));
+            .map(conversation -> toDto(conversation, requestUserId));
     }
 
     private boolean isParticipant(Conversation conversation, UUID userId) {
@@ -216,8 +238,43 @@ public class ConversationService {
             Conversation conversation = conversationRepository.saveAndFlush(
                 new Conversation(requestUser, withUser)
             );
-            return ConversationMapper.toDto(conversation, requestUserId);
+            return toDto(conversation, requestUserId);
         });
+    }
+
+    private ConversationDto toDto(Conversation conversation, UUID requestUserId) {
+        return ConversationMapper.toDto(
+            conversation,
+            requestUserId,
+            directMessageRepository
+                .findFirstByConversationIdOrderByCreatedAtDescIdDesc(conversation.getId())
+                .map(DirectMessageMapper::toDto)
+                .orElse(null),
+            directMessageRepository.existsByConversationIdAndReceiverIdAndReadFalse(
+                conversation.getId(),
+                requestUserId
+            )
+        );
+    }
+
+    private Map<UUID, DirectMessageDto> findLatestMessageByConversationId(
+        List<UUID> conversationIds
+    ) {
+        if (conversationIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return directMessageRepository.findLatestMessagesByConversationIds(conversationIds).stream()
+            .collect(Collectors.toMap(
+                message -> message.getConversation().getId(),
+                DirectMessageMapper::toDto,
+                keepFirst(),
+                java.util.LinkedHashMap::new
+            ));
+    }
+
+    private static <T> java.util.function.BinaryOperator<T> keepFirst() {
+        return (first, ignored) -> first;
     }
 
     private User findUser(UUID userId) {

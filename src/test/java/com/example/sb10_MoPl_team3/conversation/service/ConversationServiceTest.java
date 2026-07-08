@@ -12,6 +12,8 @@ import com.example.sb10_MoPl_team3.conversation.dto.request.ConversationCreateRe
 import com.example.sb10_MoPl_team3.conversation.dto.request.ConversationFindAllRequest;
 import com.example.sb10_MoPl_team3.conversation.entity.Conversation;
 import com.example.sb10_MoPl_team3.conversation.repository.ConversationRepository;
+import com.example.sb10_MoPl_team3.directmessage.entity.DirectMessage;
+import com.example.sb10_MoPl_team3.directmessage.repository.DirectMessageRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
@@ -20,6 +22,7 @@ import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,6 +40,9 @@ class ConversationServiceTest {
 
     @Mock
     private ConversationRepository conversationRepository;
+
+    @Mock
+    private DirectMessageRepository directMessageRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -91,6 +97,20 @@ class ConversationServiceTest {
         )).willReturn(List.of(first, second, extra));
         given(conversationRepository.countParticipatingConversations(requestUserId, "상대"))
             .willReturn(3L);
+        DirectMessage latestMessage = directMessage(
+            UUID.fromString("00000000-0000-0000-0000-000000000101"),
+            second,
+            otherUser,
+            requestUser,
+            "최근 메시지",
+            Instant.parse("2026-06-29T00:03:00Z")
+        );
+        given(directMessageRepository.findLatestMessagesByConversationIds(
+            List.of(first.getId(), second.getId())))
+            .willReturn(List.of(latestMessage));
+        given(directMessageRepository.findUnreadConversationIds(
+            List.of(first.getId(), second.getId()), requestUserId))
+            .willReturn(Set.of(second.getId()));
 
         var response = conversationService.findAll(requestUserId, request);
 
@@ -102,6 +122,8 @@ class ConversationServiceTest {
         assertThat(response.sortBy()).isEqualTo("createdAt");
         assertThat(response.sortDirection()).isEqualTo("ASCENDING");
         assertThat(response.data().get(0).with().userId()).isEqualTo(otherUser.getId());
+        assertThat(response.data().get(1).lastestMessage().content()).isEqualTo("최근 메시지");
+        assertThat(response.data().get(1).hasUnread()).isTrue();
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         then(conversationRepository).should().findParticipatingConversationsAsc(
@@ -120,6 +142,14 @@ class ConversationServiceTest {
             any(),
             any()
         );
+        then(directMessageRepository).should().findLatestMessagesByConversationIds(
+            List.of(first.getId(), second.getId()));
+        then(directMessageRepository).should().findUnreadConversationIds(
+            List.of(first.getId(), second.getId()), requestUserId);
+        then(directMessageRepository).should(never())
+            .findFirstByConversationIdOrderByCreatedAtDescIdDesc(any());
+        then(directMessageRepository).should(never())
+            .existsByConversationIdAndReceiverIdAndReadFalse(any(), any());
     }
 
     @Test
@@ -266,5 +296,19 @@ class ConversationServiceTest {
         ReflectionTestUtils.setField(conversation, "id", id);
         ReflectionTestUtils.setField(conversation, "createdAt", createdAt);
         return conversation;
+    }
+
+    private DirectMessage directMessage(
+        UUID id,
+        Conversation conversation,
+        User sender,
+        User receiver,
+        String content,
+        Instant createdAt
+    ) {
+        DirectMessage directMessage = new DirectMessage(conversation, sender, receiver, content);
+        ReflectionTestUtils.setField(directMessage, "id", id);
+        ReflectionTestUtils.setField(directMessage, "createdAt", createdAt);
+        return directMessage;
     }
 }

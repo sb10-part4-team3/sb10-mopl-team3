@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class DirectMessageAsyncServiceTest {
@@ -35,6 +36,7 @@ class DirectMessageAsyncServiceTest {
     @Mock DirectMessageRepository directMessageRepository;
     @Mock ConversationRepository conversationRepository;
     @Mock ApplicationEventPublisher eventPublisher;
+    @Mock DirectMessageConversationPresence presence;
     @InjectMocks DirectMessageAsyncService service;
 
     @Test
@@ -67,6 +69,34 @@ class DirectMessageAsyncServiceTest {
                 ArgumentCaptor.forClass(NotificationEvent.class);
         then(eventPublisher).should().publishEvent(eventCaptor.capture());
         assertThat(eventCaptor.getValue().receiverId()).isEqualTo(receiver.getId());
+    }
+
+    @Test
+    @DisplayName("수신자가 해당 대화방에 접속 중이면 쪽지를 즉시 읽음 처리하고 알림을 보내지 않는다")
+    void saveAsync_activeReceiverMarksReadAndSkipsNotification() {
+        UUID conversationId = UUID.randomUUID();
+        UUID senderId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        User sender = user(senderId, "발신자");
+        User receiver = user(UUID.fromString("00000000-0000-0000-0000-000000000002"), "수신자");
+        Conversation conversation = new Conversation(sender, receiver);
+        ReflectionTestUtils.setField(conversation, "id", conversationId);
+        given(conversationRepository.findWithUsersById(conversationId))
+                .willReturn(Optional.of(conversation));
+        given(presence.isActive(receiver.getId(), conversationId)).willReturn(true);
+        given(directMessageRepository.saveAndFlush(any(DirectMessage.class)))
+                .willAnswer(invocation -> {
+                    DirectMessage message = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(message, "id", UUID.randomUUID());
+                    ReflectionTestUtils.setField(message, "createdAt", Instant.parse("2026-07-01T00:00:00Z"));
+                    return message;
+                });
+
+        service.saveAsync(conversationId, senderId, "안녕하세요").join();
+
+        ArgumentCaptor<DirectMessage> messageCaptor = ArgumentCaptor.forClass(DirectMessage.class);
+        then(directMessageRepository).should().saveAndFlush(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().isRead()).isTrue();
+        then(eventPublisher).should(never()).publishEvent(any(NotificationEvent.class));
     }
 
     @Test

@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -27,6 +28,7 @@ public class DirectMessageAsyncService {
     private final DirectMessageRepository directMessageRepository;
     private final ConversationRepository conversationRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final DirectMessageConversationPresence presence;
 
     @Async("directMessageExecutor")
     @Transactional
@@ -39,20 +41,27 @@ public class DirectMessageAsyncService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND));
         MessageParticipants participants = resolveParticipants(conversation, senderId);
 
-        DirectMessage saved = directMessageRepository.saveAndFlush(
-                new DirectMessage(
-                        conversation,
-                        participants.sender(),
-                        participants.receiver(),
-                        content
-                ));
-        eventPublisher.publishEvent(new NotificationEvent(
-                participants.receiver().getId(),
-                "새 쪽지",
-                "%s님이 새로운 쪽지를 보냈습니다."
-                        .formatted(participants.sender().getName()),
-                NotificationLevel.INFO
-        ));
+        DirectMessage directMessage = new DirectMessage(
+                conversation,
+                participants.sender(),
+                participants.receiver(),
+                content
+        );
+        boolean receiverActive = presence.isActive(participants.receiver().getId(), conversationId);
+        if (receiverActive) {
+            directMessage.markAsRead(Instant.now());
+        }
+
+        DirectMessage saved = directMessageRepository.saveAndFlush(directMessage);
+        if (!receiverActive) {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    participants.receiver().getId(),
+                    "새 쪽지",
+                    "%s님이 새로운 쪽지를 보냈습니다."
+                            .formatted(participants.sender().getName()),
+                    NotificationLevel.INFO
+            ));
+        }
         return CompletableFuture.completedFuture(DirectMessageMapper.toDto(saved));
     }
 

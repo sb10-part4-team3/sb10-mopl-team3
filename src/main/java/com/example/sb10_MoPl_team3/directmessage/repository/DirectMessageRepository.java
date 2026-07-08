@@ -18,4 +18,9 @@ public interface DirectMessageRepository extends JpaRepository<DirectMessage, UU
 
     @EntityGraph(attributePaths = {"conversation", "sender", "receiver"})
     Optional<DirectMessage> findByIdAndConversationId(UUID id, UUID conversationId);
+
+    @EntityGraph(attributePaths = {"conversation", "sender", "receiver"})
+    Optional<DirectMessage> findFirstByConversationIdOrderByCreatedAtDescIdDesc(UUID conversationId);
+
+    boolean existsByConversationIdAndReceiverIdAndReadFalse(UUID conversationId, UUID receiverId);
 }
