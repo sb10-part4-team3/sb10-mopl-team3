@@ -1,15 +1,20 @@
 package com.example.sb10_MoPl_team3.watchingsession.service;
 
 import com.example.sb10_MoPl_team3.content.entity.Content;
+import com.example.sb10_MoPl_team3.content.entity.ContentStats;
+import com.example.sb10_MoPl_team3.content.mapper.ContentMapper;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.content.repository.ContentStatsRepository;
+import com.example.sb10_MoPl_team3.content.repository.ContentTagRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import com.example.sb10_MoPl_team3.watchingsession.entity.WatchingSession;
+import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionDto;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionJoinResult;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.watchingsession.mapper.WatchingSessionMapper;
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRepository;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
 import com.example.sb10_MoPl_team3.notification.event.NotificationAudienceType;
@@ -33,6 +38,7 @@ public class WatchingSessionPersistenceService {
     private final UserRepository userRepository;
     private final ContentRepository contentRepository;
     private final ContentStatsRepository contentStatsRepository;
+    private final ContentTagRepository contentTagRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -44,34 +50,39 @@ public class WatchingSessionPersistenceService {
 
         Optional<WatchingSession> existing = watchingSessionRepository.findByWatcherId(watcherId);
         if (existing.isEmpty()) {
-            watchingSessionRepository.save(new WatchingSession(watcher, content));
+            WatchingSession watchingSession = watchingSessionRepository.saveAndFlush(
+                    new WatchingSession(watcher, content));
             incrementViewerCount(contentId);
             publishWatchingActivity(watcher, content);
-            return result(Optional.empty(), watcher);
+            return result(Optional.empty(), watchingSession);
         }
 
         UUID previousContentId = existing.get().getContent().getId();
         if (previousContentId.equals(contentId)) {
-            return result(Optional.empty(), watcher);
+            return result(Optional.empty(), existing.get());
         }
 
+        WatchingSessionDto previousWatchingSession = toDto(existing.get());
         watchingSessionRepository.delete(existing.get());
         watchingSessionRepository.flush();
-        watchingSessionRepository.save(new WatchingSession(watcher, content));
+        WatchingSession watchingSession = watchingSessionRepository.saveAndFlush(
+                new WatchingSession(watcher, content));
         decrementViewerCount(previousContentId);
         incrementViewerCount(contentId);
         publishWatchingActivity(watcher, content);
-        return result(Optional.of(previousContentId), watcher);
+        return result(Optional.of(previousWatchingSession), watchingSession);
     }
 
     @Transactional
-    public void leave(UUID contentId, UUID watcherId) {
-        watchingSessionRepository.findByWatcherId(watcherId)
-                .filter(session -> session.getContent().getId().equals(contentId))
-                .ifPresent(session -> {
-                    watchingSessionRepository.delete(session);
-                    decrementViewerCount(contentId);
-                });
+    public Optional<WatchingSessionDto> leave(UUID contentId, UUID watcherId) {
+        Optional<WatchingSession> watchingSession = watchingSessionRepository.findByWatcherId(watcherId)
+                .filter(session -> session.getContent().getId().equals(contentId));
+        Optional<WatchingSessionDto> result = watchingSession.map(this::toDto);
+        watchingSession.ifPresent(session -> {
+            watchingSessionRepository.delete(session);
+            decrementViewerCount(contentId);
+        });
+        return result;
     }
 
     private void incrementViewerCount(UUID contentId) {
@@ -101,7 +112,21 @@ public class WatchingSessionPersistenceService {
         ));
     }
 
-    private WatchingSessionJoinResult result(Optional<UUID> previousContentId, User watcher) {
-        return new WatchingSessionJoinResult(previousContentId, UserMapper.toSummary(watcher));
+    private WatchingSessionJoinResult result(
+            Optional<WatchingSessionDto> previousWatchingSession,
+            WatchingSession watchingSession
+    ) {
+        return new WatchingSessionJoinResult(previousWatchingSession, toDto(watchingSession));
+    }
+
+    private WatchingSessionDto toDto(WatchingSession watchingSession) {
+        Content content = watchingSession.getContent();
+        ContentStats stats = contentStatsRepository.findById(content.getId()).orElse(null);
+        var tags = contentTagRepository.findTagNamesByContentId(content.getId());
+        return WatchingSessionMapper.toDto(
+                watchingSession,
+                UserMapper.toSummary(watchingSession.getWatcher()),
+                ContentMapper.toSummary(content, stats, tags)
+        );
     }
 }
