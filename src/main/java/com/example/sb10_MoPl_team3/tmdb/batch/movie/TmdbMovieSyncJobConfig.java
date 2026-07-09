@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.tmdb.batch.movie;
 
+import com.example.sb10_MoPl_team3.batch.BatchJobFailureListener;
 import com.example.sb10_MoPl_team3.global.exception.TmdbApiException;
 import com.example.sb10_MoPl_team3.tmdb.batch.TmdbContentItemWriter;
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbMoviePopularResponse.TmdbMovieResult;
@@ -25,11 +26,13 @@ public class TmdbMovieSyncJobConfig {
   private final TmdbMovieItemReader tmdbMovieItemReader;
   private final TmdbMoviePayloadProcessor tmdbMoviePayloadProcessor;
   private final TmdbContentItemWriter tmdbContentItemWriter;
+  private final BatchJobFailureListener batchJobFailureListener;
 
   @Bean
   public Job tmdbMovieSyncJob() {
     return new JobBuilder("tmdbMovieSyncJob", jobRepository)
         .start(tmdbMovieFetchStep())
+        .listener(batchJobFailureListener)
         .build();
   }
 

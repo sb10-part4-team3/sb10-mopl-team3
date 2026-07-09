@@ -42,6 +42,14 @@ spring:
     job:
       enabled: false
 
+batch:
+  schedule:
+    enabled: ${BATCH_SCHEDULE_ENABLED:true}
+    tmdb-movie: ${BATCH_SCHEDULE_TMDB_MOVIE:0 0 3 * * *}
+    tmdb-tv: ${BATCH_SCHEDULE_TMDB_TV:0 15 3 * * *}
+    sportsdb-next: ${BATCH_SCHEDULE_SPORTSDB_NEXT:0 30 3 * * *}
+    sportsdb-past: ${BATCH_SCHEDULE_SPORTSDB_PAST:0 45 3 * * *}
+
 tmdb:
   base-url: https://api.themoviedb.org/3
   access-token: ${TMDB_ACCESS_TOKEN:}

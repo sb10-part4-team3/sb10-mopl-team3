@@ -35,3 +35,7 @@ auth:
 
   password-reset-mail:
     from: no-reply@mopl.test
+
+batch:
+  schedule:
+    enabled: false
