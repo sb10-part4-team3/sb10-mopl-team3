@@ -42,7 +42,10 @@ public enum ErrorCode {
     PLAYLIST_NOT_FOUND(HttpStatus.NOT_FOUND, "플레이리스트를 찾을 수 없습니다."),
 
     // 팔로우
-    FOLLOW_NOT_FOUND(HttpStatus.NOT_FOUND, "팔로우를 찾을 수 없습니다."),;
+    FOLLOW_NOT_FOUND(HttpStatus.NOT_FOUND, "팔로우를 찾을 수 없습니다."),
+
+    // 배치
+    BATCH_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 배치 Job입니다."),;
 
 
     private final HttpStatus status;

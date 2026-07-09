@@ -4,6 +4,7 @@ import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,4 +15,6 @@ public interface UserRepository extends JpaRepository<User, UUID>, UserRepositor
     boolean existsByEmail(String email);
 
     boolean existsByRole(UserRole role);
+
+    List<User> findByRole(UserRole role);
 }

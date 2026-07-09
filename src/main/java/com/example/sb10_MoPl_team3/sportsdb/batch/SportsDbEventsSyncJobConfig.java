@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.sportsdb.batch;
 
+import com.example.sb10_MoPl_team3.batch.BatchJobFailureListener;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -19,12 +20,14 @@ public class SportsDbEventsSyncJobConfig {
   private final PlatformTransactionManager platformTransactionManager;
   private final SportsDbNextEventsSyncTasklet sportsDbNextEventsSyncTasklet;
   private final SportsDbPastEventsSyncTasklet sportsDbPastEventsSyncTasklet;
+  private final BatchJobFailureListener batchJobFailureListener;
 
   @Bean
   public Job sportsDbNextEventsSyncJob() {
     return new JobBuilder("sportsDbNextEventsSyncJob", jobRepository)
         .start(sportsDbNextEventsSyncStep())
         .incrementer(new RunIdIncrementer())
+        .listener(batchJobFailureListener)
         .build();
   }
 
@@ -41,6 +44,7 @@ public class SportsDbEventsSyncJobConfig {
     return new JobBuilder("sportsDbPastEventsSyncJob", jobRepository)
         .start(sportsDbPastEventsSyncStep())
         .incrementer(new RunIdIncrementer())
+        .listener(batchJobFailureListener)
         .build();
   }
 
