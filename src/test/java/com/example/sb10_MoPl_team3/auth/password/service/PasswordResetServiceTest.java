@@ -6,6 +6,7 @@ import com.example.sb10_MoPl_team3.auth.password.event.TemporaryPasswordIssuedEv
 import com.example.sb10_MoPl_team3.auth.password.repository.PasswordResetTokenRepository;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -188,6 +189,35 @@ class PasswordResetServiceTest {
         then(passwordResetTokenRepository).shouldHaveNoInteractions();
         then(passwordEncoder).should(never()).encode(any());
 
+        then(temporaryPasswordGenerator).shouldHaveNoInteractions();
+        then(eventPublisher).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("탈퇴한 사용자에게는 임시 비밀번호를 발급하지 않는다")
+    void issue_withdrawnUser() {
+        // given
+        TemporaryPasswordIssueRequest request =
+                new TemporaryPasswordIssueRequest("withdrawn@test.com");
+
+        User user = new User(
+                "withdrawn@test.com",
+                "Withdrawn User",
+                "encoded-password",
+                null,
+                UserRole.USER
+        );
+        user.changeStatus(UserStatus.WITHDRAWN);
+
+        given(userRepository.findByEmail(request.email()))
+                .willReturn(Optional.of(user));
+
+        // when
+        passwordResetService.issueTemporaryPassword(request);
+
+        // then
+        then(passwordResetTokenRepository).shouldHaveNoInteractions();
+        then(passwordEncoder).should(never()).encode(any());
         then(temporaryPasswordGenerator).shouldHaveNoInteractions();
         then(eventPublisher).shouldHaveNoInteractions();
     }

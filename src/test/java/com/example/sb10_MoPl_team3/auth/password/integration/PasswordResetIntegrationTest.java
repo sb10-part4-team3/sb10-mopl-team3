@@ -4,6 +4,7 @@ import com.example.sb10_MoPl_team3.auth.password.entity.PasswordResetToken;
 import com.example.sb10_MoPl_team3.auth.password.repository.PasswordResetTokenRepository;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -148,5 +149,32 @@ class PasswordResetIntegrationTest {
                 .andExpect(status().isNoContent());
 
         assertThat(passwordResetTokenRepository.count()).isZero();
+    }
+
+    @Test
+    @DisplayName("탈퇴한 사용자의 임시 비밀번호 발급 요청은 토큰을 저장하지 않는다")
+    void issueTemporaryPassword_withdrawnUser() throws Exception {
+        User user = new User(
+                "withdrawn-reset@test.com",
+                "Withdrawn User",
+                passwordEncoder.encode("password1!"),
+                null,
+                UserRole.USER
+        );
+        user.changeStatus(UserStatus.WITHDRAWN);
+        userRepository.saveAndFlush(user);
+
+        mockMvc.perform(post("/api/auth/password-reset")
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "withdrawn-reset@test.com"
+                                }
+                                """))
+                .andExpect(status().isNoContent());
+
+        assertThat(passwordResetTokenRepository.findAllByUser_IdAndUsedFalse(user.getId()))
+                .isEmpty();
     }
 }

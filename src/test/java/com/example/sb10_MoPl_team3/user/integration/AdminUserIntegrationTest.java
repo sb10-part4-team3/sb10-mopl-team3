@@ -113,6 +113,41 @@ class AdminUserIntegrationTest {
     }
 
     @Test
+    @DisplayName("관리자 사용자 목록에는 탈퇴한 사용자가 포함되지 않는다")
+    void findUsers_excludeWithdrawnUsers() throws Exception {
+        String adminAccessToken = signInAdmin();
+
+        userRepository.save(new User(
+                "visible-list@test.com",
+                "Visible User",
+                passwordEncoder.encode("password1!"),
+                null,
+                UserRole.USER
+        ));
+
+        User withdrawnUser = new User(
+                "withdrawn-list@test.com",
+                "Withdrawn User",
+                passwordEncoder.encode("password1!"),
+                null,
+                UserRole.USER
+        );
+        withdrawnUser.changeStatus(UserStatus.WITHDRAWN);
+        userRepository.saveAndFlush(withdrawnUser);
+
+        mockMvc.perform(get("/api/users")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminAccessToken))
+                        .param("limit", "20")
+                        .param("sortBy", "email")
+                        .param("sortDirection", "ASCENDING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.totalCount").value(2))
+                .andExpect(jsonPath("$.data[?(@.email == 'visible-list@test.com')]").exists())
+                .andExpect(jsonPath("$.data[?(@.email == 'withdrawn-list@test.com')]").isEmpty());
+    }
+
+    @Test
     @DisplayName("일반 사용자는 사용자 목록을 조회할 수 없다")
     void findUsers_user_forbidden() throws Exception {
         String userAccessToken = createUserAndSignIn(
@@ -199,6 +234,34 @@ class AdminUserIntegrationTest {
         User unchangedUser = userRepository.findById(targetUser.getId()).orElseThrow();
 
         assertThat(unchangedUser.getRole()).isEqualTo(UserRole.USER);
+    }
+
+    @Test
+    @DisplayName("관리자는 탈퇴한 사용자의 권한을 변경할 수 없다")
+    void updateUserRole_withdrawnUser() throws Exception {
+        String adminAccessToken = signInAdmin();
+
+        User targetUser = new User(
+                "withdrawn-role@test.com",
+                "Withdrawn User",
+                passwordEncoder.encode("password1!"),
+                null,
+                UserRole.USER
+        );
+        targetUser.changeStatus(UserStatus.WITHDRAWN);
+        userRepository.saveAndFlush(targetUser);
+
+        mockMvc.perform(patch("/api/users/{userId}/role", targetUser.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminAccessToken))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "role": "ADMIN"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
     }
 
     @Test
@@ -302,6 +365,34 @@ class AdminUserIntegrationTest {
         User unchangedUser = userRepository.findById(targetUser.getId()).orElseThrow();
 
         assertThat(unchangedUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("관리자는 탈퇴한 사용자의 잠금 상태를 변경할 수 없다")
+    void updateUserLocked_withdrawnUser() throws Exception {
+        String adminAccessToken = signInAdmin();
+
+        User targetUser = new User(
+                "withdrawn-lock@test.com",
+                "Withdrawn User",
+                passwordEncoder.encode("password1!"),
+                null,
+                UserRole.USER
+        );
+        targetUser.changeStatus(UserStatus.WITHDRAWN);
+        userRepository.saveAndFlush(targetUser);
+
+        mockMvc.perform(patch("/api/users/{userId}/locked", targetUser.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminAccessToken))
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "locked": true
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
     }
 
     private String createUserAndSignIn(

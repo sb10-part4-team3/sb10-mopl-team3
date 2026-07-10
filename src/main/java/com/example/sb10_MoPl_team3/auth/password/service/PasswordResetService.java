@@ -5,6 +5,7 @@ import com.example.sb10_MoPl_team3.auth.password.entity.PasswordResetToken;
 import com.example.sb10_MoPl_team3.auth.password.event.TemporaryPasswordIssuedEvent;
 import com.example.sb10_MoPl_team3.auth.password.repository.PasswordResetTokenRepository;
 import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -37,6 +38,10 @@ public class PasswordResetService {
                 .orElse(null);
 
         if (user == null) {
+            return;
+        }
+
+        if (user.getStatus() == UserStatus.WITHDRAWN) {
             return;
         }
 

@@ -113,6 +113,34 @@ class UserIntegrationTest {
     }
 
     @Test
+    @DisplayName("탈퇴한 사용자는 상세 조회할 수 없다")
+    void findUser_withdrawn() throws Exception {
+        // given
+        User targetUser = new User(
+                "withdrawn-detail@test.com",
+                "Withdrawn User",
+                passwordEncoder.encode("password1!"),
+                null,
+                UserRole.USER
+        );
+        targetUser.changeStatus(UserStatus.WITHDRAWN);
+        userRepository.saveAndFlush(targetUser);
+
+        String accessToken = createUserAndSignIn(
+                "viewer-withdrawn-detail@test.com",
+                "Viewer",
+                "password1!",
+                UserRole.USER
+        );
+
+        // when & then
+        mockMvc.perform(get("/api/users/{userId}", targetUser.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
+    }
+
+    @Test
     @DisplayName("인증되지 않은 사용자는 사용자 상세 정보를 조회할 수 없다")
     void findUser_unauthenticated() throws Exception {
         // given
