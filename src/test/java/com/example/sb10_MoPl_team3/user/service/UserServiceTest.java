@@ -175,6 +175,28 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("탈퇴한 사용자는 단건 조회할 수 없다")
+    void findUser_withdrawn() {
+        // given
+        UUID userId = UUID.randomUUID();
+        User user = new User(
+                "withdrawn@test.com",
+                "Withdrawn User",
+                "encoded-password",
+                null,
+                UserRole.USER
+        );
+
+        user.changeStatus(UserStatus.WITHDRAWN);
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+
+        // when & then
+        assertThatThrownBy(() -> userService.findUser(userId))
+                .isInstanceOf(UserNotFoundException.class);
+    }
+
+    @Test
     @DisplayName("본인 프로필 이름을 수정한다")
     void updateUser_nameOnly() {
         // given

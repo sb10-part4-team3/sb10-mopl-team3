@@ -74,6 +74,10 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
+        if (user.getStatus() == UserStatus.WITHDRAWN) {
+            throw new UserNotFoundException(userId);
+        }
+
         return UserMapper.toDto(user);
     }
 
