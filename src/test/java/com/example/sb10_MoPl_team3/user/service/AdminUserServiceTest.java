@@ -373,6 +373,36 @@ class AdminUserServiceTest {
     }
 
     @Test
+    @DisplayName("탈퇴한 사용자의 권한은 변경할 수 없다")
+    void updateUserRole_withdrawnUser() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
+
+        User user = createUser(
+                userId,
+                "withdrawn@test.com",
+                "Withdrawn User",
+                UserRole.USER,
+                "2026-06-28T00:00:00Z"
+        );
+        ReflectionTestUtils.setField(user, "status", UserStatus.WITHDRAWN);
+
+        UserRoleUpdateRequest request = new UserRoleUpdateRequest(UserRole.ADMIN);
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+
+        // when & then
+        assertThatThrownBy(() -> adminUserService.updateUserRole(requesterId, userId, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        then(authSessionRepository).should(never()).findAllByUserId(any(UUID.class));
+        then(eventPublisher).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("관리자는 자기 자신의 권한을 변경할 수 없다")
     void updateUserRole_selfNotAllowed() {
         // given
@@ -536,6 +566,37 @@ class AdminUserServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("탈퇴한 사용자의 잠금 상태는 변경할 수 없다")
+    void updateUserLocked_withdrawnUser() {
+        // given
+        UUID userId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
+
+        User user = createUser(
+                userId,
+                "withdrawn@test.com",
+                "Withdrawn User",
+                UserRole.USER,
+                "2026-06-28T00:00:00Z"
+        );
+        ReflectionTestUtils.setField(user, "status", UserStatus.WITHDRAWN);
+
+        UserLockUpdateRequest request = new UserLockUpdateRequest(false);
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+
+        // when & then
+        assertThatThrownBy(() -> adminUserService.updateUserLocked(requesterId, userId, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
+        then(authSessionRepository).should(never()).findAllByUserId(any(UUID.class));
+        then(authSessionRepository).should(never()).save(any(AuthSession.class));
     }
 
     @Test
