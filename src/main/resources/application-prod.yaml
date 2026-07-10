@@ -7,3 +7,5 @@ spring:
 auth:
   refresh-token-cookie:
     secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
+  password-reset-mail:
+    mode: ${PASSWORD_RESET_MAIL_MODE:smtp}

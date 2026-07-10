@@ -64,7 +64,7 @@ class PasswordResetIntegrationTest {
                 UserRole.USER
         ));
 
-        mockMvc.perform(post("/api/auth/password-reset")
+        mockMvc.perform(post("/api/auth/reset-password")
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
@@ -112,7 +112,7 @@ class PasswordResetIntegrationTest {
                 )
         );
 
-        mockMvc.perform(post("/api/auth/password-reset")
+        mockMvc.perform(post("/api/auth/reset-password")
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
@@ -138,7 +138,7 @@ class PasswordResetIntegrationTest {
     @Test
     @DisplayName("존재하지 않는 이메일이어도 204를 반환하고 임시 비밀번호를 저장하지 않는다")
     void issueTemporaryPassword_unknownEmail() throws Exception {
-        mockMvc.perform(post("/api/auth/password-reset")
+        mockMvc.perform(post("/api/auth/reset-password")
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
@@ -164,7 +164,7 @@ class PasswordResetIntegrationTest {
         user.changeStatus(UserStatus.WITHDRAWN);
         userRepository.saveAndFlush(user);
 
-        mockMvc.perform(post("/api/auth/password-reset")
+        mockMvc.perform(post("/api/auth/reset-password")
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""

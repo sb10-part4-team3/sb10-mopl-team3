@@ -245,7 +245,7 @@ class AuthIntegrationTest {
         given(temporaryPasswordGenerator.generate())
                 .willReturn(temporaryPassword);
 
-        mockMvc.perform(post("/api/auth/password-reset")
+        mockMvc.perform(post("/api/auth/reset-password")
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
