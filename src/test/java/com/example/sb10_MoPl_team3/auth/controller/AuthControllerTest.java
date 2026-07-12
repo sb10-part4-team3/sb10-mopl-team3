@@ -147,11 +147,23 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("로그인 요청 값이 유효하지 않으면 400을 반환한다")
-    void signin_invalid() throws Exception {
+    @DisplayName("로그인 요청 파라미터가 누락되면 400을 반환한다")
+    void signin_missingParameters() throws Exception {
         mockMvc.perform(post("/api/auth/sign-in")
                         .contentType(APPLICATION_FORM_URLENCODED)
                         .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+    }
+
+    @Test
+    @DisplayName("로그인 요청 값이 빈 문자열이면 400을 반환한다")
+    void signin_blankParameters() throws Exception {
+        mockMvc.perform(post("/api/auth/sign-in")
+                        .contentType(APPLICATION_FORM_URLENCODED)
+                        .with(csrf())
+                        .param("username", "")
+                        .param("password", ""))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
     }

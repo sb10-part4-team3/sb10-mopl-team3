@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Slf4j
@@ -80,6 +81,22 @@ public class GlobalExceptionHandler {
             errorCode.name(),
             errorCode.getMessage(),
             details,
+            errorCode.getStatus().value()
+        );
+        logWarn(response);
+        return ResponseEntity.status(response.status()).body(response);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ErrorResponse> handleHandlerMethodValidationException(
+        HandlerMethodValidationException exception
+    ) {
+        ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
+        ErrorResponse response = new ErrorResponse(
+            Instant.now(),
+            errorCode.name(),
+            errorCode.getMessage(),
+            Map.of(),
             errorCode.getStatus().value()
         );
         logWarn(response);
