@@ -40,7 +40,7 @@ public class AuthService {
     private final PasswordResetService passwordResetService;
 
     @Transactional
-    public AuthTokenResult signIn(SignInRequest request) {
+    public AuthTokenResult signin(SignInRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(InvalidCredentialException::new);
 
@@ -127,7 +127,7 @@ public class AuthService {
     }
 
     @Transactional
-    public void signOut(AuthUser authUser) {
+    public void signout(AuthUser authUser) {
         authSessionLockManager.executeWithLock(authUser.sessionId(), () -> {
             AuthSession authSession = authSessionRepository.findById(authUser.sessionId())
                     .orElse(null);

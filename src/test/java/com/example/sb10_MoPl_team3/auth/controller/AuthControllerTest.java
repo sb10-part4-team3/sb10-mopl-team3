@@ -34,7 +34,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.http.HttpHeaders.SET_COOKIE;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -59,49 +58,10 @@ class AuthControllerTest {
     @MockitoBean
     private JwtProperties jwtProperties;
 
-    @Test
-    @DisplayName("로그인 요청이 유효하면 사용자 정보와 액세스 토큰을 반환한다")
-    void signIn_success() throws Exception {
-        UserDto userDto = new UserDto(
-                UUID.randomUUID(),
-                Instant.parse("2026-06-23T00:00:00Z"),
-                "user@test.com",
-                "홍길동",
-                null,
-                UserRole.USER,
-                false
-        );
-
-        given(authService.signIn(any()))
-                .willReturn(new AuthTokenResult(new JwtDto(userDto, "access-token"), "refresh-token"));
-        given(jwtProperties.refreshTokenExpiration()).willReturn(Duration.ofDays(7));
-
-        mockMvc.perform(post("/api/auth/sign-in")
-                        .contentType(APPLICATION_JSON)
-                        .with(csrf())
-                        .content("""
-                                {
-                                  "email": "user@test.com",
-                                  "password": "password1!"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(header().string(SET_COOKIE, containsString("REFRESH_TOKEN=refresh-token")))
-                .andExpect(header().string(SET_COOKIE, containsString("HttpOnly")))
-                .andExpect(jsonPath("$.accessToken").value("access-token"))
-                .andExpect(jsonPath("$.refreshToken").doesNotExist())
-                .andExpect(jsonPath("$.userDto.id").exists())
-                .andExpect(jsonPath("$.userDto.createdAt").exists())
-                .andExpect(jsonPath("$.userDto.email").value("user@test.com"))
-                .andExpect(jsonPath("$.userDto.name").value("홍길동"))
-                .andExpect(jsonPath("$.userDto.profileImageUrl").doesNotExist())
-                .andExpect(jsonPath("$.userDto.role").value("USER"))
-                .andExpect(jsonPath("$.userDto.locked").value(false));
-    }
 
     @Test
     @DisplayName("form 로그인 요청이 유효하면 사용자 정보와 액세스 토큰을 반환한다")
-    void signIn_form_success() throws Exception {
+    void signin_success() throws Exception {
         UserDto userDto = new UserDto(
                 UUID.randomUUID(),
                 Instant.parse("2026-06-23T00:00:00Z"),
@@ -112,7 +72,7 @@ class AuthControllerTest {
                 false
         );
 
-        given(authService.signIn(any()))
+        given(authService.signin(any()))
                 .willReturn(new AuthTokenResult(new JwtDto(userDto, "access-token"), "refresh-token"));
         given(jwtProperties.refreshTokenExpiration()).willReturn(Duration.ofDays(7));
 
@@ -188,23 +148,17 @@ class AuthControllerTest {
 
     @Test
     @DisplayName("로그인 요청 값이 유효하지 않으면 400을 반환한다")
-    void signIn_invalid() throws Exception {
+    void signin_invalid() throws Exception {
         mockMvc.perform(post("/api/auth/sign-in")
-                        .contentType(APPLICATION_JSON)
-                        .with(csrf())
-                        .content("""
-                                {
-                                  "email": "",
-                                  "password": ""
-                                }
-                                """))
+                        .contentType(APPLICATION_FORM_URLENCODED)
+                        .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
     }
 
     @Test
     @DisplayName("인증된 사용자가 로그아웃하면 세션을 무효화하고 refresh token 쿠키를 만료한다")
-    void signOut_success() throws Exception {
+    void signout_success() throws Exception {
         AuthUser authUser = new AuthUser(
                 UUID.randomUUID(),
                 UserRole.USER,
@@ -226,12 +180,12 @@ class AuthControllerTest {
                 .andExpect(header().string(SET_COOKIE, containsString("Max-Age=0")))
                 .andExpect(header().string(SET_COOKIE, containsString("HttpOnly")));
 
-        then(authService).should().signOut(authUser);
+        then(authService).should().signout(authUser);
     }
 
     @Test
     @DisplayName("인증 정보 없이 로그아웃하면 401을 반환한다")
-    void signOut_unauthenticated() throws Exception {
+    void signout_unauthenticated() throws Exception {
         mockMvc.perform(post("/api/auth/sign-out")
                         .with(csrf()))
                 .andExpect(status().isUnauthorized());

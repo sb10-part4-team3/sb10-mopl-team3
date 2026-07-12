@@ -41,6 +41,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.http.HttpHeaders.SET_COOKIE;
+import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -129,11 +130,11 @@ class AuthIntegrationTest {
 
     @Test
     @DisplayName("회원가입한 계정은 이메일과 비밀번호로 로그인할 수 있고 Access Token을 발급받는다")
-    void signIn_success() throws Exception {
+    void signin_success() throws Exception {
         signUp("Test User", "login@test.com", "password1!")
                 .andExpect(status().isCreated());
 
-        MvcResult result = signIn("login@test.com", "password1!")
+        MvcResult result = signin("login@test.com", "password1!")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.refreshToken").doesNotExist())
@@ -173,12 +174,12 @@ class AuthIntegrationTest {
 
     @Test
     @DisplayName("이미 로그인된 계정이 다시 로그인하면 기존 세션을 무효화하고 새 세션만 유지한다")
-    void signIn_revokesExistingSessions() throws Exception {
+    void signin_revokesExistingSessions() throws Exception {
         // given
         signUp("Test User", "single-session@test.com", "password1!")
                 .andExpect(status().isCreated());
 
-        MvcResult firstSignInResult = signIn("single-session@test.com", "password1!")
+        MvcResult firstSignInResult = signin("single-session@test.com", "password1!")
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -188,7 +189,7 @@ class AuthIntegrationTest {
 
         JwtClaims firstClaims = jwtProvider.parseAccessToken(firstAccessToken);
 
-        MvcResult secondSignInResult = signIn("single-session@test.com", "password1!")
+        MvcResult secondSignInResult = signin("single-session@test.com", "password1!")
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -218,7 +219,7 @@ class AuthIntegrationTest {
 
     @Test
     @DisplayName("잠긴 계정은 로그인할 수 없다")
-    void signIn_lockedUser() throws Exception {
+    void signin_lockedUser() throws Exception {
         User user = new User(
                 "locked@test.com",
                 "Locked User",
@@ -229,14 +230,14 @@ class AuthIntegrationTest {
         ReflectionTestUtils.setField(user, "status", UserStatus.LOCKED);
         userRepository.save(user);
 
-        signIn("locked@test.com", "password1!")
+        signin("locked@test.com", "password1!")
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
     }
 
     @Test
-    @DisplayName("임시 비밀번호는 만료 전 로그인에 사용할 수 있고 비밀번호 변경 후 파기된다")
-    void signIn_withTemporaryPassword_untilPasswordChanged() throws Exception {
+    @DisplayName("임시 비밀번호는 만료 전 로그인에 사용할 수 있고 비밀번호 변경 시 파기된다")
+    void signin_withTemporaryPassword_untilPasswordChanged() throws Exception {
         signUp("Reset User", "temporary-login@test.com", "password1!")
                 .andExpect(status().isCreated());
 
@@ -259,7 +260,7 @@ class AuthIntegrationTest {
         assertThat(temporaryPassword).isNotEqualTo("temporary1!!");
 
         MvcResult temporarySignInResult =
-                signIn("temporary-login@test.com", temporaryPassword)
+                signin("temporary-login@test.com", temporaryPassword)
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.accessToken").isNotEmpty())
                         .andReturn();
@@ -271,7 +272,7 @@ class AuthIntegrationTest {
         String accessToken = jsonNode.get("accessToken").asText();
         UUID userId = jwtProvider.parseAccessToken(accessToken).userId();
 
-        signIn("temporary-login@test.com", temporaryPassword)
+        signin("temporary-login@test.com", temporaryPassword)
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
 
@@ -286,11 +287,11 @@ class AuthIntegrationTest {
                     """))
                 .andExpect(status().isNoContent());
 
-        signIn("temporary-login@test.com", temporaryPassword)
+        signin("temporary-login@test.com", temporaryPassword)
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
 
-        signIn("temporary-login@test.com", "newPassword1!")
+        signin("temporary-login@test.com", "newPassword1!")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty());
     }
@@ -312,31 +313,27 @@ class AuthIntegrationTest {
 
     @Test
     @DisplayName("CSRF 토큰 없이 로그인을 요청하면 403을 반환한다")
-    void signIn_withoutCsrf() throws Exception {
+    void signin_withoutCsrf() throws Exception {
         mockMvc.perform(post("/api/auth/sign-in")
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                            {
-                              "email": "user@test.com",
-                              "password": "password1!"
-                            }
-                            """))
+                        .contentType(APPLICATION_FORM_URLENCODED)
+                        .param("username", "user@test.com")
+                        .param("password", "password1!"))
                 .andExpect(status().isForbidden());
     }
 
 
 
     @Test
-    @DisplayName("refresh token 쿠키가 유효하면 새 access token과 새 refresh token 쿠키를 발급한다")
+    @DisplayName("refresh token 쿠키가 유효하면 새 access token과 refresh token 쿠키를 발급한다")
     void refresh_success() throws Exception {
         signUp("Test User", "refresh@test.com", "password1!")
                 .andExpect(status().isCreated());
 
-        MvcResult signInResult = signIn("refresh@test.com", "password1!")
+        MvcResult signinResult = signin("refresh@test.com", "password1!")
                 .andExpect(status().isOk())
                 .andReturn();
 
-        Cookie refreshTokenCookie = signInResult.getResponse().getCookie("REFRESH_TOKEN");
+        Cookie refreshTokenCookie = signinResult.getResponse().getCookie("REFRESH_TOKEN");
         assertThat(refreshTokenCookie).isNotNull();
 
         String oldRefreshTokenHash = tokenService.hashRefreshToken(refreshTokenCookie.getValue());
@@ -387,11 +384,11 @@ class AuthIntegrationTest {
         signUp("Test User", "logout@test.com", "password1!")
                 .andExpect(status().isCreated());
 
-        MvcResult signInResult = signIn("logout@test.com", "password1!")
+        MvcResult signinResult = signin("logout@test.com", "password1!")
                 .andExpect(status().isOk())
                 .andReturn();
 
-        JsonNode jsonNode = objectMapper.readTree(signInResult.getResponse().getContentAsString());
+        JsonNode jsonNode = objectMapper.readTree(signinResult.getResponse().getContentAsString());
         String accessToken = jsonNode.get("accessToken").asText();
 
         JwtClaims claims = jwtProvider.parseAccessToken(accessToken);
@@ -422,16 +419,12 @@ class AuthIntegrationTest {
                         """.formatted(name, email, password)));
     }
 
-    private ResultActions signIn(String email, String password) throws Exception {
+    private ResultActions signin(String email, String password) throws Exception {
         return mockMvc.perform(post("/api/auth/sign-in")
                 .with(csrf())
-                .contentType(APPLICATION_JSON)
-                .content("""
-                        {
-                          "email": "%s",
-                          "password": "%s"
-                        }
-                        """.formatted(email, password)));
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param("username", email)
+                .param("password", password));
     }
 
 }

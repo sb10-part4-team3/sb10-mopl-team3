@@ -31,6 +31,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -81,7 +82,7 @@ class AdminUserIntegrationTest {
     @Test
     @DisplayName("관리자는 사용자 목록을 조회할 수 있다")
     void findUsers_admin_success() throws Exception {
-        String adminAccessToken = signInAdmin();
+        String adminAccessToken = signinAdmin();
 
         userRepository.save(new User(
                 "user1@test.com",
@@ -115,7 +116,7 @@ class AdminUserIntegrationTest {
     @Test
     @DisplayName("관리자 사용자 목록에는 탈퇴한 사용자가 포함되지 않는다")
     void findUsers_excludeWithdrawnUsers() throws Exception {
-        String adminAccessToken = signInAdmin();
+        String adminAccessToken = signinAdmin();
 
         userRepository.save(new User(
                 "visible-list@test.com",
@@ -168,7 +169,7 @@ class AdminUserIntegrationTest {
     @Test
     @DisplayName("관리자는 사용자 권한을 변경하고 해당 사용자의 세션을 무효화할 수 있다")
     void updateUserRole_admin_success() throws Exception {
-        String adminAccessToken = signInAdmin();
+        String adminAccessToken = signinAdmin();
 
         User targetUser = userRepository.save(new User(
                 "target-role@test.com",
@@ -178,7 +179,7 @@ class AdminUserIntegrationTest {
                 UserRole.USER
         ));
 
-        String targetAccessToken = signIn("target-role@test.com", "password1!");
+        String targetAccessToken = signin("target-role@test.com", "password1!");
         UUID targetSessionId = jwtProvider.parseAccessToken(targetAccessToken).sessionId();
 
         mockMvc.perform(patch("/api/users/{userId}/role", targetUser.getId())
@@ -239,7 +240,7 @@ class AdminUserIntegrationTest {
     @Test
     @DisplayName("관리자는 탈퇴한 사용자의 권한을 변경할 수 없다")
     void updateUserRole_withdrawnUser() throws Exception {
-        String adminAccessToken = signInAdmin();
+        String adminAccessToken = signinAdmin();
 
         User targetUser = new User(
                 "withdrawn-role@test.com",
@@ -267,7 +268,7 @@ class AdminUserIntegrationTest {
     @Test
     @DisplayName("관리자는 사용자 계정을 잠그고 해당 사용자의 세션을 무효화할 수 있다")
     void updateUserLocked_admin_success() throws Exception {
-        String adminAccessToken = signInAdmin();
+        String adminAccessToken = signinAdmin();
 
         User targetUser = userRepository.save(new User(
                 "target-lock@test.com",
@@ -277,7 +278,7 @@ class AdminUserIntegrationTest {
                 UserRole.USER
         ));
 
-        String targetAccessToken = signIn("target-lock@test.com", "password1!");
+        String targetAccessToken = signin("target-lock@test.com", "password1!");
         UUID targetSessionId = jwtProvider.parseAccessToken(targetAccessToken).sessionId();
 
         mockMvc.perform(patch("/api/users/{userId}/locked", targetUser.getId())
@@ -304,7 +305,7 @@ class AdminUserIntegrationTest {
     @Test
     @DisplayName("관리자는 사용자 계정 잠금을 해제할 수 있다")
     void updateUserUnlocked_admin_success() throws Exception {
-        String adminAccessToken = signInAdmin();
+        String adminAccessToken = signinAdmin();
 
         User targetUser = userRepository.save(new User(
                 "target-unlock@test.com",
@@ -370,7 +371,7 @@ class AdminUserIntegrationTest {
     @Test
     @DisplayName("관리자는 탈퇴한 사용자의 잠금 상태를 변경할 수 없다")
     void updateUserLocked_withdrawnUser() throws Exception {
-        String adminAccessToken = signInAdmin();
+        String adminAccessToken = signinAdmin();
 
         User targetUser = new User(
                 "withdrawn-lock@test.com",
@@ -409,23 +410,19 @@ class AdminUserIntegrationTest {
                 role
         ));
 
-        return signIn(email, password);
+        return signin(email, password);
     }
 
-    private String signInAdmin() throws Exception {
-        return signIn("admin@test.com", "adminPassword1!");
+    private String signinAdmin() throws Exception {
+        return signin("admin@test.com", "adminPassword1!");
     }
 
-    private String signIn(String email, String password) throws Exception {
+    private String signin(String email, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/sign-in")
                         .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "email": "%s",
-                                  "password": "%s"
-                                }
-                                """.formatted(email, password)))
+                        .contentType(APPLICATION_FORM_URLENCODED)
+                        .param("username", email)
+                        .param("password", password))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andReturn();
