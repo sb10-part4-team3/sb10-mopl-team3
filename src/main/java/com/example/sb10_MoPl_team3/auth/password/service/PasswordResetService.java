@@ -82,8 +82,7 @@ public class PasswordResetService {
 
         for (PasswordResetToken token : tokens) {
             if (passwordEncoder.matches(rawPassword, token.getTemporaryPassword())) {
-                int updatedCount = passwordResetTokenRepository.markUsedIfUsable(token.getId(), now);
-                return updatedCount == 1;
+                return true;
             }
         }
 

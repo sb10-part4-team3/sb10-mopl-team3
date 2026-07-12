@@ -47,7 +47,7 @@ public class MailTemporaryPasswordNotifier implements TemporaryPasswordNotifier 
                 임시 비밀번호: %s
 
                 임시 비밀번호는 발급 후 3분 동안만 사용할 수 있습니다.
-                임시 비밀번호는 1회 로그인에만 사용할 수 있습니다.
+                비밀번호를 재설정하면 임시 비밀번호는 더 이상 사용할 수 없습니다.
                 로그인 후 새 비밀번호로 변경해 주세요.
 
                 감사합니다.

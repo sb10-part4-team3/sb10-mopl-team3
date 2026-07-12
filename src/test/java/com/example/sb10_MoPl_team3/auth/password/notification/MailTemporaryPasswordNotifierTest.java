@@ -46,7 +46,8 @@ class MailTemporaryPasswordNotifierTest {
         assertThat(message.getTo()).containsExactly("user@test.com");
         assertThat(message.getSubject()).isEqualTo("[모두의 플리] 임시 비밀번호 안내");
         assertThat(message.getText())
-                .contains("tempPassword1!");
+                .contains("tempPassword1!")
+                .contains("비밀번호를 재설정하면 임시 비밀번호는 더 이상 사용할 수 없습니다.");
     }
 
     @Test

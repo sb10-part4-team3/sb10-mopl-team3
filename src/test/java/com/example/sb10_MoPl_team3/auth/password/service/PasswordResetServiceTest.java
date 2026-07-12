@@ -226,7 +226,6 @@ class PasswordResetServiceTest {
     @DisplayName("유효한 임시 비밀번호가 일치하면 true를 반환한다")
     void matchesTemporaryPassword_success() {
         UUID userId = UUID.randomUUID();
-        UUID tokenId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-28T00:00:00Z");
 
         User user = new User(
@@ -245,23 +244,16 @@ class PasswordResetServiceTest {
                 now.minus(Duration.ofMinutes(1))
         );
 
-        ReflectionTestUtils.setField(token, "id", tokenId);
-
         given(clock.instant()).willReturn(now);
         given(passwordResetTokenRepository.findAllByUser_IdAndUsedFalseAndExpiresAtAfter(userId, now))
                 .willReturn(List.of(token));
         given(passwordEncoder.matches("temporary-password", "encoded-temporary-password"))
                 .willReturn(true);
 
-        given(passwordResetTokenRepository.markUsedIfUsable(tokenId, now))
-                .willReturn(1);
-
         boolean result = passwordResetService.matchesTemporaryPassword(user, "temporary-password");
 
         assertThat(result).isTrue();
 
-        then(passwordResetTokenRepository).should()
-                .markUsedIfUsable(tokenId, now);
         then(passwordResetTokenRepository).should(never()).save(any());
     }
 
@@ -324,50 +316,6 @@ class PasswordResetServiceTest {
         assertThat(result).isFalse();
         assertThat(token.isUsed()).isFalse();
         assertThat(token.getUsedAt()).isNull();
-        then(passwordResetTokenRepository).should(never())
-                .markUsedIfUsable(any(), any());
-
-        then(passwordResetTokenRepository).should(never()).save(any());
-    }
-
-    @Test
-    @DisplayName("임시 비밀번호가 일치해도 이미 다른 요청에서 사용 처리되었으면 실패한다")
-    void matchesTemporaryPassword_alreadyConsumedConcurrently() {
-        UUID userId = UUID.randomUUID();
-        UUID tokenId = UUID.randomUUID();
-        Instant now = Instant.parse("2026-06-28T00:00:00Z");
-
-        User user = new User(
-                "user@test.com",
-                "User",
-                "encoded-password",
-                null,
-                UserRole.USER
-        );
-        ReflectionTestUtils.setField(user, "id", userId);
-
-        PasswordResetToken token = PasswordResetToken.create(
-                user,
-                "encoded-temporary-password",
-                now.plus(Duration.ofMinutes(3)),
-                now.minus(Duration.ofMinutes(1))
-        );
-        ReflectionTestUtils.setField(token, "id", tokenId);
-
-        given(clock.instant()).willReturn(now);
-        given(passwordResetTokenRepository.findAllByUser_IdAndUsedFalseAndExpiresAtAfter(userId, now))
-                .willReturn(List.of(token));
-        given(passwordEncoder.matches("temporary-password", "encoded-temporary-password"))
-                .willReturn(true);
-        given(passwordResetTokenRepository.markUsedIfUsable(tokenId, now))
-                .willReturn(0);
-
-        boolean result = passwordResetService.matchesTemporaryPassword(user, "temporary-password");
-
-        assertThat(result).isFalse();
-
-        then(passwordResetTokenRepository).should()
-                .markUsedIfUsable(tokenId, now);
         then(passwordResetTokenRepository).should(never()).save(any());
     }
 

@@ -2,9 +2,6 @@ package com.example.sb10_MoPl_team3.auth.password.repository;
 
 import com.example.sb10_MoPl_team3.auth.password.entity.PasswordResetToken;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
@@ -15,18 +12,4 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     List<PasswordResetToken> findAllByUser_IdAndUsedFalse(UUID userId);
 
     List<PasswordResetToken> findAllByUser_IdAndUsedFalseAndExpiresAtAfter(UUID userId, Instant now);
-
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("""
-        update PasswordResetToken token
-           set token.used = true,
-               token.usedAt = :now
-         where token.id = :tokenId
-           and token.used = false
-           and token.expiresAt > :now
-        """)
-    int markUsedIfUsable(
-            @Param("tokenId") UUID tokenId,
-            @Param("now") Instant now
-    );
 }
