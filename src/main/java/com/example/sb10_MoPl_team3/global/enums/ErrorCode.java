@@ -23,6 +23,7 @@ public enum ErrorCode {
     SELF_ROLE_CHANGE_NOT_ALLOWED(HttpStatus.FORBIDDEN, "자기 자신의 권한은 변경할 수 없습니다."),
     SYSTEM_ADMIN_ROLE_CHANGE_NOT_ALLOWED(HttpStatus.FORBIDDEN, "시스템 관리자 계정의 권한은 변경할 수 없습니다."),
     SYSTEM_ADMIN_LOCK_NOT_ALLOWED(HttpStatus.FORBIDDEN, "시스템 관리자 계정은 잠글 수 없습니다."),
+    SYSTEM_ADMIN_WITHDRAW_NOT_ALLOWED(HttpStatus.FORBIDDEN, "시스템 관리자 계정은 탈퇴할 수 없습니다."),
 
     // 알림
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림을 찾을 수 없습니다."),
