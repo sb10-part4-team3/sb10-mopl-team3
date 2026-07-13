@@ -62,10 +62,9 @@ class SportsDbNextEventsSyncJobTest {
   }
 
   @Test
-  void sportsDbNextEventsSyncJob_API_실패해도_예외를_삼키고_COMPLETED로_종료된다() throws Exception {
-    // given: SportsDbContentSyncService.syncByLeague()가 리그별 예외를 전부 catch(Exception)해서
-    // 로그만 남기고 삼키므로, Step/Job까지 실패가 전파되지 않는다. 재시도 정책도 없어서
-    // getNextEventsByLeague는 딱 한 번만 호출되고 그대로 끝난다.
+  void sportsDbNextEventsSyncJob_API_실패해도_리그별_재시도_후_COMPLETED로_종료된다() throws Exception {
+    // given: SportsDbContentSyncService.syncByLeague()가 리그별로 최대 3회 재시도한 뒤에도
+    // 실패하면 예외를 삼키고 다음 리그로 넘어가므로, Step/Job까지 실패가 전파되지 않는다.
     given(sportsDbProperties.getTargetLeagueIds()).willReturn(List.of(LEAGUE_ID));
     given(sportsDbApiClient.getNextEventsByLeague(LEAGUE_ID))
         .willThrow(new SportsDbApiException("영구 오류"));
@@ -79,7 +78,7 @@ class SportsDbNextEventsSyncJobTest {
 
     // then
     assertThat(execution.getStatus().toString()).isEqualTo("COMPLETED");
-    then(sportsDbApiClient).should(org.mockito.Mockito.times(1)).getNextEventsByLeague(LEAGUE_ID);
+    then(sportsDbApiClient).should(org.mockito.Mockito.times(3)).getNextEventsByLeague(LEAGUE_ID);
   }
 
   private SportsDbEventsResponse sampleEventsResponse() {
