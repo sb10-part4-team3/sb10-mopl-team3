@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 @Component
 @RequiredArgsConstructor
@@ -21,72 +22,88 @@ public class TmdbApiClient {
 
   public TmdbMoviePopularResponse getPopularMovies(int page) {
     validateAccessToken();
-    return tmdbRestClient.get()
-        .uri(uriBuilder -> uriBuilder
-            .path("/movie/popular")
-            .queryParam("language", "ko-KR")
-            .queryParam("page", page)
-            .build())
-        .retrieve()
-        .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-          throw new TmdbApiException("TMDB 요청 실패: " + res.getStatusCode());
-        })
-        .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
-          throw new TmdbApiException("TMDB 서버 오류: " + res.getStatusCode());
-        })
-        .body(TmdbMoviePopularResponse.class);
+    try {
+      return tmdbRestClient.get()
+          .uri(uriBuilder -> uriBuilder
+              .path("/movie/popular")
+              .queryParam("language", "ko-KR")
+              .queryParam("page", page)
+              .build())
+          .retrieve()
+          .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+            throw new TmdbApiException("TMDB 요청 실패: " + res.getStatusCode());
+          })
+          .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+            throw new TmdbApiException("TMDB 서버 오류: " + res.getStatusCode());
+          })
+          .body(TmdbMoviePopularResponse.class);
+    } catch (RestClientException e) {
+      throw new TmdbApiException("TMDB 인기 영화 조회 실패: " + e.getMessage(), e);
+    }
   }
 
   public TmdbTvPopularResponse getPopularTvs(int page) {
     validateAccessToken();
-    return tmdbRestClient.get()
-        .uri(uriBuilder -> uriBuilder
-            .path("/tv/popular")
-            .queryParam("language", "ko-KR")
-            .queryParam("page", page)
-            .build())
-        .retrieve()
-        .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-          throw new TmdbApiException("TMDB 요청 실패: " + res.getStatusCode());
-        })
-        .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
-          throw new TmdbApiException("TMDB 서버 오류: " + res.getStatusCode());
-        })
-        .body(TmdbTvPopularResponse.class);
+    try {
+      return tmdbRestClient.get()
+          .uri(uriBuilder -> uriBuilder
+              .path("/tv/popular")
+              .queryParam("language", "ko-KR")
+              .queryParam("page", page)
+              .build())
+          .retrieve()
+          .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+            throw new TmdbApiException("TMDB 요청 실패: " + res.getStatusCode());
+          })
+          .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+            throw new TmdbApiException("TMDB 서버 오류: " + res.getStatusCode());
+          })
+          .body(TmdbTvPopularResponse.class);
+    } catch (RestClientException e) {
+      throw new TmdbApiException("TMDB 인기 TV 조회 실패: " + e.getMessage(), e);
+    }
   }
 
   public TmdbGenreListResponse getMovieGenres() {
     validateAccessToken();
-    return tmdbRestClient.get()
-        .uri(uriBuilder -> uriBuilder
-            .path("/genre/movie/list")
-            .queryParam("language", "ko-KR")
-            .build())
-        .retrieve()
-        .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-          throw new TmdbApiException("TMDB 요청 실패: " + res.getStatusCode());
-        })
-        .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
-          throw new TmdbApiException("TMDB 서버 오류: " + res.getStatusCode());
-        })
-        .body(TmdbGenreListResponse.class);
+    try {
+      return tmdbRestClient.get()
+          .uri(uriBuilder -> uriBuilder
+              .path("/genre/movie/list")
+              .queryParam("language", "ko-KR")
+              .build())
+          .retrieve()
+          .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+            throw new TmdbApiException("TMDB 요청 실패: " + res.getStatusCode());
+          })
+          .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+            throw new TmdbApiException("TMDB 서버 오류: " + res.getStatusCode());
+          })
+          .body(TmdbGenreListResponse.class);
+    } catch (RestClientException e) {
+      throw new TmdbApiException("TMDB 영화 장르 조회 실패: " + e.getMessage(), e);
+    }
   }
 
   public TmdbGenreListResponse getTvGenres() {
     validateAccessToken();
-    return tmdbRestClient.get()
-        .uri(uriBuilder -> uriBuilder
-            .path("/genre/tv/list")
-            .queryParam("language", "ko-KR")
-            .build())
-        .retrieve()
-        .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-          throw new TmdbApiException("TMDB 요청 실패: " + res.getStatusCode());
-        })
-        .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
-          throw new TmdbApiException("TMDB 서버 오류: " + res.getStatusCode());
-        })
-        .body(TmdbGenreListResponse.class);
+    try {
+      return tmdbRestClient.get()
+          .uri(uriBuilder -> uriBuilder
+              .path("/genre/tv/list")
+              .queryParam("language", "ko-KR")
+              .build())
+          .retrieve()
+          .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+            throw new TmdbApiException("TMDB 요청 실패: " + res.getStatusCode());
+          })
+          .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+            throw new TmdbApiException("TMDB 서버 오류: " + res.getStatusCode());
+          })
+          .body(TmdbGenreListResponse.class);
+    } catch (RestClientException e) {
+      throw new TmdbApiException("TMDB TV 장르 조회 실패: " + e.getMessage(), e);
+    }
   }
 
   private void validateAccessToken() {
