@@ -1,7 +1,10 @@
 package com.example.sb10_MoPl_team3.user.service;
 
 import com.example.sb10_MoPl_team3.auth.password.service.PasswordResetService;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.exception.DuplicatedEmailException;
+import com.example.sb10_MoPl_team3.user.config.AdminAccountProperties;
 import com.example.sb10_MoPl_team3.user.dto.request.UserCreateRequest;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
@@ -75,6 +78,9 @@ class UserServiceTest {
 
     @Mock
     private PasswordResetService passwordResetService;
+
+    @Mock
+    private AdminAccountProperties adminAccountProperties;
 
     @InjectMocks
     private UserService userService;
@@ -438,6 +444,37 @@ class UserServiceTest {
         assertThat(session1.getRevokedAt()).isEqualTo(now);
         assertThat(session2.isRevoked()).isTrue();
         assertThat(session2.getRevokedAt()).isEqualTo(now);
+    }
+
+    @Test
+    @DisplayName("시스템 관리자 계정은 탈퇴할 수 없다")
+    void withdrawUser_systemAdminForbidden() {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        User admin = new User(
+                "admin@mopl.com",
+                "Admin",
+                "encoded-password",
+                null,
+                UserRole.ADMIN
+        );
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(admin));
+        given(adminAccountProperties.email()).willReturn("admin@mopl.com");
+
+        // when & then
+        assertThatThrownBy(() -> userService.withdrawUser(userId))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode())
+                                .isEqualTo(ErrorCode.SYSTEM_ADMIN_WITHDRAW_NOT_ALLOWED));
+
+        then(userAuthorizationService).should().validateSelf(userId);
+        then(userRepository).should().findById(userId);
+        then(authSessionRepository).shouldHaveNoInteractions();
+        then(eventPublisher).shouldHaveNoInteractions();
+
+        assertThat(admin.getStatus()).isEqualTo(UserStatus.ACTIVE);
     }
 
     @Test

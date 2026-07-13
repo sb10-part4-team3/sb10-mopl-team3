@@ -3,6 +3,7 @@ package com.example.sb10_MoPl_team3.user.bootstrap;
 import com.example.sb10_MoPl_team3.user.config.AdminAccountProperties;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
@@ -22,10 +23,14 @@ public class AdminAccountInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (userRepository.existsByRole(UserRole.ADMIN)) {
-            return;
-        }
+        userRepository.findByEmail(adminAccountProperties.email())
+                .ifPresentOrElse(
+                        this::restoreSystemAdmin,
+                        this::createSystemAdmin
+                );
+    }
 
+    private void createSystemAdmin() {
         User admin = new User(
                 adminAccountProperties.email(),
                 adminAccountProperties.name(),
@@ -35,5 +40,15 @@ public class AdminAccountInitializer implements ApplicationRunner {
         );
 
         userRepository.save(admin);
+    }
+
+    private void restoreSystemAdmin(User admin) {
+        if (admin.getRole() != UserRole.ADMIN) {
+            admin.changeRole(UserRole.ADMIN);
+        }
+
+        if (admin.getStatus() != UserStatus.ACTIVE) {
+            admin.changeStatus(UserStatus.ACTIVE);
+        }
     }
 }

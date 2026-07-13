@@ -4,8 +4,11 @@ import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
 import com.example.sb10_MoPl_team3.auth.password.service.PasswordResetService;
 import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 import com.example.sb10_MoPl_team3.auth.service.AuthSessionLockManager;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.file.FileStorageService;
 import com.example.sb10_MoPl_team3.global.security.UserAuthorizationService;
+import com.example.sb10_MoPl_team3.user.config.AdminAccountProperties;
 import com.example.sb10_MoPl_team3.user.dto.request.UserCreateRequest;
 import com.example.sb10_MoPl_team3.user.dto.request.UserUpdateRequest;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
@@ -48,6 +51,7 @@ public class UserService {
     private final Clock clock;
     private final ApplicationEventPublisher eventPublisher;
     private final PasswordResetService passwordResetService;
+    private final AdminAccountProperties adminAccountProperties;
 
     @Transactional
     public UserDto createUser(UserCreateRequest request) {
@@ -132,10 +136,18 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
+        if (isSystemAdmin(user)) {
+            throw new BusinessException(ErrorCode.SYSTEM_ADMIN_WITHDRAW_NOT_ALLOWED);
+        }
+
         user.changeStatus(UserStatus.WITHDRAWN);
 
         revokeUserSessions(userId);
         eventPublisher.publishEvent(new UserWithdrawnEvent(userId));
+    }
+
+    private boolean isSystemAdmin(User user) {
+        return user.getEmail().equalsIgnoreCase(adminAccountProperties.email());
     }
 
     private void registerProfileImageCleanup(
