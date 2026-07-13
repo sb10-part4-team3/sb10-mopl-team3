@@ -1,6 +1,7 @@
 package com.example.sb10_MoPl_team3.auth.password.notification;
 
 import com.example.sb10_MoPl_team3.auth.password.config.PasswordResetMailProperties;
+import com.example.sb10_MoPl_team3.auth.password.config.PasswordResetMailProperties.Mode;
 import com.example.sb10_MoPl_team3.auth.password.exception.TemporaryPasswordSendFailedException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,7 +29,7 @@ class MailTemporaryPasswordNotifierTest {
     @DisplayName("임시 비밀번호 안내 메일을 발송한다")
     void send_success() {
         PasswordResetMailProperties properties =
-                new PasswordResetMailProperties("no-reply@mopl.test");
+                new PasswordResetMailProperties(Mode.SMTP, "no-reply@mopl.test");
         MailTemporaryPasswordNotifier notifier =
                 new MailTemporaryPasswordNotifier(mailSender, properties);
 
@@ -52,7 +53,7 @@ class MailTemporaryPasswordNotifierTest {
     @DisplayName("메일 발송에 실패하면 임시 비밀번호 발송 실패 예외가 발생한다")
     void send_failure() {
         PasswordResetMailProperties properties =
-                new PasswordResetMailProperties("no-reply@mopl.test");
+                new PasswordResetMailProperties(Mode.SMTP, "no-reply@mopl.test");
         MailTemporaryPasswordNotifier notifier =
                 new MailTemporaryPasswordNotifier(mailSender, properties);
 

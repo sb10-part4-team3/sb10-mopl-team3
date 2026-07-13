@@ -33,6 +33,7 @@ import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -113,6 +114,34 @@ class UserIntegrationTest {
     }
 
     @Test
+    @DisplayName("탈퇴한 사용자는 상세 조회할 수 없다")
+    void findUser_withdrawn() throws Exception {
+        // given
+        User targetUser = new User(
+                "withdrawn-detail@test.com",
+                "Withdrawn User",
+                passwordEncoder.encode("password1!"),
+                null,
+                UserRole.USER
+        );
+        targetUser.changeStatus(UserStatus.WITHDRAWN);
+        userRepository.saveAndFlush(targetUser);
+
+        String accessToken = createUserAndSignIn(
+                "viewer-withdrawn-detail@test.com",
+                "Viewer",
+                "password1!",
+                UserRole.USER
+        );
+
+        // when & then
+        mockMvc.perform(get("/api/users/{userId}", targetUser.getId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
+    }
+
+    @Test
     @DisplayName("인증되지 않은 사용자는 사용자 상세 정보를 조회할 수 없다")
     void findUser_unauthenticated() throws Exception {
         // given
@@ -175,7 +204,7 @@ class UserIntegrationTest {
     }
 
     @Test
-    @DisplayName("다른 사용자의 프로필을 수정할 수 없다")
+    @DisplayName("다른 사용자의 프로필은 수정할 수 없다")
     void updateUser_forbidden() throws Exception {
         // given
         User targetUser = userRepository.save(new User(
@@ -287,25 +316,17 @@ class UserIntegrationTest {
         // then
         mockMvc.perform(post("/api/auth/sign-in")
                         .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                            {
-                              "email": "%s",
-                              "password": "%s"
-                            }
-                            """.formatted(email, currentPassword)))
+                        .contentType(APPLICATION_FORM_URLENCODED)
+                        .param("username", email)
+                        .param("password", currentPassword))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
 
         mockMvc.perform(post("/api/auth/sign-in")
                         .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                            {
-                              "email": "%s",
-                              "password": "%s"
-                            }
-                            """.formatted(email, newPassword)))
+                        .contentType(APPLICATION_FORM_URLENCODED)
+                        .param("username", email)
+                        .param("password", newPassword))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty());
     }
@@ -419,13 +440,9 @@ class UserIntegrationTest {
         // when & then
         mockMvc.perform(post("/api/auth/sign-in")
                         .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                            {
-                              "email": "%s",
-                              "password": "%s"
-                            }
-                            """.formatted(email, password)))
+                        .contentType(APPLICATION_FORM_URLENCODED)
+                        .param("username", email)
+                        .param("password", password))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
     }
@@ -505,19 +522,15 @@ class UserIntegrationTest {
                 role
         ));
 
-        return signIn(email, password);
+        return signin(email, password);
     }
 
-    private String signIn(String email, String password) throws Exception {
+    private String signin(String email, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/sign-in")
                         .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "email": "%s",
-                                  "password": "%s"
-                                }
-                                """.formatted(email, password)))
+                        .contentType(APPLICATION_FORM_URLENCODED)
+                        .param("username", email)
+                        .param("password", password))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andReturn();

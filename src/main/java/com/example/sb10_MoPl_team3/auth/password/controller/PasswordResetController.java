@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/auth/password-reset")
+@RequestMapping("/api/auth/reset-password")
 @RequiredArgsConstructor
 public class PasswordResetController {
 

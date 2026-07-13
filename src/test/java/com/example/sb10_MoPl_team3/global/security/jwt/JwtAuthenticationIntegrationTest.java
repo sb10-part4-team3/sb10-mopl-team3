@@ -32,7 +32,7 @@ import java.util.UUID;
 
 import static org.mockito.BDDMockito.given;
 import static org.hamcrest.Matchers.containsString;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -192,13 +192,9 @@ class JwtAuthenticationIntegrationTest {
     private String signInAndExtractAccessToken(String email, String password) throws Exception {
         String responseBody = mockMvc.perform(post("/api/auth/sign-in")
                         .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "email": "%s",
-                                  "password": "%s"
-                                }
-                                """.formatted(email, password)))
+                        .contentType(APPLICATION_FORM_URLENCODED)
+                        .param("username", email)
+                        .param("password", password))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.refreshToken").doesNotExist())

@@ -44,7 +44,7 @@ class PasswordResetControllerTest {
     @Test
     @DisplayName("이메일이 유효하면 임시 비밀번호 발급 요청에 성공한다")
     void issue_success() throws Exception {
-        mockMvc.perform(post("/api/auth/password-reset")
+        mockMvc.perform(post("/api/auth/reset-password")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -66,7 +66,7 @@ class PasswordResetControllerTest {
     @Test
     @DisplayName("이메일이 비어 있으면 임시 비밀번호 발급 요청에 실패한다")
     void issue_blankEmail() throws Exception {
-        mockMvc.perform(post("/api/auth/password-reset")
+        mockMvc.perform(post("/api/auth/reset-password")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -83,7 +83,7 @@ class PasswordResetControllerTest {
     @Test
     @DisplayName("이메일 형식이 아니면 임시 비밀번호 발급 요청에 실패한다")
     void issue_invalidEmail() throws Exception {
-        mockMvc.perform(post("/api/auth/password-reset")
+        mockMvc.perform(post("/api/auth/reset-password")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -100,7 +100,7 @@ class PasswordResetControllerTest {
     @Test
     @DisplayName("CSRF 토큰이 없으면 임시 비밀번호 발급 요청에 실패한다")
     void issue_withoutCsrf() throws Exception {
-        mockMvc.perform(post("/api/auth/password-reset")
+        mockMvc.perform(post("/api/auth/reset-password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

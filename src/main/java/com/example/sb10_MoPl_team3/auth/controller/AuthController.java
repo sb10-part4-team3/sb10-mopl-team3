@@ -7,7 +7,6 @@ import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
 import com.example.sb10_MoPl_team3.auth.service.AuthService;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,15 +32,8 @@ public class AuthController {
     @Value("${auth.refresh-token-cookie.secure:true}")
     private boolean refreshTokenCookieSecure;
 
-    @PostMapping(value = "/sign-in", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<JwtDto> signIn(
-            @Valid @RequestBody SignInRequest request
-    ) {
-        return issueToken(request);
-    }
-
     @PostMapping(value = "/sign-in", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public ResponseEntity<JwtDto> signInForm(
+    public ResponseEntity<JwtDto> signin(
             @NotBlank @RequestParam("username") String username,
             @NotBlank @RequestParam("password") String password
     ) {
@@ -64,10 +56,10 @@ public class AuthController {
     }
 
     @PostMapping("/sign-out")
-    public ResponseEntity<Void> signOut(
+    public ResponseEntity<Void> signout(
             @AuthenticationPrincipal AuthUser authUser
     ) {
-        authService.signOut(authUser);
+        authService.signout(authUser);
 
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, expireRefreshTokenCookie().toString())
@@ -75,7 +67,7 @@ public class AuthController {
     }
 
     private ResponseEntity<JwtDto> issueToken(SignInRequest request) {
-        AuthTokenResult result = authService.signIn(request);
+        AuthTokenResult result = authService.signin(request);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .header(HttpHeaders.SET_COOKIE, createRefreshTokenCookie(result.refreshToken()).toString())

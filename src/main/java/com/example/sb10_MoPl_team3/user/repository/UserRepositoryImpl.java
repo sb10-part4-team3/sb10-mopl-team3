@@ -75,6 +75,8 @@ public class UserRepositoryImpl implements UserRepositoryCustom {
     ) {
         List<Predicate> predicates = new ArrayList<>();
 
+        predicates.add(cb.notEqual(root.get("status"), UserStatus.WITHDRAWN));
+
         if (condition.keyword() != null && !condition.keyword().isBlank()) {
             String keyword = "%" + condition.keyword().toLowerCase(Locale.ROOT) + "%";
 

@@ -98,7 +98,7 @@ class AuthServiceTest {
         given(tokenService.issueAccessToken(any(User.class), any(UUID.class))).willReturn("access-token");
         given(authSessionRepository.findAllByUserId(userId)).willReturn(List.of());
 
-        AuthTokenResult response = authService.signIn(request);
+        AuthTokenResult response = authService.signin(request);
 
         assertThat(response.jwtDto().accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
@@ -166,7 +166,7 @@ class AuthServiceTest {
         given(tokenService.issueAccessToken(any(User.class), any(UUID.class))).willReturn("new-access-token");
 
         // when
-        AuthTokenResult response = authService.signIn(request);
+        AuthTokenResult response = authService.signin(request);
 
         // then
         assertThat(response.jwtDto().accessToken()).isEqualTo("new-access-token");
@@ -201,7 +201,7 @@ class AuthServiceTest {
 
         given(userRepository.findByEmail(request.email())).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.signIn(request))
+        assertThatThrownBy(() -> authService.signin(request))
                 .isInstanceOf(InvalidCredentialException.class);
 
         then(passwordEncoder).should(never()).matches(any(), any());
@@ -221,7 +221,7 @@ class AuthServiceTest {
         given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(false);
         given(passwordResetService.matchesTemporaryPassword(user, request.password())).willReturn(false);
 
-        assertThatThrownBy(() -> authService.signIn(request))
+        assertThatThrownBy(() -> authService.signin(request))
                 .isInstanceOf(InvalidCredentialException.class);
 
         then(passwordResetService).should().matchesTemporaryPassword(user, request.password());
@@ -250,7 +250,7 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken("refresh-token")).willReturn("refresh-token-hash");
         given(tokenService.issueAccessToken(any(User.class), any(UUID.class))).willReturn("access-token");
 
-        AuthTokenResult response = authService.signIn(request);
+        AuthTokenResult response = authService.signin(request);
 
         assertThat(response.jwtDto().accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
@@ -283,7 +283,7 @@ class AuthServiceTest {
 
         given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> authService.signIn(request))
+        assertThatThrownBy(() -> authService.signin(request))
                 .isInstanceOf(InvalidCredentialException.class);
 
         then(passwordEncoder).should(never()).matches(any(), any());
@@ -302,7 +302,7 @@ class AuthServiceTest {
 
         given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> authService.signIn(request))
+        assertThatThrownBy(() -> authService.signin(request))
                 .isInstanceOf(InvalidCredentialException.class);
 
         then(passwordEncoder).should(never()).matches(any(), any());
@@ -623,7 +623,7 @@ class AuthServiceTest {
         given(authSessionRepository.findById(sessionId)).willReturn(Optional.of(authSession));
         givenAuthSessionLockExecutesSupplier();
 
-        authService.signOut(authUser);
+        authService.signout(authUser);
 
         assertThat(authSession.isRevoked()).isTrue();
         assertThat(authSession.getRevokedAt()).isEqualTo(now);
@@ -642,7 +642,7 @@ class AuthServiceTest {
         given(authSessionRepository.findById(sessionId)).willReturn(Optional.empty());
         givenAuthSessionLockExecutesSupplier();
 
-        authService.signOut(authUser);
+        authService.signout(authUser);
 
         then(authSessionRepository).should().findById(sessionId);
         then(authSessionRepository).should(never()).save(any());
@@ -666,7 +666,7 @@ class AuthServiceTest {
         given(authSessionRepository.findById(sessionId)).willReturn(Optional.of(authSession));
         givenAuthSessionLockExecutesSupplier();
 
-        assertThatThrownBy(() -> authService.signOut(authUser))
+        assertThatThrownBy(() -> authService.signout(authUser))
                 .isInstanceOf(InvalidCredentialException.class);
 
         then(authSessionRepository).should().findById(sessionId);

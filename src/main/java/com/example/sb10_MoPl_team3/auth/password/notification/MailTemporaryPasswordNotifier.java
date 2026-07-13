@@ -3,14 +3,18 @@ package com.example.sb10_MoPl_team3.auth.password.notification;
 import com.example.sb10_MoPl_team3.auth.password.config.PasswordResetMailProperties;
 import com.example.sb10_MoPl_team3.auth.password.exception.TemporaryPasswordSendFailedException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("!dev & !test")
+@ConditionalOnProperty(
+        prefix = "auth.password-reset-mail",
+        name = "mode",
+        havingValue = "smtp"
+)
 @RequiredArgsConstructor
 public class MailTemporaryPasswordNotifier implements TemporaryPasswordNotifier {
 

@@ -181,6 +181,33 @@ class UserRepositoryImplTest {
     }
 
     @Test
+    @DisplayName("탈퇴한 사용자는 사용자 목록과 전체 개수에서 제외된다")
+    void searchUsers_excludeWithdrawnUsers() {
+        // given
+        User activeUser = saveUser("active@test.com", "Active User", UserRole.USER, UserStatus.ACTIVE);
+        saveUser("withdrawn@test.com", "Withdrawn User", UserRole.USER, UserStatus.WITHDRAWN);
+
+        UserSearchCondition condition = new UserSearchCondition(
+                null,
+                null,
+                null,
+                null,
+                null,
+                20,
+                "ASCENDING",
+                "email"
+        );
+
+        // when
+        List<User> result = userRepository.searchUsers(condition, 21);
+        long totalCount = userRepository.countUsers(condition);
+
+        // then
+        assertThat(result).containsExactly(activeUser);
+        assertThat(totalCount).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("커서와 보조 커서 중 하나만 있으면 예외가 발생한다")
     void searchUsers_invalidCursor() {
         // given

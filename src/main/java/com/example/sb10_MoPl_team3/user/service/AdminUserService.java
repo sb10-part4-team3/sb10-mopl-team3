@@ -88,6 +88,7 @@ public class AdminUserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        validateWithdrawnUserNotTarget(user);
         validateRoleChangeAllowed(requesterId, user);
 
         user.changeRole(request.role());
@@ -108,6 +109,7 @@ public class AdminUserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        validateWithdrawnUserNotTarget(user);
         validateLockChangeAllowed(requesterId, user, request.locked());
 
         UserStatus status = request.locked()
@@ -121,6 +123,12 @@ public class AdminUserService {
         }
 
         return UserMapper.toDto(user);
+    }
+
+    private void validateWithdrawnUserNotTarget(User targetUser) {
+        if (targetUser.getStatus() == UserStatus.WITHDRAWN) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
     }
 
     private void validateRoleChangeAllowed(UUID requesterId, User targetUser) {

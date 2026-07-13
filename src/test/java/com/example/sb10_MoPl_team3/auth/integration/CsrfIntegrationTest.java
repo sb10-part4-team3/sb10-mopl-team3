@@ -10,7 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -42,13 +42,9 @@ class CsrfIntegrationTest {
     @DisplayName("CSRF 토큰 없이 상태 변경 요청을 보내면 403을 반환한다")
     void postWithoutCsrf_forbidden() throws Exception {
         mockMvc.perform(post("/api/auth/sign-in")
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "email": "user@test.com",
-                                  "password": "password1!"
-                                }
-                                """))
+                        .contentType(APPLICATION_FORM_URLENCODED)
+                        .param("username", "user@test.com")
+                        .param("password", "password1!"))
                 .andExpect(status().isForbidden());
     }
 }
