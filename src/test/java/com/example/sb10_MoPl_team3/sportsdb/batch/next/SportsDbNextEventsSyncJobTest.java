@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
+import com.example.sb10_MoPl_team3.global.exception.SportsDbApiException;
 import com.example.sb10_MoPl_team3.sportsdb.client.SportsDbApiClient;
 import com.example.sb10_MoPl_team3.sportsdb.config.SportsDbProperties;
 import com.example.sb10_MoPl_team3.sportsdb.dto.SportsDbEventsResponse;
@@ -58,6 +59,26 @@ class SportsDbNextEventsSyncJobTest {
     // then
     assertThat(execution.getStatus().toString()).isEqualTo("COMPLETED");
     then(sportsDbApiClient).should().getNextEventsByLeague(LEAGUE_ID);
+  }
+
+  @Test
+  void sportsDbNextEventsSyncJob_API_실패해도_리그별_재시도_후_COMPLETED로_종료된다() throws Exception {
+    // given: SportsDbContentSyncService.syncByLeague()가 리그별로 최대 3회 재시도한 뒤에도
+    // 실패하면 예외를 삼키고 다음 리그로 넘어가므로, Step/Job까지 실패가 전파되지 않는다.
+    given(sportsDbProperties.getTargetLeagueIds()).willReturn(List.of(LEAGUE_ID));
+    given(sportsDbApiClient.getNextEventsByLeague(LEAGUE_ID))
+        .willThrow(new SportsDbApiException("영구 오류"));
+
+    JobParameters params = new JobParametersBuilder()
+        .addLong("time", System.currentTimeMillis())
+        .toJobParameters();
+
+    // when
+    JobExecution execution = jobLauncher.run(sportsDbNextEventsSyncJob, params);
+
+    // then
+    assertThat(execution.getStatus().toString()).isEqualTo("COMPLETED");
+    then(sportsDbApiClient).should(org.mockito.Mockito.times(3)).getNextEventsByLeague(LEAGUE_ID);
   }
 
   private SportsDbEventsResponse sampleEventsResponse() {
