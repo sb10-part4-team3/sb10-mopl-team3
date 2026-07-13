@@ -4,6 +4,7 @@ import com.example.sb10_MoPl_team3.content.service.ContentStatsService;
 import com.example.sb10_MoPl_team3.review.event.ReviewStatsChangedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -15,6 +16,7 @@ public class ContentStatsReviewEventListener {
 
   private final ContentStatsService contentStatsService;
 
+  @Async("contentStatsExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void onReviewStatsChanged(ReviewStatsChangedEvent event) {
     try {
