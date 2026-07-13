@@ -1,9 +1,7 @@
 package com.example.sb10_MoPl_team3.review.service;
 
 import com.example.sb10_MoPl_team3.content.entity.Content;
-import com.example.sb10_MoPl_team3.content.entity.ContentStats;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
-import com.example.sb10_MoPl_team3.content.service.ContentStatsService;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.security.SecurityUtils;
@@ -14,6 +12,7 @@ import com.example.sb10_MoPl_team3.review.dto.request.ReviewCreateRequest;
 import com.example.sb10_MoPl_team3.review.dto.request.ReviewUpdateRequest;
 import com.example.sb10_MoPl_team3.review.entity.Review;
 import com.example.sb10_MoPl_team3.review.enums.ReviewStatus;
+import com.example.sb10_MoPl_team3.review.event.ReviewStatsChangedEvent;
 import com.example.sb10_MoPl_team3.review.exception.ReviewAuthorMismatchException;
 import com.example.sb10_MoPl_team3.review.exception.ReviewNotFoundException;
 import com.example.sb10_MoPl_team3.review.mapper.ReviewMapper;
@@ -23,6 +22,7 @@ import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -44,7 +44,7 @@ public class ReviewServiceImpl implements ReviewService{
     private final ReviewMapper reviewMapper;
     private final UserRepository userRepository;
     private final ContentRepository contentRepository;
-    private final ContentStatsService contentStatsService;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Override
     public ReviewDto create(ReviewCreateRequest request) {
@@ -68,7 +68,7 @@ public class ReviewServiceImpl implements ReviewService{
                 .build();
 
         Review savedReview = reviewRepository.save(newReview);
-        contentStatsService.recalculate(content.getId());
+        applicationEventPublisher.publishEvent(new ReviewStatsChangedEvent(content.getId()));
 
         return reviewMapper.toDto(savedReview);
     }
@@ -86,8 +86,7 @@ public class ReviewServiceImpl implements ReviewService{
         }
 
         targetReview.update(request.text(), request.rating());
-
-        contentStatsService.recalculate(targetReview.getContent().getId());
+        applicationEventPublisher.publishEvent(new ReviewStatsChangedEvent(targetReview.getContent().getId()));
 
         return reviewMapper.toDto(targetReview);
     }
@@ -290,9 +289,9 @@ public class ReviewServiceImpl implements ReviewService{
 
         validateReviewStatus(targetReview);
         validateAuthor(targetReview, requestUserId);
+        applicationEventPublisher.publishEvent(new ReviewStatsChangedEvent(targetReview.getContent().getId()));
 
         targetReview.delete();
-        contentStatsService.recalculate(targetReview.getContent().getId());
     }
 
     // 리뷰 물리 삭제
@@ -303,9 +302,9 @@ public class ReviewServiceImpl implements ReviewService{
 
         validateReviewStatus(targetReview);
         validateAuthor(targetReview, requestUserId);
+        applicationEventPublisher.publishEvent(new ReviewStatsChangedEvent(targetReview.getContent().getId()));
 
         reviewRepository.delete(targetReview);
-        contentStatsService.recalculate(targetReview.getContent().getId());
     }
 
     // 권한 확인
