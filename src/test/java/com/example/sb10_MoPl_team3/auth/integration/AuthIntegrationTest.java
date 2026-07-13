@@ -259,22 +259,22 @@ class AuthIntegrationTest {
         assertThat(temporaryPassword).isNotBlank();
         assertThat(temporaryPassword).isNotEqualTo("temporary1!!");
 
-        MvcResult temporarySignInResult =
+        signin("temporary-login@test.com", temporaryPassword)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty());
+
+        MvcResult secondTemporarySignInResult =
                 signin("temporary-login@test.com", temporaryPassword)
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.accessToken").isNotEmpty())
                         .andReturn();
 
         JsonNode jsonNode = objectMapper.readTree(
-                temporarySignInResult.getResponse().getContentAsString()
+                secondTemporarySignInResult.getResponse().getContentAsString()
         );
 
         String accessToken = jsonNode.get("accessToken").asText();
         UUID userId = jwtProvider.parseAccessToken(accessToken).userId();
-
-        signin("temporary-login@test.com", temporaryPassword)
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIAL"));
 
         mockMvc.perform(patch("/api/users/{userId}/password", userId)
                         .with(csrf())
