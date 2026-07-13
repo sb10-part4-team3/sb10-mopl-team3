@@ -52,7 +52,11 @@ public class SportsDbContentSyncService {
     }
 
     if (!failedLeagueIds.isEmpty()) {
-      notifyPartialFailure(syncType, failedLeagueIds);
+      try {
+        notifyPartialFailure(syncType, failedLeagueIds);
+      } catch (Exception e) {
+        log.error("동기화 실패 알림 발송 중 오류 발생", e);
+      }
     }
   }
 
@@ -67,6 +71,14 @@ public class SportsDbContentSyncService {
       } catch (RuntimeException e) {
         lastException = e;
         log.debug("리그 동기화 재시도 {}/{}, leagueId={}", attempt, MAX_ATTEMPTS, leagueId, e);
+        if (attempt < MAX_ATTEMPTS) {
+          try {
+            Thread.sleep(1000L);
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw lastException;
+          }
+        }
       }
     }
     throw lastException;
