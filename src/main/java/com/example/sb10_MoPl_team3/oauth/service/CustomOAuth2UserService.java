@@ -3,6 +3,7 @@ package com.example.sb10_MoPl_team3.oauth.service;
 import com.example.sb10_MoPl_team3.oauth.dto.OAuthUserInfo;
 import com.example.sb10_MoPl_team3.oauth.dto.OAuthUserPrincipal;
 import com.example.sb10_MoPl_team3.oauth.enums.OAuthProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
@@ -17,6 +18,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
     private final OAuthUserInfoConverter converter;
     private final OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate;
 
+    @Autowired
     public CustomOAuth2UserService(OAuthUserInfoConverter converter) {
         this(converter, new DefaultOAuth2UserService());
     }

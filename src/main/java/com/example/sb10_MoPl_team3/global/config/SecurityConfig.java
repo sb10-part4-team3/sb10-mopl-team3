@@ -9,6 +9,7 @@ import com.example.sb10_MoPl_team3.oauth.handler.OAuthLoginSuccessHandler;
 import com.example.sb10_MoPl_team3.oauth.security.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.example.sb10_MoPl_team3.oauth.service.CustomOAuth2UserService;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,10 +35,10 @@ public class SecurityConfig {
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             CsrfCookieFilter csrfCookieFilter,
-            CustomOAuth2UserService customOAuth2UserService,
-            OAuthLoginSuccessHandler oAuthLoginSuccessHandler,
-            OAuthLoginFailureHandler oAuthLoginFailureHandler,
-            HttpCookieOAuth2AuthorizationRequestRepository authorizationRequestRepository,
+            ObjectProvider<CustomOAuth2UserService> customOAuth2UserServiceProvider,
+            ObjectProvider<OAuthLoginSuccessHandler> oAuthLoginSuccessHandlerProvider,
+            ObjectProvider<OAuthLoginFailureHandler> oAuthLoginFailureHandlerProvider,
+            ObjectProvider<HttpCookieOAuth2AuthorizationRequestRepository> authorizationRequestRepositoryProvider,
             @Value("${oauth.enabled:false}") boolean oauthEnabled
     ) throws Exception {
 
@@ -88,11 +89,11 @@ public class SecurityConfig {
         if (oauthEnabled) {
             http.oauth2Login(oauth2 -> oauth2
                     .authorizationEndpoint(authorization -> authorization
-                            .authorizationRequestRepository(authorizationRequestRepository))
+                            .authorizationRequestRepository(authorizationRequestRepositoryProvider.getObject()))
                     .userInfoEndpoint(userInfo -> userInfo
-                            .userService(customOAuth2UserService))
-                    .successHandler(oAuthLoginSuccessHandler)
-                    .failureHandler(oAuthLoginFailureHandler)
+                            .userService(customOAuth2UserServiceProvider.getObject()))
+                    .successHandler(oAuthLoginSuccessHandlerProvider.getObject())
+                    .failureHandler(oAuthLoginFailureHandlerProvider.getObject())
             );
         }
 
