@@ -8,6 +8,7 @@ import com.example.sb10_MoPl_team3.oauth.handler.OAuthLoginFailureHandler;
 import com.example.sb10_MoPl_team3.oauth.handler.OAuthLoginSuccessHandler;
 import com.example.sb10_MoPl_team3.oauth.security.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.example.sb10_MoPl_team3.oauth.service.CustomOAuth2UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,8 +19,11 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -88,6 +92,7 @@ public class SecurityConfig {
 
         if (oauthEnabled) {
             http.oauth2Login(oauth2 -> oauth2
+                    .authorizedClientRepository(new NoOpOAuth2AuthorizedClientRepository())
                     .authorizationEndpoint(authorization -> authorization
                             .authorizationRequestRepository(authorizationRequestRepositoryProvider.getObject()))
                     .userInfoEndpoint(userInfo -> userInfo
@@ -116,5 +121,35 @@ public class SecurityConfig {
     @Bean
     public CsrfCookieFilter csrfCookieFilter() {
         return new CsrfCookieFilter();
+    }
+
+    private static class NoOpOAuth2AuthorizedClientRepository implements OAuth2AuthorizedClientRepository {
+
+        @Override
+        public <T extends OAuth2AuthorizedClient> T loadAuthorizedClient(
+                String clientRegistrationId,
+                Authentication principal,
+                HttpServletRequest request
+        ) {
+            return null;
+        }
+
+        @Override
+        public void saveAuthorizedClient(
+                OAuth2AuthorizedClient authorizedClient,
+                Authentication principal,
+                HttpServletRequest request,
+                HttpServletResponse response
+        ) {
+        }
+
+        @Override
+        public void removeAuthorizedClient(
+                String clientRegistrationId,
+                Authentication principal,
+                HttpServletRequest request,
+                HttpServletResponse response
+        ) {
+        }
     }
 }

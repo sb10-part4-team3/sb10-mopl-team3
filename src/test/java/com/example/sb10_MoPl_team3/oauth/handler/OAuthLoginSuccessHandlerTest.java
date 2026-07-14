@@ -50,6 +50,7 @@ class OAuthLoginSuccessHandlerTest {
                 OAuthProvider.GOOGLE,
                 "google-user-id",
                 "user@test.com",
+                true,
                 "user",
                 null
         );
@@ -102,6 +103,7 @@ class OAuthLoginSuccessHandlerTest {
                 OAuthProvider.KAKAO,
                 "kakao-user-id",
                 null,
+                false,
                 "kakao-user",
                 null
         );

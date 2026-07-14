@@ -45,6 +45,10 @@ public class OAuthAuthenticationService {
             throw new InvalidCredentialException();
         }
 
+        if (userInfo.hasProviderEmail() && !userInfo.emailVerified()) {
+            throw new InvalidCredentialException();
+        }
+
         User user = userRepository.findByEmail(email)
                 .orElseGet(() -> createUser(userInfo, email));
 

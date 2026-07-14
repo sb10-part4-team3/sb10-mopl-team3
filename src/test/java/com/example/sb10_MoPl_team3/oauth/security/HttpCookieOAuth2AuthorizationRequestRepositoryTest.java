@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.oauth.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,6 +9,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,9 +18,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class HttpCookieOAuth2AuthorizationRequestRepositoryTest {
 
     private static final String COOKIE_NAME = "OAUTH2_AUTHORIZATION_REQUEST";
+    private static final String SIGNING_SECRET = Base64.getEncoder()
+            .encodeToString("test-oauth-cookie-signing-secret".getBytes(StandardCharsets.UTF_8));
 
     private final HttpCookieOAuth2AuthorizationRequestRepository repository =
-            new HttpCookieOAuth2AuthorizationRequestRepository(true);
+            new HttpCookieOAuth2AuthorizationRequestRepository(true, SIGNING_SECRET, new ObjectMapper());
 
     @Test
     @DisplayName("OAuth 인증 요청을 쿠키에 저장한다")
@@ -107,6 +112,25 @@ class HttpCookieOAuth2AuthorizationRequestRepositoryTest {
 
         assertThat(setCookie).contains(COOKIE_NAME + "=");
         assertThat(setCookie).contains("Max-Age=0");
+    }
+
+    @Test
+    @DisplayName("Tampered OAuth authorization request cookie is rejected")
+    void loadTamperedCookie() {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        repository.saveAuthorizationRequest(
+                authorizationRequest(),
+                new MockHttpServletRequest(),
+                response
+        );
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie(COOKIE_NAME, extractCookieValue(response) + "tampered"));
+
+        OAuth2AuthorizationRequest loaded = repository.loadAuthorizationRequest(request);
+
+        assertThat(loaded).isNull();
     }
 
     private OAuth2AuthorizationRequest authorizationRequest() {

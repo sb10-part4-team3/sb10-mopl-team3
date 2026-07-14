@@ -5,6 +5,7 @@ import com.example.sb10_MoPl_team3.oauth.enums.OAuthProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 @Component
@@ -20,6 +21,7 @@ public class OAuthUserInfoConverter {
     private OAuthUserInfo convertGoogle(Map<String, Object> attributes) {
         String providerUserId = requiredString(attributes.get("sub"), "Google sub");
         String email = stringOrNull(attributes.get("email"));
+        boolean emailVerified = booleanOrFalse(attributes.get("email_verified"));
         String name = firstNonBlank(
                 stringOrNull(attributes.get("name")),
                 email,
@@ -31,6 +33,7 @@ public class OAuthUserInfoConverter {
                 OAuthProvider.GOOGLE,
                 providerUserId,
                 email,
+                emailVerified,
                 name,
                 profileImageUrl
         );
@@ -44,6 +47,7 @@ public class OAuthUserInfoConverter {
         Map<String, Object> profile = mapOrEmpty(kakaoAccount.get("profile"));
 
         String email = stringOrNull(kakaoAccount.get("email"));
+        boolean emailVerified = booleanOrFalse(kakaoAccount.get("is_email_verified"));
         String name = firstNonBlank(
                 stringOrNull(properties.get("nickname")),
                 stringOrNull(profile.get("nickname")),
@@ -58,6 +62,7 @@ public class OAuthUserInfoConverter {
                 OAuthProvider.KAKAO,
                 providerUserId,
                 email,
+                emailVerified,
                 name,
                 profileImageUrl
         );
@@ -81,6 +86,18 @@ public class OAuthUserInfoConverter {
         return String.valueOf(value);
     }
 
+    private boolean booleanOrFalse(Object value) {
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+
+        if (value instanceof String string) {
+            return Boolean.parseBoolean(string);
+        }
+
+        return false;
+    }
+
     private String firstNonBlank(String... values) {
         for (String value : values) {
             if (value != null && !value.isBlank()) {
@@ -96,13 +113,13 @@ public class OAuthUserInfoConverter {
             return Collections.emptyMap();
         }
 
-        return map.entrySet().stream()
-                .filter(entry -> entry.getKey() instanceof String)
-                .collect(
-                        java.util.stream.Collectors.toMap(
-                                entry -> (String) entry.getKey(),
-                                Map.Entry::getValue
-                        )
-                );
+        Map<String, Object> result = new HashMap<>();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            if (entry.getKey() instanceof String key) {
+                result.put(key, entry.getValue());
+            }
+        }
+
+        return result;
     }
 }

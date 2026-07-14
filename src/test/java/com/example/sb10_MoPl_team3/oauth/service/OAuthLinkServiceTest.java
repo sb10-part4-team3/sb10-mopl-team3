@@ -156,6 +156,7 @@ class OAuthLinkServiceTest {
                 OAuthProvider.GOOGLE,
                 "google-user-id",
                 "google@test.com",
+                true,
                 "Google User",
                 "https://example.com/profile.png"
         );

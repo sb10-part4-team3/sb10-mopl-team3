@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -72,6 +73,7 @@ class OAuthAuthenticationServiceTest {
                 OAuthProvider.GOOGLE,
                 "google-user-id",
                 "user@test.com",
+                true,
                 "test-user",
                 null
         );
@@ -99,6 +101,7 @@ class OAuthAuthenticationServiceTest {
                 OAuthProvider.KAKAO,
                 "kakao-user-id",
                 null,
+                false,
                 "kakao-user",
                 "https://image.test/profile.png"
         );
@@ -163,6 +166,7 @@ class OAuthAuthenticationServiceTest {
                 OAuthProvider.GOOGLE,
                 "google-user-id",
                 "user@test.com",
+                true,
                 "google-user",
                 null
         );
@@ -203,12 +207,37 @@ class OAuthAuthenticationServiceTest {
     }
 
     @Test
+    @DisplayName("Unverified provider email cannot be used to link an existing user")
+    void signinUnverifiedProviderEmail() {
+        OAuthUserInfo userInfo = new OAuthUserInfo(
+                OAuthProvider.GOOGLE,
+                "google-user-id",
+                "user@test.com",
+                false,
+                "google-user",
+                null
+        );
+
+        given(socialAccountRepository.findByProviderAndProviderUserId(
+                OAuthProvider.GOOGLE,
+                "google-user-id"
+        )).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> oauthAuthenticationService.signin(userInfo))
+                .isInstanceOf(InvalidCredentialException.class);
+
+        verify(socialAccountRepository, never()).save(any(SocialAccount.class));
+        verifyNoInteractions(userRepository, passwordEncoder, authService);
+    }
+
+    @Test
     @DisplayName("OAuth sign in fails when email cannot be resolved")
     void signinUnresolvedEmail() {
         OAuthUserInfo userInfo = new OAuthUserInfo(
                 OAuthProvider.GOOGLE,
                 "google-user-id",
                 null,
+                false,
                 "google-user",
                 null
         );

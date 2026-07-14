@@ -8,6 +8,7 @@ public record OAuthUserInfo(
         OAuthProvider provider,
         String providerUserId,
         String email,
+        boolean emailVerified,
         String name,
         String profileImageUrl
 ) {
@@ -28,5 +29,9 @@ public record OAuthUserInfo(
         }
 
         return null;
+    }
+
+    public boolean hasProviderEmail() {
+        return email != null && !email.isBlank();
     }
 }

@@ -1,5 +1,5 @@
 oauth:
-  enabled: true
+  enabled: ${OAUTH_ENABLED:true}
 
 spring:
   security:
