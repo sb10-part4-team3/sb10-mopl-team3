@@ -26,4 +26,6 @@ public interface SseConnectionRepository {
     void deleteAllCachedEvents(UUID userId);
 
     void deleteCachedEvents(UUID userId, Predicate<SseEventCache> predicate);
+
+    void deleteCachedEventByDataId(UUID userId, String eventName, UUID dataId);
 }

@@ -39,3 +39,8 @@ auth:
 batch:
   schedule:
     enabled: false
+
+sse:
+  redis:
+    pubsub:
+      enabled: false

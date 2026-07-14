@@ -105,11 +105,10 @@ public class NotificationService implements NotificationEventHandler {
                 .findByIdAndReceiverId(notificationId, receiverId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTIFICATION_NOT_FOUND));
         notification.markAsRead();
-        sseConnectionRepository.deleteCachedEvents(
+        sseConnectionRepository.deleteCachedEventByDataId(
                 receiverId,
-                event -> SseEventPublisher.NOTIFICATIONS_EVENT.equals(event.name())
-                        && event.data() instanceof NotificationDto notificationDto
-                        && notificationId.equals(notificationDto.id()));
+                SseEventPublisher.NOTIFICATIONS_EVENT,
+                notificationId);
     }
 
     private String normalizeSortBy(String sortBy) {

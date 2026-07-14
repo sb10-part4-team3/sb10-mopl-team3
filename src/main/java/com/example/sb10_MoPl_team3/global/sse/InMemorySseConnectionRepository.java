@@ -1,6 +1,5 @@
 package com.example.sb10_MoPl_team3.global.sse;
 
-import org.springframework.stereotype.Repository;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.ArrayList;
@@ -12,7 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Predicate;
 
-@Repository
 public class InMemorySseConnectionRepository implements SseConnectionRepository {
 
     private static final int MAX_EVENT_CACHE_SIZE = 100;
@@ -114,6 +112,13 @@ public class InMemorySseConnectionRepository implements SseConnectionRepository 
         if (userEventCache.isEmpty()) {
             eventCaches.remove(userId);
         }
+    }
+
+    @Override
+    public void deleteCachedEventByDataId(UUID userId, String eventName, UUID dataId) {
+        deleteCachedEvents(userId, event -> eventName.equals(event.name())
+                && event.data() instanceof com.example.sb10_MoPl_team3.notification.dto.NotificationDto notification
+                && dataId.equals(notification.id()));
     }
 
     private void trimEventCache(ConcurrentLinkedDeque<SseEventCache> eventCache) {
