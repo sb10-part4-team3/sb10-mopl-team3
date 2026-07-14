@@ -5,7 +5,6 @@ import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.oauth.config.OAuthRedirectProperties;
 import com.example.sb10_MoPl_team3.oauth.dto.OAuthUserPrincipal;
-import com.example.sb10_MoPl_team3.oauth.exception.OAuthAccountNotLinkedException;
 import com.example.sb10_MoPl_team3.oauth.service.OAuthAuthenticationService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -65,8 +64,6 @@ public class OAuthLoginSuccessHandler implements AuthenticationSuccessHandler {
             );
 
             response.sendRedirect(redirectProperties.successUri());
-        } catch (OAuthAccountNotLinkedException exception) {
-            redirectFailure(response, "user_not_exists");
         } catch (InvalidCredentialException exception) {
             redirectFailure(response, "invalid_credential");
         } catch (OAuth2AuthenticationException exception) {

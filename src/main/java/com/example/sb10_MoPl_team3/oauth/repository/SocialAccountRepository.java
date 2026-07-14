@@ -18,4 +18,6 @@ public interface SocialAccountRepository extends JpaRepository<SocialAccount, UU
             OAuthProvider provider,
             String providerUserId
     );
+
+    boolean existsByUser_IdAndProvider(UUID userId, OAuthProvider provider);
 }
