@@ -52,6 +52,15 @@ public class AuthService {
             throw new InvalidCredentialException();
         }
 
+        return issueTokenForAuthenticatedUser(user);
+    }
+
+    @Transactional
+    public AuthTokenResult issueTokenForAuthenticatedUser(User user) {
+        if (user.getStatus() == UserStatus.LOCKED || user.getStatus() == UserStatus.WITHDRAWN) {
+            throw new InvalidCredentialException();
+        }
+
         Instant now = Instant.now(clock);
         revokeExistingSessions(user.getId(), now);
 
