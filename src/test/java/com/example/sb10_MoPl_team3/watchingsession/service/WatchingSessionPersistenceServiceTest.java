@@ -14,6 +14,8 @@ import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import com.example.sb10_MoPl_team3.watchingsession.entity.WatchingSession;
+import com.example.sb10_MoPl_team3.watchingsession.event.WatchingSessionJoinedEvent;
+import com.example.sb10_MoPl_team3.watchingsession.event.WatchingSessionLeftEvent;
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +34,6 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -57,8 +58,6 @@ class WatchingSessionPersistenceServiceTest {
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.empty());
         given(watchingSessionRepository.saveAndFlush(any(WatchingSession.class)))
                 .willAnswer(invocation -> persisted(invocation.getArgument(0)));
-        given(contentStatsRepository.incrementViewerCount(eq(contentId), any(Instant.class)))
-                .willReturn(1);
         given(contentStatsRepository.findById(contentId)).willReturn(Optional.empty());
         given(contentTagRepository.findTagNamesByContentId(contentId)).willReturn(List.of());
 
@@ -66,12 +65,18 @@ class WatchingSessionPersistenceServiceTest {
         assertThat(result.previousWatchingSession()).isEmpty();
         assertThat(result.watchingSession().watcher().userId()).isEqualTo(watcherId);
         then(watchingSessionRepository).should().saveAndFlush(any(WatchingSession.class));
-        then(contentStatsRepository).should()
-                .incrementViewerCount(eq(contentId), any(Instant.class));
-        ArgumentCaptor<NotificationFanoutEvent> eventCaptor =
-                ArgumentCaptor.forClass(NotificationFanoutEvent.class);
-        then(eventPublisher).should().publishEvent(eventCaptor.capture());
-        NotificationFanoutEvent event = eventCaptor.getValue();
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        then(eventPublisher).should(org.mockito.Mockito.times(2)).publishEvent(eventCaptor.capture());
+        List<Object> publishedEvents = eventCaptor.getAllValues();
+        assertThat(publishedEvents).anySatisfy(published ->
+                assertThat(published).isEqualTo(new WatchingSessionJoinedEvent(contentId)));
+
+        NotificationFanoutEvent event = publishedEvents.stream()
+                .filter(NotificationFanoutEvent.class::isInstance)
+                .map(NotificationFanoutEvent.class::cast)
+                .findFirst()
+                .orElseThrow();
         assertThat(event.audienceType()).isEqualTo(NotificationAudienceType.FOLLOWERS);
         assertThat(event.sourceId()).isEqualTo(watcherId);
         assertThat(event.title()).isEqualTo("시청 시작");
@@ -92,10 +97,6 @@ class WatchingSessionPersistenceServiceTest {
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(previous));
         given(watchingSessionRepository.saveAndFlush(any(WatchingSession.class)))
                 .willAnswer(invocation -> persisted(invocation.getArgument(0)));
-        given(contentStatsRepository.decrementViewerCount(eq(previousId), any(Instant.class)))
-                .willReturn(1);
-        given(contentStatsRepository.incrementViewerCount(eq(nextId), any(Instant.class)))
-                .willReturn(1);
         given(contentStatsRepository.findById(previousId)).willReturn(Optional.empty());
         given(contentStatsRepository.findById(nextId)).willReturn(Optional.empty());
         given(contentTagRepository.findTagNamesByContentId(previousId)).willReturn(List.of());
@@ -108,10 +109,11 @@ class WatchingSessionPersistenceServiceTest {
         then(watchingSessionRepository).should().delete(previous);
         then(watchingSessionRepository).should().flush();
         then(watchingSessionRepository).should().saveAndFlush(any(WatchingSession.class));
-        then(contentStatsRepository).should()
-                .decrementViewerCount(eq(previousId), any(Instant.class));
-        then(contentStatsRepository).should()
-                .incrementViewerCount(eq(nextId), any(Instant.class));
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        then(eventPublisher).should(org.mockito.Mockito.atLeastOnce()).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getAllValues())
+                .contains(new WatchingSessionLeftEvent(previousId), new WatchingSessionJoinedEvent(nextId));
     }
 
     @Test
@@ -131,10 +133,7 @@ class WatchingSessionPersistenceServiceTest {
         assertThat(persistenceService.join(contentId, watcherId).previousWatchingSession()).isEmpty();
         then(watchingSessionRepository).should(never()).saveAndFlush(any());
         then(watchingSessionRepository).should(never()).delete(any());
-        then(contentStatsRepository).should(never())
-                .incrementViewerCount(any(), any(Instant.class));
-        then(contentStatsRepository).should(never())
-                .decrementViewerCount(any(), any(Instant.class));
+        then(eventPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -166,8 +165,6 @@ class WatchingSessionPersistenceServiceTest {
         WatchingSession session = new WatchingSession(user(watcherId), content(contentId));
         persisted(session);
         given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(session));
-        given(contentStatsRepository.decrementViewerCount(eq(contentId), any(Instant.class)))
-                .willReturn(1);
         given(contentStatsRepository.findById(contentId)).willReturn(Optional.empty());
         given(contentTagRepository.findTagNamesByContentId(contentId)).willReturn(List.of());
 
@@ -176,8 +173,7 @@ class WatchingSessionPersistenceServiceTest {
         assertThat(result).isPresent();
         assertThat(result.get().id()).isEqualTo(session.getId());
         then(watchingSessionRepository).should().delete(session);
-        then(contentStatsRepository).should()
-                .decrementViewerCount(eq(contentId), any(Instant.class));
+        then(eventPublisher).should().publishEvent(new WatchingSessionLeftEvent(contentId));
     }
 
     @Test
@@ -206,56 +202,6 @@ class WatchingSessionPersistenceServiceTest {
 
         then(watchingSessionRepository).should(never()).delete(any());
         then(contentStatsRepository).shouldHaveNoInteractions();
-    }
-
-    @Test
-    void join_missingContentStatsRollsBackWithException() {
-        UUID contentId = UUID.randomUUID();
-        UUID watcherId = UUID.randomUUID();
-        given(userRepository.findById(watcherId)).willReturn(Optional.of(user(watcherId)));
-        given(contentRepository.findById(contentId)).willReturn(Optional.of(content(contentId)));
-        given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.empty());
-        given(watchingSessionRepository.saveAndFlush(any(WatchingSession.class)))
-                .willAnswer(invocation -> persisted(invocation.getArgument(0)));
-        given(contentStatsRepository.incrementViewerCount(eq(contentId), any(Instant.class)))
-                .willReturn(0);
-
-        assertThatThrownBy(() -> persistenceService.join(contentId, watcherId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining(contentId.toString());
-    }
-
-    @Test
-    void leave_missingContentStatsRollsBackWithException() {
-        UUID contentId = UUID.randomUUID();
-        UUID watcherId = UUID.randomUUID();
-        WatchingSession session = new WatchingSession(user(watcherId), content(contentId));
-        persisted(session);
-        given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(session));
-        given(contentStatsRepository.decrementViewerCount(eq(contentId), any(Instant.class)))
-                .willReturn(0);
-        given(contentStatsRepository.existsById(contentId)).willReturn(false);
-
-        assertThatThrownBy(() -> persistenceService.leave(contentId, watcherId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining(contentId.toString());
-    }
-
-    @Test
-    void leave_zeroViewerCountKeepsSessionExitAndLogsInconsistency() {
-        UUID contentId = UUID.randomUUID();
-        UUID watcherId = UUID.randomUUID();
-        WatchingSession session = new WatchingSession(user(watcherId), content(contentId));
-        persisted(session);
-        given(watchingSessionRepository.findByWatcherId(watcherId)).willReturn(Optional.of(session));
-        given(contentStatsRepository.decrementViewerCount(eq(contentId), any(Instant.class)))
-                .willReturn(0);
-        given(contentStatsRepository.existsById(contentId)).willReturn(true);
-
-        persistenceService.leave(contentId, watcherId);
-
-        then(watchingSessionRepository).should().delete(session);
-        then(contentStatsRepository).should().existsById(contentId);
     }
 
     private WatchingSession persisted(WatchingSession session) {

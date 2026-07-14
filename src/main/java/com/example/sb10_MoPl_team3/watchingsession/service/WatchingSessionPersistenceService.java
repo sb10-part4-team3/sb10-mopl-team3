@@ -14,6 +14,8 @@ import com.example.sb10_MoPl_team3.watchingsession.entity.WatchingSession;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionDto;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionJoinResult;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.watchingsession.event.WatchingSessionJoinedEvent;
+import com.example.sb10_MoPl_team3.watchingsession.event.WatchingSessionLeftEvent;
 import com.example.sb10_MoPl_team3.watchingsession.mapper.WatchingSessionMapper;
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRepository;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
@@ -25,7 +27,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -52,7 +53,7 @@ public class WatchingSessionPersistenceService {
         if (existing.isEmpty()) {
             WatchingSession watchingSession = watchingSessionRepository.saveAndFlush(
                     new WatchingSession(watcher, content));
-            incrementViewerCount(contentId);
+            eventPublisher.publishEvent(new WatchingSessionJoinedEvent(contentId));
             publishWatchingActivity(watcher, content);
             return result(Optional.empty(), watchingSession);
         }
@@ -67,8 +68,8 @@ public class WatchingSessionPersistenceService {
         watchingSessionRepository.flush();
         WatchingSession watchingSession = watchingSessionRepository.saveAndFlush(
                 new WatchingSession(watcher, content));
-        decrementViewerCount(previousContentId);
-        incrementViewerCount(contentId);
+        eventPublisher.publishEvent(new WatchingSessionLeftEvent(previousContentId));
+        eventPublisher.publishEvent(new WatchingSessionJoinedEvent(contentId));
         publishWatchingActivity(watcher, content);
         return result(Optional.of(previousWatchingSession), watchingSession);
     }
@@ -80,25 +81,9 @@ public class WatchingSessionPersistenceService {
         Optional<WatchingSessionDto> result = watchingSession.map(this::toDto);
         watchingSession.ifPresent(session -> {
             watchingSessionRepository.delete(session);
-            decrementViewerCount(contentId);
+            eventPublisher.publishEvent(new WatchingSessionLeftEvent(contentId));
         });
         return result;
-    }
-
-    private void incrementViewerCount(UUID contentId) {
-        if (contentStatsRepository.incrementViewerCount(contentId, Instant.now()) != 1) {
-            throw new IllegalStateException("콘텐츠 통계가 존재하지 않습니다. contentId=" + contentId);
-        }
-    }
-
-    private void decrementViewerCount(UUID contentId) {
-        if (contentStatsRepository.decrementViewerCount(contentId, Instant.now()) == 1) {
-            return;
-        }
-        if (!contentStatsRepository.existsById(contentId)) {
-            throw new IllegalStateException("콘텐츠 통계가 존재하지 않습니다. contentId=" + contentId);
-        }
-        log.warn("시청 세션은 존재하지만 viewerCount가 이미 0입니다. contentId={}", contentId);
     }
 
     private void publishWatchingActivity(User watcher, Content content) {
