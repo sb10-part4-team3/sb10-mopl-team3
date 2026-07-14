@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.contentchat.service;
 
+import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
@@ -26,6 +27,9 @@ class ContentChatServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private ContentRepository contentRepository;
+
     @InjectMocks
     private ContentChatService contentChatService;
 
@@ -36,6 +40,7 @@ class ContentChatServiceTest {
         UUID senderId = UUID.fromString("00000000-0000-0000-0000-000000000002");
         User sender = new User("sender@test.com", "시청자", "password", null, UserRole.USER);
         ReflectionTestUtils.setField(sender, "id", senderId);
+        given(contentRepository.existsById(contentId)).willReturn(true);
         given(userRepository.findById(senderId)).willReturn(Optional.of(sender));
 
         var result = contentChatService.createMessage(contentId, senderId, "같이 봐요");
@@ -51,13 +56,28 @@ class ContentChatServiceTest {
     @Test
     @DisplayName("발신자를 찾을 수 없으면 USER_NOT_FOUND 예외를 던진다")
     void createMessage_userNotFound() {
+        UUID contentId = UUID.randomUUID();
         UUID senderId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        given(contentRepository.existsById(contentId)).willReturn(true);
         given(userRepository.findById(senderId)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> contentChatService.createMessage(
-                UUID.randomUUID(), senderId, "메시지"))
+                contentId, senderId, "메시지"))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("콘텐츠를 찾을 수 없으면 CONTENT_NOT_FOUND 예외를 던진다")
+    void createMessage_contentNotFound() {
+        UUID contentId = UUID.randomUUID();
+        UUID senderId = UUID.randomUUID();
+        given(contentRepository.existsById(contentId)).willReturn(false);
+
+        assertThatThrownBy(() -> contentChatService.createMessage(contentId, senderId, "메시지"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.CONTENT_NOT_FOUND);
     }
 }

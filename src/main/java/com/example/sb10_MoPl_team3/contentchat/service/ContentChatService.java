@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.contentchat.service;
 
+import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.contentchat.dto.ContentChatDto;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
@@ -19,8 +20,12 @@ import java.util.UUID;
 public class ContentChatService {
 
     private final UserRepository userRepository;
+    private final ContentRepository contentRepository;
 
     public ContentChatDto createMessage(UUID contentId, UUID senderId, String content) {
+        if (!contentRepository.existsById(contentId)) {
+            throw new BusinessException(ErrorCode.CONTENT_NOT_FOUND);
+        }
         User sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 

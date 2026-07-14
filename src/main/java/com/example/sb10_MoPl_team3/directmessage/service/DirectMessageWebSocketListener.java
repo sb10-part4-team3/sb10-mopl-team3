@@ -1,5 +1,9 @@
 package com.example.sb10_MoPl_team3.directmessage.service;
 
+import com.example.sb10_MoPl_team3.conversation.entity.Conversation;
+import com.example.sb10_MoPl_team3.conversation.repository.ConversationRepository;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import java.security.Principal;
 import java.util.UUID;
@@ -21,6 +25,7 @@ public class DirectMessageWebSocketListener {
             "^/sub/conversations/([0-9a-fA-F-]{36})/direct-messages$");
 
     private final DirectMessageConversationPresence presence;
+    private final ConversationRepository conversationRepository;
 
     @EventListener
     public void handleSubscribe(SessionSubscribeEvent event) {
@@ -31,6 +36,7 @@ public class DirectMessageWebSocketListener {
                 || accessor.getSessionId() == null || accessor.getSubscriptionId() == null) {
             return;
         }
+        validateParticipant(conversationId, authUser.userId());
         presence.subscribe(
                 accessor.getSessionId(),
                 accessor.getSubscriptionId(),
@@ -73,5 +79,14 @@ public class DirectMessageWebSocketListener {
             return authUser;
         }
         return null;
+    }
+
+    private void validateParticipant(UUID conversationId, UUID userId) {
+        Conversation conversation = conversationRepository.findWithUsersById(conversationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND));
+        if (!conversation.getUser1().getId().equals(userId)
+                && !conversation.getUser2().getId().equals(userId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
     }
 }
