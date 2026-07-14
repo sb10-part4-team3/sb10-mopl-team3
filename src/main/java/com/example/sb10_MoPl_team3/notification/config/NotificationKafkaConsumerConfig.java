@@ -23,7 +23,7 @@ public class NotificationKafkaConsumerConfig {
                 kafkaOperations,
                 (record, exception) -> new TopicPartition(
                         NotificationKafkaTopics.FANOUT_DLQ,
-                        0
+                        -1
                 )
         );
         long retryAttempts = Math.max(0, maxAttempts - 1);

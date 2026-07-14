@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
@@ -249,6 +250,28 @@ class NotificationServiceTest {
                 receiverId,
                 SseEventPublisher.NOTIFICATIONS_EVENT,
                 notificationId);
+    }
+
+    @Test
+    @DisplayName("알림 읽음 처리 중 SSE 캐시 삭제 실패는 읽음 상태 변경을 막지 않는다")
+    void read_ignoresSseCacheDeleteFailure() {
+        UUID receiverId = UUID.randomUUID();
+        UUID notificationId = UUID.randomUUID();
+        Notification notification = new Notification(
+                user(), "제목", "내용", NotificationLevel.INFO);
+        given(notificationRepository.findByIdAndReceiverId(notificationId, receiverId))
+                .willReturn(Optional.of(notification));
+        willThrow(new RuntimeException("redis unavailable"))
+                .given(sseConnectionRepository)
+                .deleteCachedEventByDataId(
+                        receiverId,
+                        SseEventPublisher.NOTIFICATIONS_EVENT,
+                        notificationId);
+
+        notificationService.read(receiverId, notificationId);
+
+        assertThat(notification.isRead()).isTrue();
+        assertThat(notification.getReadAt()).isNotNull();
     }
 
     @Test

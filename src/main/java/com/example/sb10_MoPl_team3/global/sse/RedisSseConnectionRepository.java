@@ -113,18 +113,16 @@ public class RedisSseConnectionRepository implements SseConnectionRepository {
 
     @Override
     public void deleteCachedEvents(UUID userId, Predicate<SseEventCache> predicate) {
-        List<SseEventCachePayload> remaining = findCachedEventPayloads(userId).stream()
-                .filter(payload -> !predicate.test(payload.toEventCache()))
-                .toList();
-        replaceCachedEvents(userId, remaining);
+        removeCachedEvents(
+                userId,
+                payload -> predicate.test(payload.toEventCache()));
     }
 
     @Override
     public void deleteCachedEventByDataId(UUID userId, String eventName, UUID dataId) {
-        List<SseEventCachePayload> remaining = findCachedEventPayloads(userId).stream()
-                .filter(payload -> !matchesDataId(payload, eventName, dataId))
-                .toList();
-        replaceCachedEvents(userId, remaining);
+        removeCachedEvents(
+                userId,
+                payload -> matchesDataId(payload, eventName, dataId));
     }
 
     private List<SseEventCachePayload> findCachedEventPayloads(UUID userId) {
@@ -138,15 +136,12 @@ public class RedisSseConnectionRepository implements SseConnectionRepository {
                 .toList();
     }
 
-    private void replaceCachedEvents(UUID userId, List<SseEventCachePayload> payloads) {
+    private void removeCachedEvents(UUID userId, Predicate<SseEventCachePayload> predicate) {
         String key = eventCacheKey(userId);
-        redisTemplate.delete(key);
-        if (!payloads.isEmpty()) {
-            redisTemplate.opsForList().rightPushAll(
-                    key,
-                    payloads.stream().map(this::serialize).toList());
-            redisTemplate.opsForList().trim(key, -maxEventCacheSize, -1);
-        }
+        findCachedEventPayloads(userId).stream()
+                .filter(predicate)
+                .map(this::serialize)
+                .forEach(value -> redisTemplate.opsForList().remove(key, 1, value));
     }
 
     private boolean matchesDataId(SseEventCachePayload payload, String eventName, UUID dataId) {

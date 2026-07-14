@@ -51,7 +51,8 @@ public class NotificationFanoutDlqService {
         }
 
         NotificationFanoutKafkaMessage message = dlq.toMessage();
-        kafkaTemplate.send(NotificationKafkaTopics.FANOUT, message.outboxId().toString(), message);
+        kafkaTemplate.send(NotificationKafkaTopics.FANOUT, message.outboxId().toString(), message)
+                .join();
         dlq.markRetried(clock.instant());
         return NotificationFanoutDlqDto.from(dlq);
     }

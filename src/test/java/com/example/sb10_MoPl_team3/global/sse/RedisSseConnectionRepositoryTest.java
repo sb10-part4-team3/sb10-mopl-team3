@@ -1,9 +1,9 @@
 package com.example.sb10_MoPl_team3.global.sse;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.times;
 
 import com.example.sb10_MoPl_team3.notification.dto.NotificationDto;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
@@ -86,16 +86,14 @@ class RedisSseConnectionRepositoryTest {
 
         repository.deleteCachedEventByDataId(userId, "notifications", notificationId);
 
-        then(redisTemplate).should().delete(key(userId));
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<String>> payloadsCaptor = ArgumentCaptor.forClass(List.class);
-        then(listOperations).should().rightPushAll(
+        ArgumentCaptor<String> removedPayloadCaptor = ArgumentCaptor.forClass(String.class);
+        then(listOperations).should(times(1)).remove(
                 org.mockito.ArgumentMatchers.eq(key(userId)),
-                payloadsCaptor.capture());
-        assertThat(payloadsCaptor.getValue()).hasSize(2);
-        assertThat(payloadsCaptor.getValue())
+                org.mockito.ArgumentMatchers.eq(1L),
+                removedPayloadCaptor.capture());
+        assertThat(removedPayloadCaptor.getAllValues())
                 .extracting(this::payloadId)
-                .containsExactly("event-2", "event-3");
+                .containsExactly("event-1");
     }
 
     @Test

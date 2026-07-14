@@ -1,6 +1,7 @@
 package com.example.sb10_MoPl_team3.notification.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -103,6 +104,25 @@ class NotificationFanoutDlqServiceTest {
                 message);
         assertThat(result.status()).isEqualTo(NotificationFanoutDlqStatus.RETRIED);
         assertThat(result.retriedAt()).isEqualTo(clock.instant());
+    }
+
+    @Test
+    @DisplayName("DLQ 재발행 실패 시 RETRIED 상태로 변경하지 않는다")
+    void retry_doesNotMarkRetriedWhenKafkaSendFails() {
+        NotificationFanoutKafkaMessage message = message();
+        NotificationFanoutDlq dlq = dlq(message);
+        RuntimeException exception = new RuntimeException("kafka unavailable");
+        given(repository.findById(dlq.getId())).willReturn(Optional.of(dlq));
+        given(kafkaTemplate.send(
+                eq(NotificationKafkaTopics.FANOUT),
+                eq(message.outboxId().toString()),
+                eq(message)))
+                .willReturn(CompletableFuture.failedFuture(exception));
+
+        assertThatThrownBy(() -> service.retry(dlq.getId()))
+                .hasCause(exception);
+
+        assertThat(dlq.getStatus()).isEqualTo(NotificationFanoutDlqStatus.PENDING);
     }
 
     @Test

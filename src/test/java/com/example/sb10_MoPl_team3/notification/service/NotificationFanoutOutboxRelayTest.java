@@ -56,6 +56,7 @@ class NotificationFanoutOutboxRelayTest {
                 clock
         );
         ReflectionTestUtils.setField(relay, "batchSize", 50);
+        ReflectionTestUtils.setField(relay, "processingTimeoutSeconds", 300L);
     }
 
     @Test
@@ -69,6 +70,10 @@ class NotificationFanoutOutboxRelayTest {
 
         assertThat(claimed).containsExactly(outbox);
         assertThat(outbox.getStatus()).isEqualTo(NotificationFanoutOutboxStatus.PROCESSING);
+        then(repository).should().resetStaleProcessing(
+                NotificationFanoutOutboxStatus.PROCESSING,
+                NotificationFanoutOutboxStatus.PENDING,
+                clock.instant().minusSeconds(300));
     }
 
     @Test

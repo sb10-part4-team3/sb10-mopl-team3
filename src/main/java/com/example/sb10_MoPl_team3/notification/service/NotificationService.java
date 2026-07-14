@@ -18,10 +18,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotificationService implements NotificationEventHandler {
@@ -105,10 +107,17 @@ public class NotificationService implements NotificationEventHandler {
                 .findByIdAndReceiverId(notificationId, receiverId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTIFICATION_NOT_FOUND));
         notification.markAsRead();
-        sseConnectionRepository.deleteCachedEventByDataId(
-                receiverId,
-                SseEventPublisher.NOTIFICATIONS_EVENT,
-                notificationId);
+        try {
+            sseConnectionRepository.deleteCachedEventByDataId(
+                    receiverId,
+                    SseEventPublisher.NOTIFICATIONS_EVENT,
+                    notificationId);
+        } catch (RuntimeException exception) {
+            log.warn("알림 SSE 캐시 삭제 실패: receiverId={}, notificationId={}",
+                    receiverId,
+                    notificationId,
+                    exception);
+        }
     }
 
     private String normalizeSortBy(String sortBy) {

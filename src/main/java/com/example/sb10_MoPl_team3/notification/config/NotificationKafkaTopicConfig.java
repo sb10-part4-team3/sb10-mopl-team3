@@ -22,8 +22,8 @@ public class NotificationKafkaTopicConfig {
 
     @Bean
     public NewTopic notificationFanoutDlqTopic(
-            @Value("${notification.kafka.fanout-dlq.partitions:1}") int partitions,
-            @Value("${notification.kafka.fanout-dlq.replicas:1}") int replicas
+            @Value("${notification.kafka.fanout.dlq.partitions:1}") int partitions,
+            @Value("${notification.kafka.fanout.dlq.replicas:1}") int replicas
     ) {
         return TopicBuilder.name(NotificationKafkaTopics.FANOUT_DLQ)
                 .partitions(partitions)

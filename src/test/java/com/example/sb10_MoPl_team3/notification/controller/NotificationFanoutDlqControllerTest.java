@@ -9,6 +9,9 @@ import com.example.sb10_MoPl_team3.notification.enums.NotificationFanoutDlqStatu
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
 import com.example.sb10_MoPl_team3.notification.event.NotificationAudienceType;
 import com.example.sb10_MoPl_team3.notification.service.NotificationFanoutDlqService;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import java.lang.reflect.Parameter;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationFanoutDlqControllerTest {
@@ -64,6 +68,19 @@ class NotificationFanoutDlqControllerTest {
 
         assertThat(findPending.value()).isEqualTo("hasRole('ADMIN')");
         assertThat(retry.value()).isEqualTo("hasRole('ADMIN')");
+    }
+
+    @Test
+    @DisplayName("DLQ 목록 조회 limit은 검증 범위를 가진다")
+    void findPending_limitHasValidationRange() throws NoSuchMethodException {
+        assertThat(NotificationFanoutDlqController.class.getAnnotation(Validated.class)).isNotNull();
+
+        Parameter limit = NotificationFanoutDlqController.class
+                .getMethod("findPending", int.class)
+                .getParameters()[0];
+
+        assertThat(limit.getAnnotation(Min.class).value()).isEqualTo(1);
+        assertThat(limit.getAnnotation(Max.class).value()).isEqualTo(100);
     }
 
     private NotificationFanoutDlqDto dto(NotificationFanoutDlqStatus status) {

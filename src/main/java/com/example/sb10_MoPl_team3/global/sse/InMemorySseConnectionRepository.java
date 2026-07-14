@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.global.sse;
 
+import com.example.sb10_MoPl_team3.notification.dto.NotificationDto;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.ArrayList;
@@ -109,15 +110,12 @@ public class InMemorySseConnectionRepository implements SseConnectionRepository 
             return;
         }
         userEventCache.removeIf(predicate);
-        if (userEventCache.isEmpty()) {
-            eventCaches.remove(userId);
-        }
     }
 
     @Override
     public void deleteCachedEventByDataId(UUID userId, String eventName, UUID dataId) {
         deleteCachedEvents(userId, event -> eventName.equals(event.name())
-                && event.data() instanceof com.example.sb10_MoPl_team3.notification.dto.NotificationDto notification
+                && event.data() instanceof NotificationDto notification
                 && dataId.equals(notification.id()));
     }
 

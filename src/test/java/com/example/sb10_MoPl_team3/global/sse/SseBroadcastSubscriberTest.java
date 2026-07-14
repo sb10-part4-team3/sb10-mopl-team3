@@ -1,7 +1,8 @@
 package com.example.sb10_MoPl_team3.global.sse;
 
-import static org.mockito.BDDMockito.then;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
@@ -37,7 +38,7 @@ class SseBroadcastSubscriberTest {
         then(localEventDispatcher).should().dispatch(
                 org.mockito.ArgumentMatchers.eq(userId),
                 eventCaptor.capture());
-        org.assertj.core.api.Assertions.assertThat(eventCaptor.getValue().id()).isEqualTo("event-1");
-        org.assertj.core.api.Assertions.assertThat(eventCaptor.getValue().name()).isEqualTo("notifications");
+        assertThat(eventCaptor.getValue().id()).isEqualTo("event-1");
+        assertThat(eventCaptor.getValue().name()).isEqualTo("notifications");
     }
 }

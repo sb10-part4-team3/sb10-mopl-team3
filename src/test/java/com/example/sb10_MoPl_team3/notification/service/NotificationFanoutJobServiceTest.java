@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.notification.service;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -108,7 +109,7 @@ class NotificationFanoutJobServiceTest {
         given(batchService.saveBatch(eq(List.of(secondReceiverId)), any(), eq(message.outboxId())))
                 .willThrow(exception);
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.process(message))
+        assertThatThrownBy(() -> service.process(message))
                 .isSameAs(exception);
 
         then(statusService).should().markPageProcessed(job.getId(), 0, 1);

@@ -6,6 +6,7 @@ import com.example.sb10_MoPl_team3.notification.enums.NotificationFanoutOutboxSt
 import com.example.sb10_MoPl_team3.notification.kafka.NotificationFanoutKafkaMessage;
 import com.example.sb10_MoPl_team3.notification.repository.NotificationFanoutOutboxRepository;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,9 @@ public class NotificationFanoutOutboxRelay {
     @Value("${notification.kafka.outbox-relay.batch-size:50}")
     private int batchSize;
 
+    @Value("${notification.kafka.outbox-relay.processing-timeout-seconds:300}")
+    private long processingTimeoutSeconds;
+
     @Scheduled(
             fixedDelayString = "${notification.kafka.outbox-relay.fixed-delay:5000}",
             initialDelayString = "${notification.kafka.outbox-relay.initial-delay:5000}"
@@ -45,12 +49,26 @@ public class NotificationFanoutOutboxRelay {
 
     @Transactional
     public List<NotificationFanoutOutbox> claimBatch() {
+        recoverStaleProcessing();
         var page = PageRequest.of(0, batchSize);
         List<NotificationFanoutOutbox> outboxes = repository
                 .findByStatusInOrderByCreatedAtAscIdAsc(RELAY_TARGET_STATUSES, page)
                 .getContent();
         outboxes.forEach(NotificationFanoutOutbox::markProcessing);
         return outboxes;
+    }
+
+    private void recoverStaleProcessing() {
+        Instant staleBefore = clock.instant().minusSeconds(processingTimeoutSeconds);
+        int recoveredCount = repository.resetStaleProcessing(
+                NotificationFanoutOutboxStatus.PROCESSING,
+                NotificationFanoutOutboxStatus.PENDING,
+                staleBefore);
+        if (recoveredCount > 0) {
+            log.warn("오래된 PROCESSING 알림 팬아웃 outbox 복구: count={}, staleBefore={}",
+                    recoveredCount,
+                    staleBefore);
+        }
     }
 
     private void publish(NotificationFanoutOutbox outbox) {
