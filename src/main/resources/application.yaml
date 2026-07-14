@@ -79,14 +79,15 @@ auth:
   refresh-token-cookie:
     secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
 
-oauth:
-  redirect:
-    success-uri: ${OAUTH_SUCCESS_REDIRECT_URI:https://moduplaylist.site/}
-    failure-uri: ${OAUTH_FAILURE_REDIRECT_URI:https://moduplaylist.site/#/sign-in}
-
   password-reset-mail:
     mode: ${PASSWORD_RESET_MAIL_MODE:log}
     from: ${MAIL_FROM:no-reply@mopl.local}
+
+oauth:
+  enabled: ${OAUTH_ENABLED:false}
+  redirect:
+    success-uri: ${OAUTH_SUCCESS_REDIRECT_URI:https://moduplaylist.site/}
+    failure-uri: ${OAUTH_FAILURE_REDIRECT_URI:https://moduplaylist.site/#/sign-in}
 
 sportsdb:
   base-url: https://www.thesportsdb.com/api/v1/json

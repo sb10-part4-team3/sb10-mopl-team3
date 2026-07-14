@@ -4,7 +4,12 @@ import com.example.sb10_MoPl_team3.global.security.csrf.CsrfCookieFilter;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtAuthenticationFilter;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProvider;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtSessionValidator;
+import com.example.sb10_MoPl_team3.oauth.handler.OAuthLoginFailureHandler;
+import com.example.sb10_MoPl_team3.oauth.handler.OAuthLoginSuccessHandler;
+import com.example.sb10_MoPl_team3.oauth.security.HttpCookieOAuth2AuthorizationRequestRepository;
+import com.example.sb10_MoPl_team3.oauth.service.CustomOAuth2UserService;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,7 +33,12 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
-            CsrfCookieFilter csrfCookieFilter
+            CsrfCookieFilter csrfCookieFilter,
+            CustomOAuth2UserService customOAuth2UserService,
+            OAuthLoginSuccessHandler oAuthLoginSuccessHandler,
+            OAuthLoginFailureHandler oAuthLoginFailureHandler,
+            HttpCookieOAuth2AuthorizationRequestRepository authorizationRequestRepository,
+            @Value("${oauth.enabled:false}") boolean oauthEnabled
     ) throws Exception {
 
         CsrfTokenRequestAttributeHandler csrfTokenRequestHandler =
@@ -55,6 +65,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
                 .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers(
                     "/",
@@ -73,6 +84,17 @@ public class SecurityConfig {
             // Ensure deferred CSRF tokens are materialized after stateless session handling.
             .addFilterAfter(csrfCookieFilter, SessionManagementFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        if (oauthEnabled) {
+            http.oauth2Login(oauth2 -> oauth2
+                    .authorizationEndpoint(authorization -> authorization
+                            .authorizationRequestRepository(authorizationRequestRepository))
+                    .userInfoEndpoint(userInfo -> userInfo
+                            .userService(customOAuth2UserService))
+                    .successHandler(oAuthLoginSuccessHandler)
+                    .failureHandler(oAuthLoginFailureHandler)
+            );
+        }
 
         return http.build();
     }
