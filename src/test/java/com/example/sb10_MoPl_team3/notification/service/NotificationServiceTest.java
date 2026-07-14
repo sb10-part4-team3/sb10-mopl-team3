@@ -8,6 +8,8 @@ import static org.mockito.Mockito.never;
 
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.global.sse.SseConnectionRepository;
+import com.example.sb10_MoPl_team3.global.sse.SseEventCache;
 import com.example.sb10_MoPl_team3.global.sse.SseEventPublisher;
 import com.example.sb10_MoPl_team3.notification.dto.NotificationFindAllRequest;
 import com.example.sb10_MoPl_team3.notification.dto.NotificationDto;
@@ -22,6 +24,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Predicate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,6 +46,9 @@ class NotificationServiceTest {
 
     @Mock
     private SseEventPublisher sseEventPublisher;
+
+    @Mock
+    private SseConnectionRepository sseConnectionRepository;
 
     @InjectMocks
     private NotificationService notificationService;
@@ -228,7 +234,7 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("본인의 알림을 읽으면 읽음 상태로 변경한다")
+    @DisplayName("본인의 알림을 읽으면 읽음 상태로 변경하고 SSE 알림 캐시를 삭제한다")
     void read_marksNotificationAsRead() {
         UUID receiverId = UUID.randomUUID();
         UUID notificationId = UUID.randomUUID();
@@ -241,6 +247,42 @@ class NotificationServiceTest {
 
         assertThat(notification.isRead()).isTrue();
         assertThat(notification.getReadAt()).isNotNull();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Predicate<SseEventCache>> predicateCaptor =
+                ArgumentCaptor.forClass(Predicate.class);
+        then(sseConnectionRepository).should().deleteCachedEvents(
+                org.mockito.ArgumentMatchers.eq(receiverId),
+                predicateCaptor.capture());
+
+        Predicate<SseEventCache> predicate = predicateCaptor.getValue();
+        NotificationDto matchingNotification = new NotificationDto(
+                notificationId,
+                Instant.parse("2026-06-29T00:00:00Z"),
+                receiverId,
+                "제목",
+                "내용",
+                NotificationLevel.INFO);
+        NotificationDto otherNotification = new NotificationDto(
+                UUID.randomUUID(),
+                Instant.parse("2026-06-29T00:00:01Z"),
+                receiverId,
+                "다른 제목",
+                "다른 내용",
+                NotificationLevel.INFO);
+
+        assertThat(predicate.test(SseEventCache.of(
+                "event-1",
+                SseEventPublisher.NOTIFICATIONS_EVENT,
+                matchingNotification))).isTrue();
+        assertThat(predicate.test(SseEventCache.of(
+                "event-2",
+                SseEventPublisher.NOTIFICATIONS_EVENT,
+                otherNotification))).isFalse();
+        assertThat(predicate.test(SseEventCache.of(
+                "event-3",
+                "direct-messages",
+                matchingNotification))).isFalse();
     }
 
     @Test

@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.function.Predicate;
 
 @Repository
 public class InMemorySseConnectionRepository implements SseConnectionRepository {
@@ -101,6 +102,18 @@ public class InMemorySseConnectionRepository implements SseConnectionRepository 
     @Override
     public void deleteAllCachedEvents(UUID userId) {
         eventCaches.remove(userId);
+    }
+
+    @Override
+    public void deleteCachedEvents(UUID userId, Predicate<SseEventCache> predicate) {
+        ConcurrentLinkedDeque<SseEventCache> userEventCache = eventCaches.get(userId);
+        if (userEventCache == null) {
+            return;
+        }
+        userEventCache.removeIf(predicate);
+        if (userEventCache.isEmpty()) {
+            eventCaches.remove(userId);
+        }
     }
 
     private void trimEventCache(ConcurrentLinkedDeque<SseEventCache> eventCache) {

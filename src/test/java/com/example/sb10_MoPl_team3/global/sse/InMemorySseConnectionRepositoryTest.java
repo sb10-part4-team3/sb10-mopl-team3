@@ -126,6 +126,29 @@ class InMemorySseConnectionRepositoryTest {
     }
 
     @Test
+    @DisplayName("조건에 맞는 사용자별 이벤트 캐시만 삭제할 수 있다")
+    void deleteCachedEventsByPredicate() {
+        UUID userId = UUID.randomUUID();
+        UUID otherUserId = UUID.randomUUID();
+
+        repository.saveEvent(userId, SseEventCache.of("event-1", "notifications", "data-1"));
+        repository.saveEvent(userId, SseEventCache.of("event-2", "direct-messages", "data-2"));
+        repository.saveEvent(userId, SseEventCache.of("event-3", "notifications", "data-3"));
+        repository.saveEvent(otherUserId, SseEventCache.of("event-4", "notifications", "data-4"));
+
+        repository.deleteCachedEvents(
+                userId,
+                event -> "notifications".equals(event.name()) && "data-1".equals(event.data()));
+
+        assertThat(repository.findCachedEventsByUserId(userId))
+                .extracting(SseEventCache::id)
+                .containsExactly("event-2", "event-3");
+        assertThat(repository.findCachedEventsByUserId(otherUserId))
+                .extracting(SseEventCache::id)
+                .containsExactly("event-4");
+    }
+
+    @Test
     @DisplayName("사용자별 emitter와 이벤트 캐시를 전체 삭제할 수 있다")
     void deleteAllByUserId() {
         UUID userId = UUID.randomUUID();

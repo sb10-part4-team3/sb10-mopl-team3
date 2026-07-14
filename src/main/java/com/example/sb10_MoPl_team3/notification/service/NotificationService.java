@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.notification.service;
 
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.global.sse.SseConnectionRepository;
 import com.example.sb10_MoPl_team3.global.sse.SseEventPublisher;
 import com.example.sb10_MoPl_team3.notification.dto.CursorResponseNotificationDto;
 import com.example.sb10_MoPl_team3.notification.dto.NotificationFindAllRequest;
@@ -28,6 +29,7 @@ public class NotificationService implements NotificationEventHandler {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final SseEventPublisher sseEventPublisher;
+    private final SseConnectionRepository sseConnectionRepository;
 
     @Transactional(readOnly = true)
     public CursorResponseNotificationDto<NotificationDto> findAll(
@@ -103,6 +105,11 @@ public class NotificationService implements NotificationEventHandler {
                 .findByIdAndReceiverId(notificationId, receiverId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTIFICATION_NOT_FOUND));
         notification.markAsRead();
+        sseConnectionRepository.deleteCachedEvents(
+                receiverId,
+                event -> SseEventPublisher.NOTIFICATIONS_EVENT.equals(event.name())
+                        && event.data() instanceof NotificationDto notificationDto
+                        && notificationId.equals(notificationDto.id()));
     }
 
     private String normalizeSortBy(String sortBy) {

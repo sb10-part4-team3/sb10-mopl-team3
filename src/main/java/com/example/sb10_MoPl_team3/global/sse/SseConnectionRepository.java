@@ -5,6 +5,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 public interface SseConnectionRepository {
 
@@ -23,4 +24,6 @@ public interface SseConnectionRepository {
     void deleteAllEmitters(UUID userId);
 
     void deleteAllCachedEvents(UUID userId);
+
+    void deleteCachedEvents(UUID userId, Predicate<SseEventCache> predicate);
 }
