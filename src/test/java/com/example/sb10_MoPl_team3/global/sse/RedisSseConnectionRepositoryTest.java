@@ -74,6 +74,62 @@ class RedisSseConnectionRepositoryTest {
     }
 
     @Test
+    void findCachedEventsByUserId_returnsEmptyListWhenRedisListIsMissing() {
+        UUID userId = UUID.randomUUID();
+        given(redisTemplate.opsForList()).willReturn(listOperations);
+        given(listOperations.range(key(userId), 0, -1)).willReturn(null);
+
+        assertThat(repository.findCachedEventsByUserId(userId)).isEmpty();
+    }
+
+    @Test
+    void findCachedEventsAfter_replaysAllEventsWhenLastEventIdIsMissing() throws Exception {
+        UUID userId = UUID.randomUUID();
+        given(redisTemplate.opsForList()).willReturn(listOperations);
+        given(listOperations.range(key(userId), 0, -1)).willReturn(List.of(
+                payload("event-1", "notifications", notificationDto(UUID.randomUUID())),
+                payload("event-2", "notifications", notificationDto(UUID.randomUUID()))));
+
+        assertThat(repository.findCachedEventsAfter(userId, "unknown-event"))
+                .extracting(SseEventCache::id)
+                .containsExactly("event-1", "event-2");
+    }
+
+    @Test
+    void findCachedEventsByUserId_ignoresCorruptedPayloads() throws Exception {
+        UUID userId = UUID.randomUUID();
+        given(redisTemplate.opsForList()).willReturn(listOperations);
+        given(listOperations.range(key(userId), 0, -1)).willReturn(List.of(
+                "invalid-json",
+                payload("event-1", "notifications", notificationDto(UUID.randomUUID()))));
+
+        assertThat(repository.findCachedEventsByUserId(userId))
+                .extracting(SseEventCache::id)
+                .containsExactly("event-1");
+    }
+
+    @Test
+    void deleteCachedEvents_removesOnlyPredicateMatchedPayloads() throws Exception {
+        UUID userId = UUID.randomUUID();
+        given(redisTemplate.opsForList()).willReturn(listOperations);
+        given(listOperations.range(key(userId), 0, -1)).willReturn(List.of(
+                payload("event-1", "notifications", notificationDto(UUID.randomUUID())),
+                payload("event-2", "direct-messages", notificationDto(UUID.randomUUID())),
+                payload("event-3", "notifications", notificationDto(UUID.randomUUID()))));
+
+        repository.deleteCachedEvents(userId, event -> "notifications".equals(event.name()));
+
+        ArgumentCaptor<String> removedPayloadCaptor = ArgumentCaptor.forClass(String.class);
+        then(listOperations).should(times(2)).remove(
+                org.mockito.ArgumentMatchers.eq(key(userId)),
+                org.mockito.ArgumentMatchers.eq(1L),
+                removedPayloadCaptor.capture());
+        assertThat(removedPayloadCaptor.getAllValues())
+                .extracting(this::payloadId)
+                .containsExactly("event-1", "event-3");
+    }
+
+    @Test
     void deleteCachedEventByDataId_removesOnlyMatchingNotificationEvent() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID notificationId = UUID.randomUUID();
@@ -105,6 +161,15 @@ class RedisSseConnectionRepositoryTest {
 
         assertThat(repository.findEmittersByUserId(userId))
                 .containsEntry(emitterId, emitter);
+    }
+
+    @Test
+    void deleteAllCachedEvents_deletesRedisEventCacheKey() {
+        UUID userId = UUID.randomUUID();
+
+        repository.deleteAllCachedEvents(userId);
+
+        then(redisTemplate).should().delete(key(userId));
     }
 
     private String payload(String id, String name, Object data) throws Exception {

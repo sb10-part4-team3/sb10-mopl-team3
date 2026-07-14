@@ -41,4 +41,15 @@ class SseBroadcastSubscriberTest {
         assertThat(eventCaptor.getValue().id()).isEqualTo("event-1");
         assertThat(eventCaptor.getValue().name()).isEqualTo("notifications");
     }
+
+    @Test
+    void onMessage_ignoresInvalidPayload() {
+        SseBroadcastSubscriber subscriber =
+                new SseBroadcastSubscriber(objectMapper, localEventDispatcher);
+        given(redisMessage.getBody()).willReturn("invalid-json".getBytes());
+
+        subscriber.onMessage(redisMessage, null);
+
+        then(localEventDispatcher).shouldHaveNoInteractions();
+    }
 }
