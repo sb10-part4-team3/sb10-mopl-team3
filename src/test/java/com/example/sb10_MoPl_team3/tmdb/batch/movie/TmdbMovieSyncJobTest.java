@@ -21,6 +21,7 @@ import jakarta.persistence.EntityManager;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -48,11 +49,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 @ActiveProfiles("test")
 class TmdbMovieSyncJobTest {
 
-  private static final List<String> ALL_TEST_EXTERNAL_IDS = List.of(
-      "MOVIE-9001", "MOVIE-9002",
-      "MOVIE-100", "MOVIE-200", "MOVIE-300",
-      "MOVIE-6001"
-  );
+  private static final List<String> ALL_TEST_EXTERNAL_IDS = Stream.concat(
+      Stream.of("MOVIE-9001", "MOVIE-9002", "MOVIE-100", "MOVIE-200", "MOVIE-300", "MOVIE-6001"),
+      LongStream.rangeClosed(5001, 5020).mapToObj(id -> "MOVIE-" + id)
+  ).toList();
 
   @Autowired
   private JobLauncher jobLauncher;
@@ -194,7 +194,8 @@ class TmdbMovieSyncJobTest {
     assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
 
     // then: 기존 콘텐츠는 갱신된다
-    Content updated = contentRepository.findByExternalIdAndSource("MOVIE-100", "TMDB").orElseThrow();
+    Content updated = contentRepository.findByExternalIdAndSource("MOVIE-100", "TMDB")
+        .orElseThrow();
     assertThat(updated.getTitle()).isEqualTo("제목100");
 
     // then: 소프트 삭제된 콘텐츠는 갱신되지 않고 그대로 유지된다
@@ -207,7 +208,8 @@ class TmdbMovieSyncJobTest {
     assertThat(contentTagRepository.findTagsByContentIds(List.of(deletedContentId))).isEmpty();
 
     // then: 신규 콘텐츠는 생성된다
-    Content created = contentRepository.findByExternalIdAndSource("MOVIE-300", "TMDB").orElseThrow();
+    Content created = contentRepository.findByExternalIdAndSource("MOVIE-300", "TMDB")
+        .orElseThrow();
     assertThat(created.getTitle()).isEqualTo("제목300");
     List<ContentTagProjection> createdTags =
         contentTagRepository.findTagsByContentIds(List.of(created.getId()));
@@ -256,7 +258,8 @@ class TmdbMovieSyncJobTest {
         .toJobParameters();
   }
 
-  private TmdbMoviePopularResponse pageResponse(int page, int totalPages, TmdbMovieResult... results) {
+  private TmdbMoviePopularResponse pageResponse(int page, int totalPages,
+      TmdbMovieResult... results) {
     return new TmdbMoviePopularResponse(page, List.of(results), totalPages, results.length);
   }
 

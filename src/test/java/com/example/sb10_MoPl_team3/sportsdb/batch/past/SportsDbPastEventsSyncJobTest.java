@@ -5,103 +5,35 @@ import static org.mockito.BDDMockito.given;
 
 import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.entity.Content;
-import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.content.repository.ContentTagProjection;
-import com.example.sb10_MoPl_team3.content.repository.ContentTagRepository;
 import com.example.sb10_MoPl_team3.sportsdb.SportsDbConstants;
-import com.example.sb10_MoPl_team3.sportsdb.client.SportsDbApiClient;
-import com.example.sb10_MoPl_team3.sportsdb.config.SportsDbProperties;
+import com.example.sb10_MoPl_team3.sportsdb.batch.AbstractSportsDbEventsSyncJobTest;
 import com.example.sb10_MoPl_team3.sportsdb.dto.SportsDbEventsResponse;
-import com.example.sb10_MoPl_team3.sportsdb.dto.SportsDbEventsResponse.SportsDbEvent;
-import jakarta.persistence.EntityManager;
 import java.util.List;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.JobParameters;
-import org.springframework.batch.core.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
-@SpringBootTest
-@SpringBatchTest
-@ActiveProfiles("test")
-class SportsDbPastEventsSyncJobTest {
-
-  private static final String LEAGUE_ID = "4328";
-
-  private static final List<String> ALL_TEST_EXTERNAL_IDS = List.of(
-      SportsDbConstants.externalId("1"),
-      SportsDbConstants.externalId("10"), SportsDbConstants.externalId("11"),
-      SportsDbConstants.externalId("100"), SportsDbConstants.externalId("200"),
-      SportsDbConstants.externalId("300")
-  );
-
-  @Autowired
-  private JobLauncher jobLauncher;
+class SportsDbPastEventsSyncJobTest extends AbstractSportsDbEventsSyncJobTest {
 
   @Autowired
   @Qualifier("sportsDbPastEventsSyncJob")
   private Job sportsDbPastEventsSyncJob;
 
-  @Autowired
-  private ContentRepository contentRepository;
-
-  @Autowired
-  private ContentTagRepository contentTagRepository;
-
-  @Autowired
-  private EntityManager entityManager;
-
-  @Autowired
-  private PlatformTransactionManager transactionManager;
-
-  @MockitoBean
-  private SportsDbApiClient sportsDbApiClient;
-
-  @MockitoBean
-  private SportsDbProperties sportsDbProperties;
-
-  @AfterEach
-  void cleanUp() {
-    new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-      entityManager.createNativeQuery(
-              "DELETE FROM content_tags WHERE content_id IN (SELECT id FROM contents WHERE external_id IN (:ids))")
-          .setParameter("ids", ALL_TEST_EXTERNAL_IDS)
-          .executeUpdate();
-
-      entityManager.createNativeQuery(
-              "DELETE FROM content_stats WHERE content_id IN (SELECT id FROM contents WHERE external_id IN (:ids))")
-          .setParameter("ids", ALL_TEST_EXTERNAL_IDS)
-          .executeUpdate();
-
-      entityManager.createNativeQuery("DELETE FROM contents WHERE external_id IN (:ids)")
-          .setParameter("ids", ALL_TEST_EXTERNAL_IDS)
-          .executeUpdate();
-    });
-  }
-
   @Test
   void sportsDbPastEventsSyncJob_실행하면_COMPLETED_상태로_종료된다() throws Exception {
     // given
-    given(sportsDbProperties.getTargetLeagueIds()).willReturn(List.of(LEAGUE_ID));
-    given(sportsDbApiClient.getPastEventsByLeague(LEAGUE_ID)).willReturn(sampleEventsResponse());
-
-    JobParameters params = uniqueParams();
+    stubTargetLeagueIds();
+    given(sportsDbApiClient.getPastEventsByLeague(LEAGUE_ID))
+        .willReturn(new SportsDbEventsResponse(List.of(event("1"))));
 
     // when
-    JobExecution execution = jobLauncher.run(sportsDbPastEventsSyncJob, params);
+    JobExecution execution = jobLauncher.run(sportsDbPastEventsSyncJob, uniqueParams());
 
     // then
     assertThat(execution.getStatus().toString()).isEqualTo("COMPLETED");
@@ -110,7 +42,7 @@ class SportsDbPastEventsSyncJobTest {
   @Test
   @DisplayName("Job을 실행하면 응답받은 경기 수만큼 콘텐츠가 저장된다")
   void sportsDbPastEventsSyncJob_실행하면_이벤트_건수만큼_콘텐츠가_저장된다() throws Exception {
-    given(sportsDbProperties.getTargetLeagueIds()).willReturn(List.of(LEAGUE_ID));
+    stubTargetLeagueIds();
     given(sportsDbApiClient.getPastEventsByLeague(LEAGUE_ID)).willReturn(
         new SportsDbEventsResponse(List.of(event("10"), event("11"))));
 
@@ -147,7 +79,7 @@ class SportsDbPastEventsSyncJobTest {
     contentRepository.delete(deletedContent);
     contentRepository.flush();
 
-    given(sportsDbProperties.getTargetLeagueIds()).willReturn(List.of(LEAGUE_ID));
+    stubTargetLeagueIds();
     given(sportsDbApiClient.getPastEventsByLeague(LEAGUE_ID)).willReturn(
         new SportsDbEventsResponse(List.of(event("100"), event("200"), event("300"))));
 
@@ -173,21 +105,5 @@ class SportsDbPastEventsSyncJobTest {
     List<ContentTagProjection> createdTags =
         contentTagRepository.findTagsByContentIds(List.of(created.getId()));
     assertThat(createdTags).extracting(ContentTagProjection::tagName).contains("Soccer");
-  }
-
-  private JobParameters uniqueParams() {
-    return new JobParametersBuilder()
-        .addLong("time", System.nanoTime())
-        .toJobParameters();
-  }
-
-  private SportsDbEvent event(String id) {
-    return new SportsDbEvent(id, "경기명" + id, "2026-01-01", "샘플 리그", "샘플 경기장", "https://sample.jpg");
-  }
-
-  private SportsDbEventsResponse sampleEventsResponse() {
-    SportsDbEvent event = new SportsDbEvent(
-        "1", "샘플 경기", "2026-01-01", "샘플 리그", "샘플 경기장", "https://sample.jpg");
-    return new SportsDbEventsResponse(List.of(event));
   }
 }
