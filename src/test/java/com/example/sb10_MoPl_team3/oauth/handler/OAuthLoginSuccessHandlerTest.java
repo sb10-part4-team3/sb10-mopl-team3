@@ -2,12 +2,12 @@ package com.example.sb10_MoPl_team3.oauth.handler;
 
 import com.example.sb10_MoPl_team3.auth.dto.AuthTokenResult;
 import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
+import com.example.sb10_MoPl_team3.auth.exception.InvalidCredentialException;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.oauth.config.OAuthRedirectProperties;
 import com.example.sb10_MoPl_team3.oauth.dto.OAuthUserInfo;
 import com.example.sb10_MoPl_team3.oauth.dto.OAuthUserPrincipal;
 import com.example.sb10_MoPl_team3.oauth.enums.OAuthProvider;
-import com.example.sb10_MoPl_team3.oauth.exception.OAuthAccountNotLinkedException;
 import com.example.sb10_MoPl_team3.oauth.service.OAuthAuthenticationService;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
@@ -44,13 +44,13 @@ class OAuthLoginSuccessHandlerTest {
     );
 
     @Test
-    @DisplayName("OAuth 로그인 성공 시 refresh token 쿠키를 설정하고 성공 URI로 리다이렉트한다")
+    @DisplayName("OAuth login success sets refresh token cookie and redirects to success URI")
     void success() throws Exception {
         OAuthUserInfo userInfo = new OAuthUserInfo(
                 OAuthProvider.GOOGLE,
                 "google-user-id",
                 "user@test.com",
-                "사용자",
+                "user",
                 null
         );
 
@@ -66,7 +66,7 @@ class OAuthLoginSuccessHandlerTest {
                                 UUID.randomUUID(),
                                 Instant.now(),
                                 "user@test.com",
-                                "사용자",
+                                "user",
                                 null,
                                 UserRole.USER,
                                 false
@@ -96,13 +96,13 @@ class OAuthLoginSuccessHandlerTest {
     }
 
     @Test
-    @DisplayName("연동되지 않은 OAuth 계정이면 로그인 화면으로 실패 리다이렉트한다")
-    void unlinked() throws Exception {
+    @DisplayName("OAuth sign in redirects to failure page when credential is invalid")
+    void invalidCredential() throws Exception {
         OAuthUserInfo userInfo = new OAuthUserInfo(
                 OAuthProvider.KAKAO,
                 "kakao-user-id",
                 null,
-                "카카오 사용자",
+                "kakao-user",
                 null
         );
 
@@ -113,7 +113,7 @@ class OAuthLoginSuccessHandlerTest {
         );
 
         given(oauthAuthenticationService.signin(userInfo))
-                .willThrow(new OAuthAccountNotLinkedException());
+                .willThrow(new InvalidCredentialException());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -124,11 +124,11 @@ class OAuthLoginSuccessHandlerTest {
         );
 
         assertThat(response.getRedirectedUrl())
-                .isEqualTo("https://moduplaylist.site/#/sign-in?error=oauth_failed&error_message=user_not_exists");
+                .isEqualTo("https://moduplaylist.site/#/sign-in?error=oauth_failed&error_message=invalid_credential");
     }
 
     @Test
-    @DisplayName("OAuth principal 타입이 올바르지 않으면 실패 리다이렉트한다")
+    @DisplayName("OAuth login redirects to failure page when principal type is invalid")
     void invalidPrincipal() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
