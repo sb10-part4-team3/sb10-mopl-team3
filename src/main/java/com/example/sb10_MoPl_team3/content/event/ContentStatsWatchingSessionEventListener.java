@@ -7,6 +7,8 @@ import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -18,6 +20,7 @@ public class ContentStatsWatchingSessionEventListener {
   private final ContentStatsRepository contentStatsRepository;
 
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void onJoined(WatchingSessionJoinedEvent event) {
     try {
       if (contentStatsRepository.incrementViewerCount(event.contentId(), Instant.now()) != 1) {
@@ -29,6 +32,7 @@ public class ContentStatsWatchingSessionEventListener {
   }
 
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void onLeft(WatchingSessionLeftEvent event) {
     try {
       if (contentStatsRepository.decrementViewerCount(event.contentId(), Instant.now()) == 1) {
