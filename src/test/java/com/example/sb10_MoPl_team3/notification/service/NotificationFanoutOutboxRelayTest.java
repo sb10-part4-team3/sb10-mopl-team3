@@ -1,6 +1,5 @@
 package com.example.sb10_MoPl_team3.notification.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -8,12 +7,10 @@ import static org.mockito.BDDMockito.then;
 
 import com.example.sb10_MoPl_team3.notification.config.NotificationKafkaTopics;
 import com.example.sb10_MoPl_team3.notification.entity.NotificationFanoutOutbox;
-import com.example.sb10_MoPl_team3.notification.enums.NotificationFanoutOutboxStatus;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
 import com.example.sb10_MoPl_team3.notification.event.NotificationAudienceType;
 import com.example.sb10_MoPl_team3.notification.event.NotificationFanoutEvent;
 import com.example.sb10_MoPl_team3.notification.kafka.NotificationFanoutKafkaMessage;
-import com.example.sb10_MoPl_team3.notification.repository.NotificationFanoutOutboxRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -26,16 +23,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.SliceImpl;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationFanoutOutboxRelayTest {
 
     @Mock
-    NotificationFanoutOutboxRepository repository;
+    NotificationFanoutOutboxClaimService claimService;
 
     @Mock
     NotificationFanoutOutboxStatusService statusService;
@@ -50,30 +44,11 @@ class NotificationFanoutOutboxRelayTest {
     @BeforeEach
     void setUp() {
         relay = new NotificationFanoutOutboxRelay(
-                repository,
+                claimService,
                 statusService,
                 kafkaTemplate,
                 clock
         );
-        ReflectionTestUtils.setField(relay, "batchSize", 50);
-        ReflectionTestUtils.setField(relay, "processingTimeoutSeconds", 300L);
-    }
-
-    @Test
-    @DisplayName("발행 대상 outbox를 조회해 PROCESSING 상태로 claim한다")
-    void claimBatch_marksOutboxesProcessing() {
-        NotificationFanoutOutbox outbox = outbox(UUID.randomUUID());
-        given(repository.findByStatusInOrderByCreatedAtAscIdAsc(any(), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(outbox)));
-
-        var claimed = relay.claimBatch();
-
-        assertThat(claimed).containsExactly(outbox);
-        assertThat(outbox.getStatus()).isEqualTo(NotificationFanoutOutboxStatus.PROCESSING);
-        then(repository).should().resetStaleProcessing(
-                NotificationFanoutOutboxStatus.PROCESSING,
-                NotificationFanoutOutboxStatus.PENDING,
-                clock.instant().minusSeconds(300));
     }
 
     @Test
@@ -81,8 +56,7 @@ class NotificationFanoutOutboxRelayTest {
     void publishPending_sendsKafkaMessageAndMarksPublished() {
         UUID outboxId = UUID.randomUUID();
         NotificationFanoutOutbox outbox = outbox(outboxId);
-        given(repository.findByStatusInOrderByCreatedAtAscIdAsc(any(), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(outbox)));
+        given(claimService.claimBatch()).willReturn(List.of(outbox));
         given(kafkaTemplate.send(
                 eq(NotificationKafkaTopics.FANOUT),
                 eq(outboxId.toString()),
@@ -105,8 +79,7 @@ class NotificationFanoutOutboxRelayTest {
         UUID outboxId = UUID.randomUUID();
         NotificationFanoutOutbox outbox = outbox(outboxId);
         RuntimeException exception = new RuntimeException("kafka unavailable");
-        given(repository.findByStatusInOrderByCreatedAtAscIdAsc(any(), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(outbox)));
+        given(claimService.claimBatch()).willReturn(List.of(outbox));
         given(kafkaTemplate.send(
                 eq(NotificationKafkaTopics.FANOUT),
                 eq(outboxId.toString()),
@@ -124,8 +97,7 @@ class NotificationFanoutOutboxRelayTest {
         UUID outboxId = UUID.randomUUID();
         NotificationFanoutOutbox outbox = outbox(outboxId);
         RuntimeException exception = new RuntimeException("serialization failed");
-        given(repository.findByStatusInOrderByCreatedAtAscIdAsc(any(), any(Pageable.class)))
-                .willReturn(new SliceImpl<>(List.of(outbox)));
+        given(claimService.claimBatch()).willReturn(List.of(outbox));
         given(kafkaTemplate.send(
                 eq(NotificationKafkaTopics.FANOUT),
                 eq(outboxId.toString()),
@@ -145,7 +117,7 @@ class NotificationFanoutOutboxRelayTest {
                 "새로운 활동입니다.",
                 NotificationLevel.INFO
         ));
-        ReflectionTestUtils.setField(outbox, "id", id);
+        org.springframework.test.util.ReflectionTestUtils.setField(outbox, "id", id);
         return outbox;
     }
 }
