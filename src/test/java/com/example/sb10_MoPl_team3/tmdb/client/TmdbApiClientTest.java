@@ -12,7 +12,9 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.example.sb10_MoPl_team3.global.exception.TmdbApiException;
+import com.example.sb10_MoPl_team3.tmdb.dto.TmdbGenreListResponse;
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbMoviePopularResponse;
+import com.example.sb10_MoPl_team3.tmdb.dto.TmdbTvPopularResponse;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import java.time.Duration;
@@ -96,6 +98,105 @@ class TmdbApiClientTest {
         assertThat(result.voteCount()).isEqualTo(26280);
         assertThat(result.genreIds()).containsExactly(18, 53);
         assertThat(result.adult()).isFalse();
+    }
+
+    @Test
+    @DisplayName("인기 TV 정상 응답을 받으면 JSON 필드가 DTO에 그대로 매핑된다")
+    void getPopularTvs_정상_응답_시_DTO_매핑() {
+        wireMockServer.stubFor(get(urlPathEqualTo("/tv/popular"))
+            .willReturn(aResponse()
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                      "page": 1,
+                      "results": [
+                        {
+                          "id": 1399,
+                          "name": "왕좌의 게임",
+                          "original_name": "Game of Thrones",
+                          "overview": "설명입니다",
+                          "poster_path": "/poster.jpg",
+                          "backdrop_path": "/backdrop.jpg",
+                          "first_air_date": "2011-04-17",
+                          "popularity": 300.5,
+                          "vote_average": 8.4,
+                          "vote_count": 21000,
+                          "genre_ids": [18, 10765],
+                          "origin_country": ["US"]
+                        }
+                      ],
+                      "total_pages": 5,
+                      "total_results": 100
+                    }
+                    """)));
+
+        TmdbTvPopularResponse response = tmdbApiClient.getPopularTvs(1);
+
+        assertThat(response.page()).isEqualTo(1);
+        assertThat(response.totalPages()).isEqualTo(5);
+        assertThat(response.totalResults()).isEqualTo(100);
+        assertThat(response.results()).hasSize(1);
+
+        TmdbTvPopularResponse.TmdbTvResult result = response.results().get(0);
+        assertThat(result.id()).isEqualTo(1399L);
+        assertThat(result.name()).isEqualTo("왕좌의 게임");
+        assertThat(result.originalName()).isEqualTo("Game of Thrones");
+        assertThat(result.overview()).isEqualTo("설명입니다");
+        assertThat(result.posterPath()).isEqualTo("/poster.jpg");
+        assertThat(result.backdropPath()).isEqualTo("/backdrop.jpg");
+        assertThat(result.firstAirDate()).isEqualTo("2011-04-17");
+        assertThat(result.voteAverage()).isEqualTo(8.4);
+        assertThat(result.voteCount()).isEqualTo(21000);
+        assertThat(result.genreIds()).containsExactly(18, 10765);
+        assertThat(result.originCountry()).containsExactly("US");
+    }
+
+    @Test
+    @DisplayName("영화 장르 정상 응답을 받으면 JSON 필드가 DTO에 그대로 매핑된다")
+    void getMovieGenres_정상_응답_시_DTO_매핑() {
+        wireMockServer.stubFor(get(urlPathEqualTo("/genre/movie/list"))
+            .willReturn(aResponse()
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                      "genres": [
+                        {"id": 28, "name": "액션"},
+                        {"id": 18, "name": "드라마"}
+                      ]
+                    }
+                    """)));
+
+        TmdbGenreListResponse response = tmdbApiClient.getMovieGenres();
+
+        assertThat(response.genres()).hasSize(2);
+        assertThat(response.genres().get(0).id()).isEqualTo(28);
+        assertThat(response.genres().get(0).name()).isEqualTo("액션");
+        assertThat(response.genres().get(1).id()).isEqualTo(18);
+        assertThat(response.genres().get(1).name()).isEqualTo("드라마");
+    }
+
+    @Test
+    @DisplayName("TV 장르 정상 응답을 받으면 JSON 필드가 DTO에 그대로 매핑된다")
+    void getTvGenres_정상_응답_시_DTO_매핑() {
+        wireMockServer.stubFor(get(urlPathEqualTo("/genre/tv/list"))
+            .willReturn(aResponse()
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                      "genres": [
+                        {"id": 10759, "name": "액션 & 어드벤처"},
+                        {"id": 10765, "name": "SF & 판타지"}
+                      ]
+                    }
+                    """)));
+
+        TmdbGenreListResponse response = tmdbApiClient.getTvGenres();
+
+        assertThat(response.genres()).hasSize(2);
+        assertThat(response.genres().get(0).id()).isEqualTo(10759);
+        assertThat(response.genres().get(0).name()).isEqualTo("액션 & 어드벤처");
+        assertThat(response.genres().get(1).id()).isEqualTo(10765);
+        assertThat(response.genres().get(1).name()).isEqualTo("SF & 판타지");
     }
 
     @Test

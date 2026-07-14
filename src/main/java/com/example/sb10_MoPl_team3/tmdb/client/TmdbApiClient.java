@@ -78,10 +78,10 @@ public class TmdbApiClient {
     try {
       return spec.retrieve()
           .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-            throw new TmdbApiException("TMDB 요청 실패: " + res.getStatusCode());
+            throw new TmdbApiException(errorMessage + "TMDB 요청 실패: " + res.getStatusCode());
           })
           .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
-            throw new TmdbApiException("TMDB 서버 오류: " + res.getStatusCode());
+            throw new TmdbApiException(errorMessage + "TMDB 서버 오류: " + res.getStatusCode());
           })
           .body(responseType);
     } catch (RestClientException e) {
