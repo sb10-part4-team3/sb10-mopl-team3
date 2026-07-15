@@ -87,7 +87,9 @@ class ReviewServiceImplTest {
 
         authenticate(userId);
         given(userRepository.findById(userId)).willReturn(Optional.of(author));
-        given(contentRepository.findById(contentId)).willReturn(Optional.of(content));
+        given(contentRepository.findByIdForUpdate(contentId)).willReturn(Optional.of(content));
+        given(reviewRepository.existsByContent_IdAndAuthor_IdAndStatus(
+                contentId, userId, ReviewStatus.ACTIVE)).willReturn(false);
         given(reviewRepository.save(any(Review.class))).willReturn(saved);
         given(reviewMapper.toDto(saved)).willReturn(dto);
 
@@ -104,6 +106,60 @@ class ReviewServiceImplTest {
         assertThat(captured.getText()).isEqualTo("great");
         assertThat(captured.getRating()).isEqualTo(4.5);
         assertThat(captured.getStatus()).isEqualTo(ReviewStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("create rejects a second active review by the same user for the same content")
+    void create_duplicateActiveReview() {
+        UUID userId = uuid(1);
+        UUID contentId = uuid(2);
+        User author = user(userId, "author@test.com", "author");
+        Content content = content(contentId);
+
+        authenticate(userId);
+        given(userRepository.findById(userId)).willReturn(Optional.of(author));
+        given(contentRepository.findByIdForUpdate(contentId)).willReturn(Optional.of(content));
+        given(reviewRepository.existsByContent_IdAndAuthor_IdAndStatus(
+                contentId, userId, ReviewStatus.ACTIVE)).willReturn(true);
+
+        assertThatThrownBy(() ->
+                reviewService.create(new ReviewCreateRequest(contentId, "second", 3.0)))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_REVIEW)
+                );
+
+        then(reviewRepository).should(never()).save(any(Review.class));
+        then(reviewMapper).should(never()).toDto(any());
+        then(applicationEventPublisher).should(never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("create allows a review when no active review exists")
+    void create_afterDeletedReview() {
+        UUID userId = uuid(1);
+        UUID contentId = uuid(2);
+        User author = user(userId, "author@test.com", "author");
+        Content content = content(contentId);
+        Review saved = review(uuid(3), content, author, "new review", 4.0, ReviewStatus.ACTIVE);
+        ReviewDto dto = reviewDto(saved);
+
+        authenticate(userId);
+        given(userRepository.findById(userId)).willReturn(Optional.of(author));
+        given(contentRepository.findByIdForUpdate(contentId)).willReturn(Optional.of(content));
+        // DELETED 리뷰는 조회 조건에서 제외되므로 활성 리뷰가 없는 것으로 처리한다.
+        given(reviewRepository.existsByContent_IdAndAuthor_IdAndStatus(
+                contentId, userId, ReviewStatus.ACTIVE)).willReturn(false);
+        given(reviewRepository.save(any(Review.class))).willReturn(saved);
+        given(reviewMapper.toDto(saved)).willReturn(dto);
+
+        ReviewDto response = reviewService.create(
+                new ReviewCreateRequest(contentId, "new review", 4.0)
+        );
+
+        assertThat(response).isEqualTo(dto);
+        then(reviewRepository).should().save(any(Review.class));
+        then(applicationEventPublisher).should()
+                .publishEvent(new ReviewStatsChangedEvent(contentId));
     }
 
     @Test

@@ -13,6 +13,12 @@ import java.util.UUID;
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, UUID>, JpaSpecificationExecutor<Review> {
 
+    boolean existsByContent_IdAndAuthor_IdAndStatus(
+            UUID contentId,
+            UUID authorId,
+            ReviewStatus status
+    );
+
     long countByContent_IdAndStatus(UUID contentId, ReviewStatus status);
 
     @Query("SELECT AVG(r.rating) FROM Review r WHERE r.content.id = :contentId AND r.status = :status")

@@ -14,6 +14,7 @@ import com.example.sb10_MoPl_team3.review.entity.Review;
 import com.example.sb10_MoPl_team3.review.enums.ReviewStatus;
 import com.example.sb10_MoPl_team3.review.event.ReviewStatsChangedEvent;
 import com.example.sb10_MoPl_team3.review.exception.ReviewAuthorMismatchException;
+import com.example.sb10_MoPl_team3.review.exception.ReviewException;
 import com.example.sb10_MoPl_team3.review.exception.ReviewNotFoundException;
 import com.example.sb10_MoPl_team3.review.mapper.ReviewMapper;
 import com.example.sb10_MoPl_team3.review.repository.ReviewRepository;
@@ -55,9 +56,20 @@ public class ReviewServiceImpl implements ReviewService{
                         // UserNotFoundException 추가되면 변경
                         new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        Content content = contentRepository.findById(request.contentId())
-                // CONTENT_NOT_FOUND 추가 예정
-                .orElseThrow();
+        // 같은 콘텐츠에 대한 동시 생성 요청을 직렬화해 중복 활성 리뷰 생성을 막는다.
+        Content content = contentRepository.findByIdForUpdate(request.contentId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
+
+        boolean hasActiveReview =
+                reviewRepository.existsByContent_IdAndAuthor_IdAndStatus(
+                        content.getId(),
+                        author.getId(),
+                        ReviewStatus.ACTIVE
+                );
+
+        if (hasActiveReview) {
+            throw new ReviewException(ErrorCode.DUPLICATE_REVIEW);
+        }
 
         Review newReview = Review.builder()
                 .content(content)
