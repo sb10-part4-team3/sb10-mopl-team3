@@ -34,6 +34,7 @@ class WatchingSessionPresenceServiceTest {
 
     @Mock WatchingSessionPersistenceService persistenceService;
     @Mock WatchingSessionRedisRepository redisRepository;
+    @Mock WatchingSessionViewerCountService viewerCountService;
     @InjectMocks WatchingSessionPresenceService presenceService;
 
     @Test

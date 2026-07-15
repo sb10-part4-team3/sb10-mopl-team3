@@ -43,4 +43,14 @@ public interface ContentStatsRepository extends JpaRepository<ContentStats, UUID
         @Param("contentId") UUID contentId,
         @Param("updatedAt") Instant updatedAt
     );
+
+    @Modifying
+    @Query("update ContentStats stats "
+        + "set stats.viewerCount = :viewerCount, stats.updatedAt = :updatedAt "
+        + "where stats.id = :contentId")
+    int updateViewerCount(
+        @Param("contentId") UUID contentId,
+        @Param("viewerCount") int viewerCount,
+        @Param("updatedAt") Instant updatedAt
+    );
 }

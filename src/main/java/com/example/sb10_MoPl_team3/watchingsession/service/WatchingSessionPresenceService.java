@@ -16,6 +16,7 @@ public class WatchingSessionPresenceService {
 
     private final WatchingSessionPersistenceService persistenceService;
     private final WatchingSessionRedisRepository redisRepository;
+    private final WatchingSessionViewerCountService viewerCountService;
 
     public List<WatchingSessionChange> join(UUID contentId, UUID watcherId) {
         List<WatchingSessionChange> changes = new ArrayList<>();
@@ -23,6 +24,7 @@ public class WatchingSessionPresenceService {
         joinResult.previousWatchingSession().ifPresent(previousWatchingSession -> {
             UUID previousContentId = previousWatchingSession.content().id();
             redisRepository.removeWatcher(previousContentId, watcherId);
+            viewerCountService.sync(previousContentId);
             changes.add(new WatchingSessionChange(
                     WatchingSessionChangeType.LEAVE,
                     previousWatchingSession,
@@ -31,6 +33,7 @@ public class WatchingSessionPresenceService {
         });
 
         redisRepository.addWatcher(contentId, joinResult.watchingSession().watcher());
+        viewerCountService.sync(contentId);
         changes.add(new WatchingSessionChange(
                 WatchingSessionChangeType.JOIN,
                 joinResult.watchingSession(),
@@ -42,6 +45,7 @@ public class WatchingSessionPresenceService {
     public List<WatchingSessionChange> leave(UUID contentId, UUID watcherId) {
         var watchingSession = persistenceService.leave(contentId, watcherId);
         redisRepository.removeWatcher(contentId, watcherId);
+        viewerCountService.sync(contentId);
         return watchingSession
                 .map(session -> List.of(new WatchingSessionChange(
                         WatchingSessionChangeType.LEAVE,
@@ -49,5 +53,29 @@ public class WatchingSessionPresenceService {
                         redisRepository.countWatchers(contentId)
                 )))
                 .orElseGet(List::of);
+    }
+
+    public boolean refresh(UUID contentId, UUID watcherId) {
+        return redisRepository.refreshWatcher(contentId, watcherId);
+    }
+
+    public List<WatchingSessionChange> removeStaleWatchers(UUID contentId) {
+        var staleWatchers = redisRepository.removeStaleWatchers(contentId);
+        if (staleWatchers.isEmpty()) {
+            viewerCountService.sync(contentId);
+            return List.of();
+        }
+
+        List<WatchingSessionChange> changes = new ArrayList<>();
+        for (var watcher : staleWatchers) {
+            persistenceService.leave(contentId, watcher.userId())
+                    .ifPresent(session -> changes.add(new WatchingSessionChange(
+                            WatchingSessionChangeType.LEAVE,
+                            session,
+                            redisRepository.countWatchers(contentId)
+                    )));
+        }
+        viewerCountService.sync(contentId);
+        return List.copyOf(changes);
     }
 }
