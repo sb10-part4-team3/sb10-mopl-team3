@@ -18,7 +18,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.Message;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
@@ -41,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class WatchingSessionWebSocketListenerTest {
 
     @Mock WatchingSessionPresenceService presenceService;
-    @Mock SimpMessagingTemplate messagingTemplate;
+    @Mock WatchingSessionBroadcastPublisher broadcastPublisher;
     @InjectMocks WatchingSessionWebSocketListener listener;
 
     @Test
@@ -67,8 +66,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleSubscribe(event);
 
         then(presenceService).should().join(contentId, watcherId);
-        then(messagingTemplate).should().convertAndSend(
-                "/sub/contents/" + contentId + "/watch", change);
+        then(broadcastPublisher).should().publish(change);
     }
 
     @Test
@@ -83,7 +81,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleSubscribe(new SessionSubscribeEvent(this, message));
 
         then(presenceService).shouldHaveNoInteractions();
-        then(messagingTemplate).shouldHaveNoInteractions();
+        then(broadcastPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -99,7 +97,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleSubscribe(new SessionSubscribeEvent(this, message));
 
         then(presenceService).shouldHaveNoInteractions();
-        then(messagingTemplate).shouldHaveNoInteractions();
+        then(broadcastPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -129,7 +127,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleDisconnect(disconnectEvent);
 
         then(presenceService).should(never()).leave(contentId, watcherId);
-        then(messagingTemplate).shouldHaveNoInteractions();
+        then(broadcastPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -146,7 +144,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, message));
 
         then(presenceService).shouldHaveNoInteractions();
-        then(messagingTemplate).shouldHaveNoInteractions();
+        then(broadcastPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -194,7 +192,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, unsubscribeMessage));
 
         then(presenceService).shouldHaveNoInteractions();
-        then(messagingTemplate).shouldHaveNoInteractions();
+        then(broadcastPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -225,8 +223,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleDisconnect(disconnectEvent);
 
         then(presenceService).should().leave(contentId, watcherId);
-        then(messagingTemplate).should().convertAndSend(
-                "/sub/contents/" + contentId + "/watch", left);
+        then(broadcastPublisher).should().publish(left);
     }
 
     @Test
@@ -263,8 +260,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, unsubscribeMessage, authentication));
 
         then(presenceService).should().leave(contentId, watcherId);
-        then(messagingTemplate).should().convertAndSend(
-                "/sub/contents/" + contentId + "/watch", left);
+        then(broadcastPublisher).should().publish(left);
     }
 
     private void subscribe(

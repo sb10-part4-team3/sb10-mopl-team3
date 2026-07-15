@@ -118,3 +118,14 @@ notification:
       retry:
         max-attempts: ${NOTIFICATION_FANOUT_RETRY_MAX_ATTEMPTS:3}
         interval-ms: ${NOTIFICATION_FANOUT_RETRY_INTERVAL_MS:1000}
+
+watching-session:
+  redis:
+    pubsub:
+      enabled: ${WATCHING_SESSION_REDIS_PUBSUB_ENABLED:true}
+  presence:
+    ttl: ${WATCHING_SESSION_PRESENCE_TTL:30s}
+    heartbeat-interval-ms: ${WATCHING_SESSION_PRESENCE_HEARTBEAT_INTERVAL_MS:10000}
+    cleanup:
+      enabled: ${WATCHING_SESSION_PRESENCE_CLEANUP_ENABLED:true}
+      interval-ms: ${WATCHING_SESSION_PRESENCE_CLEANUP_INTERVAL_MS:30000}
