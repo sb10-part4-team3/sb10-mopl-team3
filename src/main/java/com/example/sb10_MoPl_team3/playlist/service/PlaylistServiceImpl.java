@@ -77,7 +77,7 @@ public class PlaylistServiceImpl implements PlaylistService{
                         .formatted(owner.getName(), savedPlaylist.getTitle()),
                 NotificationLevel.INFO
         ));
-        PlaylistDto playlistDto = playlistMapper.toDto(savedPlaylist, false);
+        PlaylistDto playlistDto = playlistMapper.toDto(savedPlaylist, false, List.of());
 
         return playlistDto;
     }
@@ -98,7 +98,9 @@ public class PlaylistServiceImpl implements PlaylistService{
         targetPlaylist.update(request.title(), request.description());
 
         boolean isSubscribed = playlistSubscriptionRepository.existsByPlaylistIdAndUserId(targetPlaylist.getId(), requestUserId);
-        return playlistMapper.toDto(targetPlaylist, isSubscribed);
+        List<ContentSummary> contents = findContentsByPlaylistId(List.of(targetPlaylist.getId())).getOrDefault(targetPlaylist.getId(), List.of());
+
+        return playlistMapper.toDto(targetPlaylist, isSubscribed, contents);
     }
 
     // 플레이리스트 단건 조회
@@ -111,7 +113,9 @@ public class PlaylistServiceImpl implements PlaylistService{
         validatePlaylistStatus(targetPlaylist);
 
         boolean isSubscribed = playlistSubscriptionRepository.existsByPlaylistIdAndUserId(playlistId, requestUserId);
-        PlaylistDto playlistDto = playlistMapper.toDto(targetPlaylist, isSubscribed);
+        List<ContentSummary> contents = findContentsByPlaylistId(List.of(playlistId)).getOrDefault(playlistId, List.of());
+
+        PlaylistDto playlistDto = playlistMapper.toDto(targetPlaylist, isSubscribed, contents);
 
         return playlistDto;
     }

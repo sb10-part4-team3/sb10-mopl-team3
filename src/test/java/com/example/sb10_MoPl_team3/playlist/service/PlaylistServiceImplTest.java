@@ -3,6 +3,7 @@ package com.example.sb10_MoPl_team3.playlist.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -109,7 +110,7 @@ class PlaylistServiceImplTest {
         authenticate(userId);
         given(userRepository.findById(userId)).willReturn(Optional.of(owner));
         given(playlistRepository.save(any(Playlist.class))).willReturn(saved);
-        given(playlistMapper.toDto(saved, false)).willReturn(dto);
+        given(playlistMapper.toDto(saved, false, List.of())).willReturn(dto);
 
         PlaylistDto response = playlistService.create(new PlaylistCreateRequest("title", "description"));
 
@@ -146,7 +147,9 @@ class PlaylistServiceImplTest {
         given(playlistRepository.findById(playlistId)).willReturn(Optional.of(playlist));
         given(playlistSubscriptionRepository.existsByPlaylistIdAndUserId(playlistId, userId))
                 .willReturn(true);
-        given(playlistMapper.toDto(playlist, true)).willReturn(dto);
+        given(playlistContentRepository.findAllWithPlaylistAndContentByPlaylistIds(List.of(playlistId)))
+                .willReturn(List.of());
+        given(playlistMapper.toDto(playlist, true, List.of())).willReturn(dto);
 
         PlaylistDto response = playlistService.update(
                 playlistId,
@@ -159,23 +162,73 @@ class PlaylistServiceImplTest {
     }
 
     @Test
-    @DisplayName("findById returns subscription flag")
-    void findById_success() {
+    @DisplayName("findById returns playlist with contents")
+    void findById_withContents() {
         UUID userId = uuid(1);
         UUID playlistId = uuid(10);
+        UUID contentId = uuid(20);
         Playlist playlist = playlist(playlistId, user(uuid(2), "owner@test.com", "owner"),
                 "title", "description", PlaylistStatus.ACTIVE);
-        PlaylistDto dto = playlistDto(playlist, true, List.of());
+        Content content = content(contentId, "movie");
+        PlaylistContent playlistContent = new PlaylistContent(playlist, content);
+        ContentStats stats = contentStats(content, BigDecimal.valueOf(4.25), 7);
 
         authenticate(userId);
         given(playlistRepository.findById(playlistId)).willReturn(Optional.of(playlist));
         given(playlistSubscriptionRepository.existsByPlaylistIdAndUserId(playlistId, userId))
                 .willReturn(true);
-        given(playlistMapper.toDto(playlist, true)).willReturn(dto);
+        given(playlistContentRepository.findAllWithPlaylistAndContentByPlaylistIds(List.of(playlistId)))
+                .willReturn(List.of(playlistContent));
+        given(contentStatsRepository.findByIdIn(List.of(contentId))).willReturn(List.of(stats));
+        given(contentTagRepository.findTagsByContentIds(List.of(contentId)))
+                .willReturn(List.of(new ContentTagProjection(contentId, "action")));
+        given(playlistMapper.toDto(eq(playlist), eq(true), anyList()))
+                .willAnswer(invocation -> playlistDto(
+                        playlist,
+                        true,
+                        invocation.getArgument(2)
+                ));
 
         PlaylistDto response = playlistService.findById(playlistId);
 
-        assertThat(response).isEqualTo(dto);
+        assertThat(response.id()).isEqualTo(playlistId);
+        assertThat(response.subscribedByMe()).isTrue();
+        assertThat(response.contents()).hasSize(1);
+        ContentSummary summary = response.contents().get(0);
+        assertThat(summary.id()).isEqualTo(contentId);
+        assertThat(summary.title()).isEqualTo("movie");
+        assertThat(summary.tags()).containsExactly("action");
+        assertThat(summary.averageRating()).isEqualTo(4.25);
+        assertThat(summary.reviewCount()).isEqualTo(7);
+        ArgumentCaptor<List<ContentSummary>> contentsCaptor = ArgumentCaptor.forClass(List.class);
+        then(playlistMapper).should().toDto(eq(playlist), eq(true), contentsCaptor.capture());
+        assertThat(contentsCaptor.getValue()).containsExactly(summary);
+    }
+
+    @Test
+    @DisplayName("findById returns empty contents when playlist has no content")
+    void findById_withoutContents() {
+        UUID userId = uuid(1);
+        UUID playlistId = uuid(10);
+        Playlist playlist = playlist(playlistId, user(uuid(2), "owner@test.com", "owner"),
+                "title", "description", PlaylistStatus.ACTIVE);
+
+        authenticate(userId);
+        given(playlistRepository.findById(playlistId)).willReturn(Optional.of(playlist));
+        given(playlistSubscriptionRepository.existsByPlaylistIdAndUserId(playlistId, userId))
+                .willReturn(false);
+        given(playlistContentRepository.findAllWithPlaylistAndContentByPlaylistIds(List.of(playlistId)))
+                .willReturn(List.of());
+        given(playlistMapper.toDto(playlist, false, List.of()))
+                .willReturn(playlistDto(playlist, false, List.of()));
+
+        PlaylistDto response = playlistService.findById(playlistId);
+
+        assertThat(response.id()).isEqualTo(playlistId);
+        assertThat(response.subscribedByMe()).isFalse();
+        assertThat(response.contents()).isEmpty();
+        then(contentStatsRepository).should(never()).findByIdIn(any());
+        then(contentTagRepository).should(never()).findTagsByContentIds(any());
     }
 
     @Test
