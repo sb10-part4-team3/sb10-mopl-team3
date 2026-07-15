@@ -11,6 +11,7 @@ import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.types.Expiration;
 import org.springframework.stereotype.Repository;
 
@@ -37,6 +38,21 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
     private static final String ACTIVE_CONTENTS_KEY = "watching-sessions:active-contents";
     private static final String HEARTBEAT_KEY_FORMAT = "watching-sessions:contents:%s:watchers:%s:heartbeat";
     private static final String HEARTBEAT_VALUE = "1";
+    @SuppressWarnings("rawtypes")
+    private static final DefaultRedisScript<List> DELETE_STALE_WATCHERS_SCRIPT = new DefaultRedisScript<>("""
+            local hashKey = KEYS[1]
+            local deleted = {}
+            for i = 1, #ARGV, 2 do
+                local field = ARGV[i]
+                local heartbeatKey = ARGV[i + 1]
+                if redis.call('EXISTS', heartbeatKey) == 0 then
+                    if redis.call('HDEL', hashKey, field) == 1 then
+                        table.insert(deleted, field)
+                    end
+                end
+            end
+            return deleted
+            """, List.class);
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -117,22 +133,27 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
             return List.of();
         }
         List<UserSummary> removed = new ArrayList<>();
-        List<Object> fieldsToRemove = new ArrayList<>();
+        List<Object> invalidFields = new ArrayList<>();
         List<Object> validFields = new ArrayList<>();
         List<String> heartbeatKeys = new ArrayList<>();
 
         entries.forEach((field, payload) -> {
             UUID watcherId = parseUuid(field.toString()).orElse(null);
             if (watcherId == null) {
-                fieldsToRemove.add(field);
+                invalidFields.add(field);
                 return;
             }
             validFields.add(field);
             heartbeatKeys.add(heartbeatKey(contentId, watcherId));
         });
 
+        if (!invalidFields.isEmpty()) {
+            redisTemplate.opsForHash().delete(key(contentId), invalidFields.toArray());
+        }
         if (!heartbeatKeys.isEmpty()) {
             List<String> heartbeats = redisTemplate.opsForValue().multiGet(heartbeatKeys);
+            List<String> staleFields = new ArrayList<>();
+            List<String> staleHeartbeatKeys = new ArrayList<>();
             for (int i = 0; i < validFields.size(); i++) {
                 boolean alive = heartbeats != null
                         && i < heartbeats.size()
@@ -140,14 +161,11 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
                 if (alive) {
                     continue;
                 }
-                Object field = validFields.get(i);
-                fieldsToRemove.add(field);
-                deserialize(entries.get(field).toString()).ifPresent(removed::add);
+                staleFields.add(validFields.get(i).toString());
+                staleHeartbeatKeys.add(heartbeatKeys.get(i));
             }
-        }
-
-        if (!fieldsToRemove.isEmpty()) {
-            redisTemplate.opsForHash().delete(key(contentId), fieldsToRemove.toArray());
+            deleteStaleFieldsAtomically(contentId, staleFields, staleHeartbeatKeys)
+                    .forEach(field -> deserialize(entries.get(field).toString()).ifPresent(removed::add));
         }
         removeContentFromActiveSetIfEmpty(contentId);
         return List.copyOf(removed);
@@ -220,14 +238,14 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
             return;
         }
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            long expirationSeconds = Math.max(1L, presenceTtl.toSeconds());
+            long expirationMillis = Math.max(1L, presenceTtl.toMillis());
             for (PresenceKey presence : presences) {
                 byte[] heartbeatKey = serialize(heartbeatKey(presence.contentId(), presence.watcherId()));
                 byte[] heartbeatValue = serialize(HEARTBEAT_VALUE);
                 connection.stringCommands().set(
                         heartbeatKey,
                         heartbeatValue,
-                        Expiration.seconds(expirationSeconds),
+                        Expiration.milliseconds(expirationMillis),
                         RedisStringCommands.SetOption.UPSERT);
                 connection.setCommands().sAdd(
                         serialize(ACTIVE_CONTENTS_KEY),
@@ -235,6 +253,30 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
             }
             return null;
         });
+    }
+
+    private List<String> deleteStaleFieldsAtomically(
+            UUID contentId,
+            List<String> staleFields,
+            List<String> staleHeartbeatKeys
+    ) {
+        if (staleFields.isEmpty()) {
+            return List.of();
+        }
+        List<String> args = new ArrayList<>();
+        for (int i = 0; i < staleFields.size(); i++) {
+            args.add(staleFields.get(i));
+            args.add(staleHeartbeatKeys.get(i));
+        }
+        @SuppressWarnings("unchecked")
+        List<String> deletedFields = redisTemplate.execute(
+                DELETE_STALE_WATCHERS_SCRIPT,
+                List.of(key(contentId)),
+                args.toArray());
+        if (deletedFields == null || deletedFields.isEmpty()) {
+            return List.of();
+        }
+        return deletedFields;
     }
 
     private byte[] serialize(String value) {

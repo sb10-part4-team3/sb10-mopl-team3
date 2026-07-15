@@ -15,10 +15,13 @@ import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.types.Expiration;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.List;
 import java.util.Set;
@@ -27,6 +30,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -132,6 +136,7 @@ class WatchingSessionRedisRepositoryImplTest {
     }
 
     @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
     void removeStaleWatchers_removesExpiredHeartbeatFieldsInBatch() throws Exception {
         var repository = repository();
         UUID contentId = UUID.randomUUID();
@@ -152,10 +157,39 @@ class WatchingSessionRedisRepositoryImplTest {
                     .map(key -> key.equals(heartbeatKey(contentId, alive.userId())) ? "1" : null)
                     .toList();
         });
+        when(redisTemplate.execute(
+                any(DefaultRedisScript.class),
+                eq(List.of(key(contentId))),
+                any(Object[].class)))
+                .thenReturn(List.of(stale.userId().toString()));
         when(hashOperations.size(key(contentId))).thenReturn(1L);
 
         assertThat(repository.removeStaleWatchers(contentId)).containsExactly(stale);
-        verify(hashOperations).delete(key(contentId), stale.userId().toString());
+        verify(redisTemplate).execute(
+                any(DefaultRedisScript.class),
+                eq(List.of(key(contentId))),
+                any(Object[].class));
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void removeStaleWatchers_doesNotReportWatcherWhenHeartbeatIsRefreshedBeforeAtomicDelete() throws Exception {
+        var repository = repository();
+        UUID contentId = UUID.randomUUID();
+        UserSummary revived = new UserSummary(UUID.randomUUID(), "재연결", null);
+        String json = new ObjectMapper().writeValueAsString(revived);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(hashOperations.entries(key(contentId))).thenReturn(Map.of(revived.userId().toString(), json));
+        when(valueOperations.multiGet(any())).thenReturn(Collections.singletonList(null));
+        when(redisTemplate.execute(
+                any(DefaultRedisScript.class),
+                eq(List.of(key(contentId))),
+                any(Object[].class)))
+                .thenReturn(List.of());
+        when(hashOperations.size(key(contentId))).thenReturn(1L);
+
+        assertThat(repository.removeStaleWatchers(contentId)).isEmpty();
     }
 
     @Test
@@ -186,6 +220,11 @@ class WatchingSessionRedisRepositoryImplTest {
         assertThat(missing).containsExactly(
                 new WatchingSessionRedisRepository.PresenceKey(contentId, missingWatcherId));
         verify(redisTemplate).executePipelined(any(RedisCallback.class));
+        verify(stringCommands).set(
+                any(),
+                any(),
+                eq(Expiration.milliseconds(30_000L)),
+                eq(RedisStringCommands.SetOption.UPSERT));
     }
 
     @Test
@@ -195,7 +234,7 @@ class WatchingSessionRedisRepositoryImplTest {
         UUID watcherId = UUID.randomUUID();
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
         when(hashOperations.multiGet(key(contentId), List.of(watcherId.toString())))
-                .thenReturn(Arrays.asList((Object) null));
+                .thenReturn(Collections.singletonList(null));
 
         assertThat(repository.refreshWatcher(contentId, watcherId)).isFalse();
     }
