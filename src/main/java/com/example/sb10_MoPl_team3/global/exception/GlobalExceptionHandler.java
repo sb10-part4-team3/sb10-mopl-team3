@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -90,6 +91,22 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<ErrorResponse> handleHandlerMethodValidationException(
         HandlerMethodValidationException exception
+    ) {
+        ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
+        ErrorResponse response = new ErrorResponse(
+            Instant.now(),
+            errorCode.name(),
+            errorCode.getMessage(),
+            Map.of(),
+            errorCode.getStatus().value()
+        );
+        logWarn(response);
+        return ResponseEntity.status(response.status()).body(response);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(
+        HttpMessageNotReadableException exception
     ) {
         ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
         ErrorResponse response = new ErrorResponse(
