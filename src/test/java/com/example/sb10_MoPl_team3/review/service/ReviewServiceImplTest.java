@@ -163,6 +163,43 @@ class ReviewServiceImplTest {
     }
 
     @Test
+    @DisplayName("create rejects missing content")
+    void create_contentNotFound() {
+        UUID userId = uuid(1);
+        UUID contentId = uuid(2);
+        User author = user(userId, "author@test.com", "author");
+
+        authenticate(userId);
+        given(userRepository.findById(userId))
+                .willReturn(Optional.of(author));
+        given(contentRepository.findByIdForUpdate(contentId))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                reviewService.create(
+                        new ReviewCreateRequest(contentId, "review", 4.0)
+                )
+        ).isInstanceOfSatisfying(
+                BusinessException.class,
+                exception -> assertThat(exception.getErrorCode())
+                        .isEqualTo(ErrorCode.CONTENT_NOT_FOUND)
+        );
+
+        then(reviewRepository).should(never())
+                .existsByContent_IdAndAuthor_IdAndStatus(
+                        any(),
+                        any(),
+                        any()
+                );
+        then(reviewRepository).should(never())
+                .save(any(Review.class));
+        then(reviewMapper).should(never())
+                .toDto(any());
+        then(applicationEventPublisher).should(never())
+                .publishEvent(any());
+    }
+
+    @Test
     @DisplayName("update changes own review")
     void update_success() {
         UUID userId = uuid(1);

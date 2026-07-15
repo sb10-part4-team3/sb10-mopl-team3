@@ -15,6 +15,7 @@ import com.example.sb10_MoPl_team3.review.enums.ReviewStatus;
 import com.example.sb10_MoPl_team3.review.event.ReviewStatsChangedEvent;
 import com.example.sb10_MoPl_team3.review.exception.ReviewAuthorMismatchException;
 import com.example.sb10_MoPl_team3.review.exception.ReviewException;
+import com.example.sb10_MoPl_team3.review.exception.ReviewExistException;
 import com.example.sb10_MoPl_team3.review.exception.ReviewNotFoundException;
 import com.example.sb10_MoPl_team3.review.mapper.ReviewMapper;
 import com.example.sb10_MoPl_team3.review.repository.ReviewRepository;
@@ -68,7 +69,7 @@ public class ReviewServiceImpl implements ReviewService{
                 );
 
         if (hasActiveReview) {
-            throw new ReviewException(ErrorCode.DUPLICATE_REVIEW);
+            throw new ReviewExistException(ErrorCode.DUPLICATE_REVIEW);
         }
 
         Review newReview = Review.builder()
