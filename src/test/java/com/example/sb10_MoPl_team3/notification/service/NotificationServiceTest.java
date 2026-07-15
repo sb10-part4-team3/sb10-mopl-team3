@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.global.sse.SseConnectionRepository;
 import com.example.sb10_MoPl_team3.global.sse.SseEventPublisher;
 import com.example.sb10_MoPl_team3.notification.dto.NotificationFindAllRequest;
 import com.example.sb10_MoPl_team3.notification.dto.NotificationDto;
@@ -43,6 +45,9 @@ class NotificationServiceTest {
 
     @Mock
     private SseEventPublisher sseEventPublisher;
+
+    @Mock
+    private SseConnectionRepository sseConnectionRepository;
 
     @InjectMocks
     private NotificationService notificationService;
@@ -228,7 +233,7 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("본인의 알림을 읽으면 읽음 상태로 변경한다")
+    @DisplayName("본인의 알림을 읽으면 읽음 상태로 변경하고 SSE 알림 캐시를 삭제한다")
     void read_marksNotificationAsRead() {
         UUID receiverId = UUID.randomUUID();
         UUID notificationId = UUID.randomUUID();
@@ -236,6 +241,32 @@ class NotificationServiceTest {
                 user(), "제목", "내용", NotificationLevel.INFO);
         given(notificationRepository.findByIdAndReceiverId(notificationId, receiverId))
                 .willReturn(Optional.of(notification));
+
+        notificationService.read(receiverId, notificationId);
+
+        assertThat(notification.isRead()).isTrue();
+        assertThat(notification.getReadAt()).isNotNull();
+        then(sseConnectionRepository).should().deleteCachedEventByDataId(
+                receiverId,
+                SseEventPublisher.NOTIFICATIONS_EVENT,
+                notificationId);
+    }
+
+    @Test
+    @DisplayName("알림 읽음 처리 중 SSE 캐시 삭제 실패는 읽음 상태 변경을 막지 않는다")
+    void read_ignoresSseCacheDeleteFailure() {
+        UUID receiverId = UUID.randomUUID();
+        UUID notificationId = UUID.randomUUID();
+        Notification notification = new Notification(
+                user(), "제목", "내용", NotificationLevel.INFO);
+        given(notificationRepository.findByIdAndReceiverId(notificationId, receiverId))
+                .willReturn(Optional.of(notification));
+        willThrow(new RuntimeException("redis unavailable"))
+                .given(sseConnectionRepository)
+                .deleteCachedEventByDataId(
+                        receiverId,
+                        SseEventPublisher.NOTIFICATIONS_EVENT,
+                        notificationId);
 
         notificationService.read(receiverId, notificationId);
 

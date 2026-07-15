@@ -3,6 +3,7 @@ package com.example.sb10_MoPl_team3.notification.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
 import com.example.sb10_MoPl_team3.notification.entity.Notification;
@@ -16,6 +17,7 @@ import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -101,6 +103,66 @@ class NotificationFanoutBatchServiceTest {
         assertThat(dtoCaptor.getAllValues()).extracting(NotificationDto::level)
                 .containsOnly(NotificationLevel.INFO);
         assertThat(savedCount).isEqualTo(2);
+    }
+
+    @Test
+    void saveBatch_skipsReceiversAlreadySavedForFanoutOutbox() {
+        UUID fanoutOutboxId = UUID.randomUUID();
+        UUID existingReceiverId = UUID.randomUUID();
+        UUID newReceiverId = UUID.randomUUID();
+        User newReceiver = user("new@test.com");
+        ReflectionTestUtils.setField(newReceiver, "id", newReceiverId);
+        given(notificationRepository.findReceiverIdsByFanoutOutboxIdAndReceiverIdIn(
+                fanoutOutboxId,
+                List.of(existingReceiverId, newReceiverId)))
+                .willReturn(Set.of(existingReceiverId));
+        given(userRepository.findAllById(List.of(newReceiverId)))
+                .willReturn(List.of(newReceiver));
+        given(notificationRepository.saveAll(org.mockito.ArgumentMatchers.anyList()))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        int savedCount = batchService.saveBatch(
+                List.of(existingReceiverId, newReceiverId),
+                new NotificationFanoutEvent(
+                        NotificationAudienceType.FOLLOWERS,
+                        UUID.randomUUID(),
+                        "제목",
+                        "내용",
+                        NotificationLevel.INFO),
+                fanoutOutboxId);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Notification>> captor = ArgumentCaptor.forClass(List.class);
+        then(notificationRepository).should().saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(1);
+        assertThat(captor.getValue().get(0).getReceiver()).isEqualTo(newReceiver);
+        assertThat(captor.getValue().get(0).getFanoutOutboxId()).isEqualTo(fanoutOutboxId);
+        assertThat(savedCount).isEqualTo(1);
+    }
+
+    @Test
+    void saveBatch_returnsZeroWhenAllReceiversAlreadySavedForFanoutOutbox() {
+        UUID fanoutOutboxId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        given(notificationRepository.findReceiverIdsByFanoutOutboxIdAndReceiverIdIn(
+                fanoutOutboxId,
+                List.of(receiverId)))
+                .willReturn(Set.of(receiverId));
+
+        int savedCount = batchService.saveBatch(
+                List.of(receiverId),
+                new NotificationFanoutEvent(
+                        NotificationAudienceType.FOLLOWERS,
+                        UUID.randomUUID(),
+                        "제목",
+                        "내용",
+                        NotificationLevel.INFO),
+                fanoutOutboxId);
+
+        assertThat(savedCount).isZero();
+        then(userRepository).shouldHaveNoInteractions();
+        then(notificationRepository).should(never()).saveAll(org.mockito.ArgumentMatchers.anyList());
+        then(sseEventPublisher).shouldHaveNoInteractions();
     }
 
     private User user(String email) {

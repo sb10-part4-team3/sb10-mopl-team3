@@ -1,5 +1,7 @@
 package com.example.sb10_MoPl_team3.global.sse;
 
+import com.example.sb10_MoPl_team3.notification.dto.NotificationDto;
+import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -126,6 +128,56 @@ class InMemorySseConnectionRepositoryTest {
     }
 
     @Test
+    @DisplayName("조건에 맞는 사용자별 이벤트 캐시만 삭제할 수 있다")
+    void deleteCachedEventsByPredicate() {
+        UUID userId = UUID.randomUUID();
+        UUID otherUserId = UUID.randomUUID();
+
+        repository.saveEvent(userId, SseEventCache.of("event-1", "notifications", "data-1"));
+        repository.saveEvent(userId, SseEventCache.of("event-2", "direct-messages", "data-2"));
+        repository.saveEvent(userId, SseEventCache.of("event-3", "notifications", "data-3"));
+        repository.saveEvent(otherUserId, SseEventCache.of("event-4", "notifications", "data-4"));
+
+        repository.deleteCachedEvents(
+                userId,
+                event -> "notifications".equals(event.name()) && "data-1".equals(event.data()));
+
+        assertThat(repository.findCachedEventsByUserId(userId))
+                .extracting(SseEventCache::id)
+                .containsExactly("event-2", "event-3");
+        assertThat(repository.findCachedEventsByUserId(otherUserId))
+                .extracting(SseEventCache::id)
+                .containsExactly("event-4");
+    }
+
+    @Test
+    @DisplayName("이벤트 이름과 데이터 ID가 일치하는 캐시를 삭제할 수 있다")
+    void deleteCachedEventByDataId() {
+        UUID userId = UUID.randomUUID();
+        UUID notificationId = UUID.randomUUID();
+        UUID otherNotificationId = UUID.randomUUID();
+
+        repository.saveEvent(userId, SseEventCache.of(
+                "event-1",
+                "notifications",
+                notificationDto(notificationId)));
+        repository.saveEvent(userId, SseEventCache.of(
+                "event-2",
+                "notifications",
+                notificationDto(otherNotificationId)));
+        repository.saveEvent(userId, SseEventCache.of(
+                "event-3",
+                "direct-messages",
+                notificationDto(notificationId)));
+
+        repository.deleteCachedEventByDataId(userId, "notifications", notificationId);
+
+        assertThat(repository.findCachedEventsByUserId(userId))
+                .extracting(SseEventCache::id)
+                .containsExactly("event-2", "event-3");
+    }
+
+    @Test
     @DisplayName("사용자별 emitter와 이벤트 캐시를 전체 삭제할 수 있다")
     void deleteAllByUserId() {
         UUID userId = UUID.randomUUID();
@@ -138,5 +190,15 @@ class InMemorySseConnectionRepositoryTest {
 
         assertThat(repository.findEmittersByUserId(userId)).isEmpty();
         assertThat(repository.findCachedEventsByUserId(userId)).isEmpty();
+    }
+
+    private NotificationDto notificationDto(UUID id) {
+        return new NotificationDto(
+                id,
+                Instant.parse("2026-06-24T00:00:00Z"),
+                UUID.randomUUID(),
+                "제목",
+                "내용",
+                NotificationLevel.INFO);
     }
 }
