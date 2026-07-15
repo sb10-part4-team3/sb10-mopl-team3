@@ -3,11 +3,14 @@ package com.example.sb10_MoPl_team3.watchingsession.service;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChange;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChangeType;
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRedisRepository;
+import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRedisRepository.PresenceKey;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -59,6 +62,10 @@ public class WatchingSessionPresenceService {
         return redisRepository.refreshWatcher(contentId, watcherId);
     }
 
+    public Set<PresenceKey> refreshAll(Collection<PresenceKey> presences) {
+        return redisRepository.refreshWatchers(presences);
+    }
+
     public List<WatchingSessionChange> removeStaleWatchers(UUID contentId) {
         var staleWatchers = redisRepository.removeStaleWatchers(contentId);
         if (staleWatchers.isEmpty()) {
@@ -67,12 +74,13 @@ public class WatchingSessionPresenceService {
         }
 
         List<WatchingSessionChange> changes = new ArrayList<>();
+        long currentWatcherCount = redisRepository.countWatchers(contentId);
         for (var watcher : staleWatchers) {
             persistenceService.leave(contentId, watcher.userId())
                     .ifPresent(session -> changes.add(new WatchingSessionChange(
                             WatchingSessionChangeType.LEAVE,
                             session,
-                            redisRepository.countWatchers(contentId)
+                            currentWatcherCount
                     )));
         }
         viewerCountService.sync(contentId);

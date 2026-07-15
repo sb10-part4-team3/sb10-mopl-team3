@@ -6,11 +6,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.connection.RedisStringCommands;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.types.Expiration;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +24,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Repository
@@ -52,15 +60,43 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
 
     @Override
     public boolean refreshWatcher(UUID contentId, UUID watcherId) {
-        String contentKey = key(contentId);
-        String field = value(watcherId);
-        Boolean exists = redisTemplate.opsForHash().hasKey(contentKey, field);
-        if (!Boolean.TRUE.equals(exists)) {
-            return false;
+        return refreshWatchers(List.of(new PresenceKey(contentId, watcherId))).isEmpty();
+    }
+
+    @Override
+    public Set<PresenceKey> refreshWatchers(Collection<PresenceKey> presences) {
+        if (presences == null || presences.isEmpty()) {
+            return Set.of();
         }
-        redisTemplate.opsForValue().set(heartbeatKey(contentId, watcherId), HEARTBEAT_VALUE, presenceTtl);
-        redisTemplate.opsForSet().add(ACTIVE_CONTENTS_KEY, value(contentId));
-        return true;
+
+        Map<UUID, List<PresenceKey>> presencesByContent = presences.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(PresenceKey::contentId));
+        Set<PresenceKey> missing = new HashSet<>();
+        List<PresenceKey> existing = new ArrayList<>();
+
+        presencesByContent.forEach((contentId, contentPresences) -> {
+            List<Object> fields = contentPresences.stream()
+                    .map(PresenceKey::watcherId)
+                    .map(this::value)
+                    .map(Object.class::cast)
+                    .toList();
+            List<Object> watcherSummaries = redisTemplate.opsForHash().multiGet(key(contentId), fields);
+            for (int i = 0; i < contentPresences.size(); i++) {
+                PresenceKey presence = contentPresences.get(i);
+                Object watcherSummary = watcherSummaries != null && i < watcherSummaries.size()
+                        ? watcherSummaries.get(i)
+                        : null;
+                if (watcherSummary == null) {
+                    missing.add(presence);
+                    continue;
+                }
+                existing.add(presence);
+            }
+        });
+
+        refreshHeartbeats(existing);
+        return Set.copyOf(missing);
     }
 
     @Override
@@ -82,18 +118,33 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
         }
         List<UserSummary> removed = new ArrayList<>();
         List<Object> fieldsToRemove = new ArrayList<>();
+        List<Object> validFields = new ArrayList<>();
+        List<String> heartbeatKeys = new ArrayList<>();
+
         entries.forEach((field, payload) -> {
             UUID watcherId = parseUuid(field.toString()).orElse(null);
             if (watcherId == null) {
                 fieldsToRemove.add(field);
                 return;
             }
-            Boolean alive = redisTemplate.hasKey(heartbeatKey(contentId, watcherId));
-            if (!Boolean.TRUE.equals(alive)) {
-                fieldsToRemove.add(field);
-                deserialize(payload.toString()).ifPresent(removed::add);
-            }
+            validFields.add(field);
+            heartbeatKeys.add(heartbeatKey(contentId, watcherId));
         });
+
+        if (!heartbeatKeys.isEmpty()) {
+            List<String> heartbeats = redisTemplate.opsForValue().multiGet(heartbeatKeys);
+            for (int i = 0; i < validFields.size(); i++) {
+                boolean alive = heartbeats != null
+                        && i < heartbeats.size()
+                        && heartbeats.get(i) != null;
+                if (alive) {
+                    continue;
+                }
+                Object field = validFields.get(i);
+                fieldsToRemove.add(field);
+                deserialize(entries.get(field).toString()).ifPresent(removed::add);
+            }
+        }
 
         if (!fieldsToRemove.isEmpty()) {
             redisTemplate.opsForHash().delete(key(contentId), fieldsToRemove.toArray());
@@ -116,7 +167,7 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
     public long countWatchers(UUID contentId) {
         removeStaleWatchers(contentId);
         Long count = redisTemplate.opsForHash().size(key(contentId));
-        return count;
+        return count != null ? count : 0L;
     }
 
     @Override
@@ -130,6 +181,17 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
             parseUuid(value).ifPresent(ids::add);
         }
         return Set.copyOf(ids);
+    }
+
+    @Override
+    public void forEachActiveContentId(Consumer<UUID> consumer) {
+        Objects.requireNonNull(consumer, "consumer는 필수입니다.");
+        try (Cursor<String> cursor = redisTemplate.opsForSet()
+                .scan(ACTIVE_CONTENTS_KEY, ScanOptions.scanOptions().count(100).build())) {
+            while (cursor.hasNext()) {
+                parseUuid(cursor.next()).ifPresent(consumer);
+            }
+        }
     }
 
     @Override
@@ -151,6 +213,32 @@ public class WatchingSessionRedisRepositoryImpl implements WatchingSessionRedisR
         if (count != null && count == 0) {
             redisTemplate.opsForSet().remove(ACTIVE_CONTENTS_KEY, value(contentId));
         }
+    }
+
+    private void refreshHeartbeats(List<PresenceKey> presences) {
+        if (presences.isEmpty()) {
+            return;
+        }
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            long expirationSeconds = Math.max(1L, presenceTtl.toSeconds());
+            for (PresenceKey presence : presences) {
+                byte[] heartbeatKey = serialize(heartbeatKey(presence.contentId(), presence.watcherId()));
+                byte[] heartbeatValue = serialize(HEARTBEAT_VALUE);
+                connection.stringCommands().set(
+                        heartbeatKey,
+                        heartbeatValue,
+                        Expiration.seconds(expirationSeconds),
+                        RedisStringCommands.SetOption.UPSERT);
+                connection.setCommands().sAdd(
+                        serialize(ACTIVE_CONTENTS_KEY),
+                        serialize(value(presence.contentId())));
+            }
+            return null;
+        });
+    }
+
+    private byte[] serialize(String value) {
+        return redisTemplate.getStringSerializer().serialize(value);
     }
 
     private String value(UUID id) {

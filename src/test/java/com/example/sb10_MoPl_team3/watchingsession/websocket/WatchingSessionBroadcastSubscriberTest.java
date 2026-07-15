@@ -20,6 +20,7 @@ import org.springframework.data.redis.connection.Message;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class WatchingSessionBroadcastSubscriberTest {
@@ -40,6 +41,20 @@ class WatchingSessionBroadcastSubscriberTest {
         subscriber.onMessage(message, null);
 
         then(localEventDispatcher).should().dispatch(eq(change), eq("redis-broadcast"));
+    }
+
+    @Test
+    void onMessage_ignoresInvalidPayload() {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        WatchingSessionBroadcastSubscriber subscriber = new WatchingSessionBroadcastSubscriber(
+                objectMapper,
+                localEventDispatcher);
+        given(message.getBody()).willReturn("invalid-json".getBytes(StandardCharsets.UTF_8));
+
+        subscriber.onMessage(message, null);
+
+        then(localEventDispatcher).should(never())
+                .dispatch(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
     }
 
     private WatchingSessionChange change(UUID contentId, UUID watcherId) {

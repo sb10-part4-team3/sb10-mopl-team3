@@ -10,10 +10,12 @@ import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChange;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChangeType;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionDto;
+import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRedisRepository.PresenceKey;
 import com.example.sb10_MoPl_team3.watchingsession.service.WatchingSessionPresenceService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -27,9 +29,12 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -171,6 +176,31 @@ class WatchingSessionWebSocketListenerTest {
         unsubscribe("session-2", "subscription-2", authentication);
 
         then(presenceService).should().leave(contentId, watcherId);
+    }
+
+    @Test
+    @DisplayName("heartbeat 갱신은 로컬 presence를 모아 bulk refresh로 처리한다")
+    void refreshLocalPresences_refreshesDistinctPresencesInBulk() {
+        UUID contentId = UUID.randomUUID();
+        UUID watcherId = UUID.randomUUID();
+        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, UUID.randomUUID());
+        var authentication = new UsernamePasswordAuthenticationToken(
+                authUser, null, authUser.authorities());
+        WatchingSessionChange joined = change(
+                WatchingSessionChangeType.JOIN, contentId, watcherId, "시청자", 1);
+        given(presenceService.join(contentId, watcherId)).willReturn(List.of(joined));
+        given(presenceService.refreshAll(org.mockito.ArgumentMatchers.anyCollection()))
+                .willReturn(Set.of());
+
+        subscribe(contentId, authentication, "session-1", "subscription-1");
+        subscribe(contentId, authentication, "session-2", "subscription-2");
+
+        listener.refreshLocalPresences();
+
+        ArgumentCaptor<Collection<PresenceKey>> captor = ArgumentCaptor.forClass(Collection.class);
+        then(presenceService).should().refreshAll(captor.capture());
+        assertThat(captor.getValue())
+                .containsExactly(new PresenceKey(contentId, watcherId));
     }
 
     @Test

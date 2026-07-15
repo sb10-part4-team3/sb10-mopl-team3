@@ -6,6 +6,7 @@ import com.example.sb10_MoPl_team3.user.dto.response.UserSummary;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChange;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChangeType;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionDto;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.List;
@@ -18,6 +19,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +44,22 @@ class WatchingSessionBroadcastPublisherTest {
                 payloadCaptor.capture());
         assertThat(payloadCaptor.getValue()).contains(change.type().name());
         assertThat(payloadCaptor.getValue()).contains(change.watchingSession().watcher().userId().toString());
+    }
+
+    @Test
+    void publish_throwsIllegalStateExceptionWhenSerializationFails() throws Exception {
+        ObjectMapper objectMapper = org.mockito.Mockito.mock(ObjectMapper.class);
+        WatchingSessionBroadcastPublisher publisher = new WatchingSessionBroadcastPublisher(
+                redisTemplate,
+                objectMapper);
+        WatchingSessionChange change = change(UUID.randomUUID(), UUID.randomUUID());
+        given(objectMapper.writeValueAsString(any()))
+                .willThrow(new JsonProcessingException("boom") {
+                });
+
+        assertThatThrownBy(() -> publisher.publish(change))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("시청 세션 변경 메시지를 Redis 값으로 변환할 수 없습니다.");
     }
 
     private WatchingSessionChange change(UUID contentId, UUID watcherId) {

@@ -22,6 +22,15 @@ public class WatchingSessionViewerCountService {
     public void sync(UUID contentId) {
         long watcherCount = redisRepository.countWatchers(contentId);
         int viewerCount = toViewerCount(watcherCount);
+        var stats = contentStatsRepository.findById(contentId);
+        if (stats.isEmpty()) {
+            log.warn("시청자 수 보정 대상 콘텐츠 통계가 없습니다. contentId={}, viewerCount={}",
+                    contentId, viewerCount);
+            return;
+        }
+        if (stats.get().getViewerCount() == viewerCount) {
+            return;
+        }
         int updated = contentStatsRepository.updateViewerCount(contentId, viewerCount, Instant.now());
         if (updated != 1) {
             log.warn("시청자 수 보정 대상 콘텐츠 통계가 없습니다. contentId={}, viewerCount={}",

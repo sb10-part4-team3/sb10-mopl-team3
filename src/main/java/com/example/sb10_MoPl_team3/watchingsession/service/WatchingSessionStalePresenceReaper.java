@@ -2,7 +2,6 @@ package com.example.sb10_MoPl_team3.watchingsession.service;
 
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRedisRepository;
 import com.example.sb10_MoPl_team3.watchingsession.websocket.WatchingSessionBroadcastPublisher;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -24,13 +23,13 @@ public class WatchingSessionStalePresenceReaper {
 
     @Scheduled(fixedDelayString = "${watching-session.presence.cleanup.interval-ms:30000}")
     public void reap() {
-        for (UUID contentId : redisRepository.findActiveContentIds()) {
+        redisRepository.forEachActiveContentId(contentId -> {
             try {
                 presenceService.removeStaleWatchers(contentId)
                         .forEach(broadcastPublisher::publish);
             } catch (RuntimeException exception) {
                 log.warn("만료된 시청 세션 정리에 실패했습니다. contentId={}", contentId, exception);
             }
-        }
+        });
     }
 }

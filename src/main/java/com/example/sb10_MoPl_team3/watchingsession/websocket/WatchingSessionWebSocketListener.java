@@ -2,6 +2,7 @@ package com.example.sb10_MoPl_team3.watchingsession.websocket;
 
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChange;
+import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRedisRepository.PresenceKey;
 import com.example.sb10_MoPl_team3.watchingsession.service.WatchingSessionPresenceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -89,15 +91,14 @@ public class WatchingSessionWebSocketListener {
 
     @Scheduled(fixedDelayString = "${watching-session.presence.heartbeat-interval-ms:10000}")
     public void refreshLocalPresences() {
-        presences.values().stream()
+        Set<PresenceKey> presenceKeys = presences.values().stream()
                 .distinct()
-                .forEach(presence -> {
-                    boolean refreshed = presenceService.refresh(presence.contentId(), presence.watcherId());
-                    if (!refreshed) {
-                        log.debug("시청 세션 heartbeat 갱신 대상이 Redis에 없습니다. contentId={}, watcherId={}",
-                                presence.contentId(), presence.watcherId());
-                    }
-                });
+                .map(presence -> new PresenceKey(presence.contentId(), presence.watcherId()))
+                .collect(Collectors.toSet());
+        presenceService.refreshAll(presenceKeys)
+                .forEach(presence -> log.debug(
+                        "시청 세션 heartbeat 갱신 대상이 Redis에 없습니다. contentId={}, watcherId={}",
+                        presence.contentId(), presence.watcherId()));
     }
 
     private UUID parseContentId(String destination) {
