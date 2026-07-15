@@ -15,6 +15,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -30,6 +31,12 @@ import java.util.UUID;
                 @Index(
                         name = "idx_notifications_receiver_read_created_at_id",
                         columnList = "receiver_id, is_read, created_at, id"
+                )
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_notifications_fanout_outbox_receiver",
+                        columnNames = {"fanout_outbox_id", "receiver_id"}
                 )
         }
 )
@@ -63,7 +70,20 @@ public class Notification {
     @Column(name = "read_at")
     private Instant readAt;
 
+    @Column(name = "fanout_outbox_id")
+    private UUID fanoutOutboxId;
+
     public Notification(User receiver, String title, String content, NotificationLevel level) {
+        this(receiver, title, content, level, null);
+    }
+
+    public Notification(
+            User receiver,
+            String title,
+            String content,
+            NotificationLevel level,
+            UUID fanoutOutboxId
+    ) {
         if (receiver == null) {
             throw new IllegalArgumentException("receiver는 필수입니다.");
         }
@@ -80,6 +100,7 @@ public class Notification {
         this.title = title;
         this.content = content;
         this.level = level;
+        this.fanoutOutboxId = fanoutOutboxId;
         this.read = false;
     }
 

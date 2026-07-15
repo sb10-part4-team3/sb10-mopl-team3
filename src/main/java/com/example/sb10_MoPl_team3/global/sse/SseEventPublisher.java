@@ -1,24 +1,25 @@
 package com.example.sb10_MoPl_team3.global.sse;
 
-import java.io.IOException;
-import java.util.Map;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SseEventPublisher {
 
     public static final String NOTIFICATIONS_EVENT = "notifications";
     public static final String DIRECT_MESSAGES_EVENT = "direct-messages";
+    public static final String BROADCAST_CHANNEL = "sse:broadcast";
 
     private final SseConnectionRepository connectionRepository;
+    private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
 
     public void publishAfterCommit(UUID userId, String eventName, Object data) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -37,29 +38,19 @@ public class SseEventPublisher {
         String eventId = UUID.randomUUID().toString();
         SseEventCache event = SseEventCache.of(eventId, eventName, data);
         connectionRepository.saveEvent(userId, event);
-
-        for (Map.Entry<String, SseEmitter> entry
-                : connectionRepository.findEmittersByUserId(userId).entrySet()) {
-            send(userId, entry.getKey(), entry.getValue(), event);
-        }
+        redisTemplate.convertAndSend(
+                BROADCAST_CHANNEL,
+                serialize(new SseBroadcastMessage(
+                        userId,
+                        SseEventCachePayload.from(event, objectMapper.valueToTree(data)))));
         return eventId;
     }
 
-    private void send(
-            UUID userId,
-            String emitterId,
-            SseEmitter emitter,
-            SseEventCache event
-    ) {
+    private String serialize(SseBroadcastMessage message) {
         try {
-            emitter.send(SseEmitter.event()
-                    .id(event.id())
-                    .name(event.name())
-                    .data(event.data()));
-        } catch (IOException | IllegalStateException exception) {
-            connectionRepository.deleteEmitter(userId, emitterId);
-            log.debug("SSE 전송 실패로 연결을 제거합니다: userId={}, emitterId={}",
-                    userId, emitterId, exception);
+            return objectMapper.writeValueAsString(message);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("SSE broadcast 메시지를 Redis 값으로 변환할 수 없습니다.", exception);
         }
     }
 }

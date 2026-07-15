@@ -1,6 +1,6 @@
 package com.example.sb10_MoPl_team3.notification.event;
 
-import com.example.sb10_MoPl_team3.notification.service.NotificationFanoutService;
+import com.example.sb10_MoPl_team3.notification.service.NotificationFanoutOutboxService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -13,15 +13,15 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @RequiredArgsConstructor
 public class NotificationFanoutEventListener {
 
-    private final NotificationFanoutService fanoutService;
+    private final NotificationFanoutOutboxService outboxService;
 
     @Async("notificationExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(NotificationFanoutEvent event) {
         try {
-            fanoutService.handle(event);
+            outboxService.save(event);
         } catch (RuntimeException exception) {
-            log.error("알림 팬아웃 처리 실패: audienceType={}, sourceId={}",
+            log.error("알림 팬아웃 outbox 저장 실패: audienceType={}, sourceId={}",
                     event.audienceType(), event.sourceId(), exception);
         }
     }

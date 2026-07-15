@@ -8,6 +8,7 @@ import com.example.sb10_MoPl_team3.notification.repository.NotificationRepositor
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,14 +25,28 @@ public class NotificationFanoutBatchService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int saveBatch(List<UUID> receiverIds, NotificationFanoutEvent event) {
+        return saveBatch(receiverIds, event, null);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int saveBatch(List<UUID> receiverIds, NotificationFanoutEvent event, UUID fanoutOutboxId) {
         if (receiverIds.isEmpty()) {
             return 0;
         }
 
-        List<User> receivers = userRepository.findAllById(receiverIds);
+        List<UUID> targetReceiverIds = excludeAlreadySavedReceivers(receiverIds, fanoutOutboxId);
+        if (targetReceiverIds.isEmpty()) {
+            return 0;
+        }
+
+        List<User> receivers = userRepository.findAllById(targetReceiverIds);
         List<Notification> notifications = receivers.stream()
                 .map(receiver -> new Notification(
-                        receiver, event.title(), event.content(), event.level()))
+                        receiver,
+                        event.title(),
+                        event.content(),
+                        event.level(),
+                        fanoutOutboxId))
                 .toList();
         List<Notification> savedNotifications = notificationRepository.saveAll(notifications);
         savedNotifications.forEach(notification -> sseEventPublisher.publishAfterCommit(
@@ -39,5 +54,19 @@ public class NotificationFanoutBatchService {
                 SseEventPublisher.NOTIFICATIONS_EVENT,
                 NotificationDto.from(notification)));
         return savedNotifications.size();
+    }
+
+    private List<UUID> excludeAlreadySavedReceivers(List<UUID> receiverIds, UUID fanoutOutboxId) {
+        if (fanoutOutboxId == null) {
+            return receiverIds;
+        }
+        Set<UUID> savedReceiverIds = notificationRepository
+                .findReceiverIdsByFanoutOutboxIdAndReceiverIdIn(fanoutOutboxId, receiverIds);
+        if (savedReceiverIds.isEmpty()) {
+            return receiverIds;
+        }
+        return receiverIds.stream()
+                .filter(receiverId -> !savedReceiverIds.contains(receiverId))
+                .toList();
     }
 }

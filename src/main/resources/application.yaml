@@ -24,6 +24,18 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD}
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:mopl-notification}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.example.sb10_MoPl_team3.notification.*,com.example.sb10_MoPl_team3.notification.kafka.*
+
   mail:
     host: ${MAIL_HOST:}
     port: ${MAIL_PORT:587}
@@ -98,3 +110,11 @@ management:
     web:
       exposure:
         include: health
+
+notification:
+  kafka:
+    fanout:
+      consumer-group: ${NOTIFICATION_FANOUT_CONSUMER_GROUP:mopl-notification-fanout}
+      retry:
+        max-attempts: ${NOTIFICATION_FANOUT_RETRY_MAX_ATTEMPTS:3}
+        interval-ms: ${NOTIFICATION_FANOUT_RETRY_INTERVAL_MS:1000}
