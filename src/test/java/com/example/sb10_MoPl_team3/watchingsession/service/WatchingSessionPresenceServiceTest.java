@@ -34,6 +34,7 @@ class WatchingSessionPresenceServiceTest {
 
     @Mock WatchingSessionPersistenceService persistenceService;
     @Mock WatchingSessionRedisRepository redisRepository;
+    @Mock WatchingSessionViewerCountService viewerCountService;
     @InjectMocks WatchingSessionPresenceService presenceService;
 
     @Test
@@ -169,6 +170,30 @@ class WatchingSessionPresenceServiceTest {
         assertThat(changes).isEmpty();
         then(persistenceService).should().leave(contentId, watcherId);
         then(redisRepository).should().removeWatcher(contentId, watcherId);
+    }
+
+    @Test
+    @DisplayName("만료된 시청자를 정리할 때 현재 시청자 수는 한 번만 조회해 재사용한다")
+    void removeStaleWatchers_reusesCurrentWatcherCount() {
+        UUID contentId = UUID.randomUUID();
+        UUID firstWatcherId = UUID.randomUUID();
+        UUID secondWatcherId = UUID.randomUUID();
+        UserSummary first = new UserSummary(firstWatcherId, "첫번째", null);
+        UserSummary second = new UserSummary(secondWatcherId, "두번째", null);
+        WatchingSessionDto firstSession = session(UUID.randomUUID(), contentId, first);
+        WatchingSessionDto secondSession = session(UUID.randomUUID(), contentId, second);
+        given(redisRepository.removeStaleWatchers(contentId)).willReturn(List.of(first, second));
+        given(redisRepository.countWatchers(contentId)).willReturn(1L);
+        given(persistenceService.leave(contentId, firstWatcherId)).willReturn(Optional.of(firstSession));
+        given(persistenceService.leave(contentId, secondWatcherId)).willReturn(Optional.of(secondSession));
+
+        var changes = presenceService.removeStaleWatchers(contentId);
+
+        assertThat(changes).hasSize(2);
+        assertThat(changes).extracting(change -> change.watcherCount())
+                .containsExactly(1L, 1L);
+        then(redisRepository).should().countWatchers(contentId);
+        then(viewerCountService).should().sync(contentId);
     }
 
     private User user(UUID id, String name) {

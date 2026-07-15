@@ -2,12 +2,13 @@ package com.example.sb10_MoPl_team3.watchingsession.websocket;
 
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChange;
+import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRedisRepository.PresenceKey;
 import com.example.sb10_MoPl_team3.watchingsession.service.WatchingSessionPresenceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
@@ -21,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -29,10 +31,9 @@ public class WatchingSessionWebSocketListener {
 
     private static final Pattern WATCH_DESTINATION =
             Pattern.compile("^/sub/contents/([0-9a-fA-F-]{36})/watch$");
-    private static final String WATCH_DESTINATION_FORMAT = "/sub/contents/%s/watch";
 
     private final WatchingSessionPresenceService presenceService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final WatchingSessionBroadcastPublisher broadcastPublisher;
     private final Map<SubscriptionKey, Presence> presences = new ConcurrentHashMap<>();
 
     @EventListener
@@ -88,6 +89,18 @@ public class WatchingSessionWebSocketListener {
         }
     }
 
+    @Scheduled(fixedDelayString = "${watching-session.presence.heartbeat-interval-ms:10000}")
+    public void refreshLocalPresences() {
+        Set<PresenceKey> presenceKeys = presences.values().stream()
+                .distinct()
+                .map(presence -> new PresenceKey(presence.contentId(), presence.watcherId()))
+                .collect(Collectors.toSet());
+        presenceService.refreshAll(presenceKeys)
+                .forEach(presence -> log.debug(
+                        "시청 세션 heartbeat 갱신 대상이 Redis에 없습니다. contentId={}, watcherId={}",
+                        presence.contentId(), presence.watcherId()));
+    }
+
     private UUID parseContentId(String destination) {
         if (destination == null) {
             return null;
@@ -112,17 +125,14 @@ public class WatchingSessionWebSocketListener {
     }
 
     private void publish(WatchingSessionChange change, String trigger) {
-        UUID contentId = change.watchingSession().content().id();
-        String destination = WATCH_DESTINATION_FORMAT.formatted(contentId);
         try {
-            messagingTemplate.convertAndSend(destination, change);
+            broadcastPublisher.publish(change);
         } catch (RuntimeException exception) {
             log.warn(
-                    "시청 세션 변경 메시지 발행에 실패했습니다. trigger={}, destination={}, type={}, contentId={}, watcherId={}",
+                    "시청 세션 변경 메시지 broadcast 발행에 실패했습니다. trigger={}, type={}, contentId={}, watcherId={}",
                     trigger,
-                    destination,
                     change.type(),
-                    contentId,
+                    change.watchingSession().content().id(),
                     change.watchingSession().watcher().userId(),
                     exception
             );

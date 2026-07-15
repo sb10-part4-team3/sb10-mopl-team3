@@ -10,15 +10,16 @@ import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChange;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionChangeType;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionDto;
+import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRedisRepository.PresenceKey;
 import com.example.sb10_MoPl_team3.watchingsession.service.WatchingSessionPresenceService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.Message;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
@@ -28,9 +29,12 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -41,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class WatchingSessionWebSocketListenerTest {
 
     @Mock WatchingSessionPresenceService presenceService;
-    @Mock SimpMessagingTemplate messagingTemplate;
+    @Mock WatchingSessionBroadcastPublisher broadcastPublisher;
     @InjectMocks WatchingSessionWebSocketListener listener;
 
     @Test
@@ -67,8 +71,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleSubscribe(event);
 
         then(presenceService).should().join(contentId, watcherId);
-        then(messagingTemplate).should().convertAndSend(
-                "/sub/contents/" + contentId + "/watch", change);
+        then(broadcastPublisher).should().publish(change);
     }
 
     @Test
@@ -83,7 +86,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleSubscribe(new SessionSubscribeEvent(this, message));
 
         then(presenceService).shouldHaveNoInteractions();
-        then(messagingTemplate).shouldHaveNoInteractions();
+        then(broadcastPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -99,7 +102,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleSubscribe(new SessionSubscribeEvent(this, message));
 
         then(presenceService).shouldHaveNoInteractions();
-        then(messagingTemplate).shouldHaveNoInteractions();
+        then(broadcastPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -129,7 +132,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleDisconnect(disconnectEvent);
 
         then(presenceService).should(never()).leave(contentId, watcherId);
-        then(messagingTemplate).shouldHaveNoInteractions();
+        then(broadcastPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -146,7 +149,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, message));
 
         then(presenceService).shouldHaveNoInteractions();
-        then(messagingTemplate).shouldHaveNoInteractions();
+        then(broadcastPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -176,6 +179,31 @@ class WatchingSessionWebSocketListenerTest {
     }
 
     @Test
+    @DisplayName("heartbeat 갱신은 로컬 presence를 모아 bulk refresh로 처리한다")
+    void refreshLocalPresences_refreshesDistinctPresencesInBulk() {
+        UUID contentId = UUID.randomUUID();
+        UUID watcherId = UUID.randomUUID();
+        AuthUser authUser = new AuthUser(watcherId, UserRole.USER, UUID.randomUUID());
+        var authentication = new UsernamePasswordAuthenticationToken(
+                authUser, null, authUser.authorities());
+        WatchingSessionChange joined = change(
+                WatchingSessionChangeType.JOIN, contentId, watcherId, "시청자", 1);
+        given(presenceService.join(contentId, watcherId)).willReturn(List.of(joined));
+        given(presenceService.refreshAll(org.mockito.ArgumentMatchers.anyCollection()))
+                .willReturn(Set.of());
+
+        subscribe(contentId, authentication, "session-1", "subscription-1");
+        subscribe(contentId, authentication, "session-2", "subscription-2");
+
+        listener.refreshLocalPresences();
+
+        ArgumentCaptor<Collection<PresenceKey>> captor = ArgumentCaptor.forClass(Collection.class);
+        then(presenceService).should().refreshAll(captor.capture());
+        assertThat(captor.getValue())
+                .containsExactly(new PresenceKey(contentId, watcherId));
+    }
+
+    @Test
     @DisplayName("세션 ID가 없는 구독 해제와 잘못된 UUID watch 경로는 무시한다")
     void invalidEvents_areIgnored() {
         StompHeaderAccessor invalidSubscribe = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
@@ -194,7 +222,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, unsubscribeMessage));
 
         then(presenceService).shouldHaveNoInteractions();
-        then(messagingTemplate).shouldHaveNoInteractions();
+        then(broadcastPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -225,8 +253,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleDisconnect(disconnectEvent);
 
         then(presenceService).should().leave(contentId, watcherId);
-        then(messagingTemplate).should().convertAndSend(
-                "/sub/contents/" + contentId + "/watch", left);
+        then(broadcastPublisher).should().publish(left);
     }
 
     @Test
@@ -263,8 +290,7 @@ class WatchingSessionWebSocketListenerTest {
         listener.handleUnsubscribe(new SessionUnsubscribeEvent(this, unsubscribeMessage, authentication));
 
         then(presenceService).should().leave(contentId, watcherId);
-        then(messagingTemplate).should().convertAndSend(
-                "/sub/contents/" + contentId + "/watch", left);
+        then(broadcastPublisher).should().publish(left);
     }
 
     private void subscribe(

@@ -44,3 +44,11 @@ sse:
   redis:
     pubsub:
       enabled: false
+
+watching-session:
+  redis:
+    pubsub:
+      enabled: false
+  presence:
+    cleanup:
+      enabled: false
