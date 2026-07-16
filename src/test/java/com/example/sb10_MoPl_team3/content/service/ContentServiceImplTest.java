@@ -206,6 +206,24 @@ class ContentServiceImplTest {
         contentService.updateContent(content.getId(), request, null);
 
         then(fileStorageService).should(never()).upload(any());
+        then(fileStorageService).should(never()).deleteByUrl(any());
+    }
+
+    @Test
+    void updateContent_새_썸네일로_교체되면_기존_썸네일을_S3에서_삭제한다() {
+        Content content = buildContent(ContentType.MOVIE, "영화");
+        ReflectionTestUtils.setField(content, "thumbnailUrl", "https://s3/old-thumbnail.png");
+        ContentUpdateRequest request = new ContentUpdateRequest(null, null, null);
+        MultipartFile thumbnail = mock(MultipartFile.class);
+        given(thumbnail.isEmpty()).willReturn(false);
+        given(fileStorageService.upload(thumbnail)).willReturn("https://s3/new-thumbnail.png");
+
+        given(contentRepository.findById(content.getId())).willReturn(Optional.of(content));
+        given(contentTagRepository.findTagNamesByContentId(content.getId())).willReturn(List.of());
+
+        contentService.updateContent(content.getId(), request, thumbnail);
+
+        then(fileStorageService).should().deleteByUrl("https://s3/old-thumbnail.png");
     }
 
     @Test

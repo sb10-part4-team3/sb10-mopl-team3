@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -105,21 +106,35 @@ public class ContentServiceImpl implements ContentService {
     }
 
     String uploadedThumbnailUrl = thumbnailUrl;
+    AtomicReference<String> previousThumbnailUrl = new AtomicReference<>();
+    ContentDto result;
     try {
-      return transactionTemplate.execute(
-          status -> applyUpdate(contentId, request, uploadedThumbnailUrl));
+      result = transactionTemplate.execute(
+          status -> applyUpdate(contentId, request, uploadedThumbnailUrl, previousThumbnailUrl));
     } catch (RuntimeException e) {
       if (thumbnailUrl != null) {
         fileStorageService.deleteByUrl(thumbnailUrl);
       }
       throw e;
     }
+
+    // 트랜잭션이 성공적으로 커밋된 뒤에만 이전 썸네일을 지운다.
+    // 커밋 전에 지우면 트랜잭션이 롤백될 때 이전 파일까지 사라져 복구할 수 없다.
+    String oldThumbnailUrl = previousThumbnailUrl.get();
+    if (uploadedThumbnailUrl != null && oldThumbnailUrl != null
+        && !oldThumbnailUrl.equals(uploadedThumbnailUrl)) {
+      fileStorageService.deleteByUrl(oldThumbnailUrl);
+    }
+
+    return result;
   }
 
   private ContentDto applyUpdate(UUID contentId, ContentUpdateRequest request,
-      String thumbnailUrl) {
+      String thumbnailUrl, AtomicReference<String> previousThumbnailUrl) {
     Content content = contentRepository.findById(contentId)
         .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
+
+    previousThumbnailUrl.set(content.getThumbnailUrl());
 
     content.update(request.title(), request.description());
     if (thumbnailUrl != null) {
