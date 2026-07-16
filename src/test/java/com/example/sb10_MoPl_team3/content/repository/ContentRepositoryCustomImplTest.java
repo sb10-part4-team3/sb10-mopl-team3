@@ -1,6 +1,7 @@
 package com.example.sb10_MoPl_team3.content.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.entity.Content;
@@ -10,6 +11,8 @@ import com.example.sb10_MoPl_team3.content.entity.Tag;
 import com.example.sb10_MoPl_team3.global.config.JpaAuditingConfig;
 import com.example.sb10_MoPl_team3.global.config.QuerydslConfig;
 import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -383,6 +386,18 @@ class ContentRepositoryCustomImplTest {
     // then - 두번째 항목만 나와야 함 (중복도 누락도 없이)
     assertThat(secondResult).hasSize(1);
     assertThat(secondResult.get(0).getId()).isEqualTo(secondItem.getId());
+  }
+
+  @Test
+  void findContentsByCursor_cursor만_있고_idAfter_없으면_INVALID_CURSOR_예외() {
+    CursorPageRequest pageRequest = new CursorPageRequest(
+        Instant.now().toString(), null, 10, "createdAt", "ASC"
+    );
+
+    assertThatThrownBy(() -> contentRepository.findContentsByCursor(pageRequest, null, null, null))
+        .isInstanceOf(BusinessException.class)
+        .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+            .isEqualTo(ErrorCode.INVALID_CURSOR));
   }
 
   // ========================
