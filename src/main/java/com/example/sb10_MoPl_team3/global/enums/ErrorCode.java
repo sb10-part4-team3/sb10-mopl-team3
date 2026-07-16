@@ -30,6 +30,7 @@ public enum ErrorCode {
 
     // 리뷰
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "리뷰를 찾을 수 없습니다."),
+    DUPLICATE_REVIEW(HttpStatus.CONFLICT, "이미 해당 콘텐츠에 활성 리뷰를 작성했습니다."),
 
     // 콘텐츠
     CONTENT_NOT_FOUND(HttpStatus.NOT_FOUND, "콘텐츠를 찾을 수 없습니다."),
