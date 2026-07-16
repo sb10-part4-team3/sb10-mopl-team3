@@ -8,6 +8,8 @@ import com.example.sb10_MoPl_team3.content.ContentType;
 import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.global.cursor.Cursor;
 import com.example.sb10_MoPl_team3.global.cursor.CursorPageRequest;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
@@ -56,7 +58,7 @@ public class ContentRepositoryCustomImpl implements ContentRepositoryCustom {
     // 커서 조건 (첫 페이지가 아닐 때만)
     if (pageRequest.hasCursor()) {
       if (pageRequest.idAfter() == null) {
-        throw new IllegalArgumentException("idAfter is required when cursor is provided");
+        throw new BusinessException(ErrorCode.INVALID_CURSOR);
       }
       builder.and(buildCursorCondition(pageRequest));
     }
