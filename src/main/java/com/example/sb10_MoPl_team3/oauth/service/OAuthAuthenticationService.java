@@ -19,6 +19,7 @@ public class OAuthAuthenticationService {
     private final OAuthSocialAccountCreator socialAccountCreator;
     private final AuthService authService;
 
+    @Transactional
     public AuthTokenResult signin(OAuthUserInfo userInfo) {
         SocialAccount socialAccount = socialAccountRepository
                 .findByProviderAndProviderUserId(
