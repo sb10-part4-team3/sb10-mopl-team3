@@ -12,11 +12,15 @@ import com.example.sb10_MoPl_team3.global.config.JpaAuditingConfig;
 import com.example.sb10_MoPl_team3.global.config.QuerydslConfig;
 import jakarta.persistence.EntityManager;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @DataJpaTest
 @Import({QuerydslConfig.class, JpaAuditingConfig.class})
@@ -34,11 +38,26 @@ class ContentTagServiceImplTest {
     @Autowired
     private EntityManager em;
 
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
     private ContentTagServiceImpl contentTagService;
 
     @BeforeEach
     void setUp() {
-        contentTagService = new ContentTagServiceImpl(tagRepository, contentTagRepository);
+        contentTagService =
+            new ContentTagServiceImpl(tagRepository, contentTagRepository, transactionManager);
+    }
+
+    // getOrCreateTag()가 충돌 시 REQUIRES_NEW로 태그를 저장하기 때문에, 이 테스트 클래스의
+    // 트랜잭션 롤백(@DataJpaTest 기본 동작)으로는 정리되지 않고 태그가 실제로 커밋된다.
+    // 이 @AfterEach 자체도 테스트를 감싼 롤백 트랜잭션 안에서 실행되므로, 여기서 지우는 것도
+    // REQUIRES_NEW로 별도 커밋해야 실제로 반영된다.
+    @AfterEach
+    void cleanUpTags() {
+        TransactionTemplate requiresNew = new TransactionTemplate(transactionManager);
+        requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        requiresNew.executeWithoutResult(status -> tagRepository.deleteAll());
     }
 
     // --- 콘텐츠 등록 시 태그 함께 등록 ---
