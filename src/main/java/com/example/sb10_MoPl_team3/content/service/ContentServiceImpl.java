@@ -96,12 +96,35 @@ public class ContentServiceImpl implements ContentService {
   }
 
   @Override
-  @Transactional
-  public ContentDto updateContent(UUID contentId, ContentUpdateRequest request) {
+  public ContentDto updateContent(UUID contentId, ContentUpdateRequest request,
+      MultipartFile thumbnail) {
+
+    String thumbnailUrl = null;
+    if (thumbnail != null && !thumbnail.isEmpty()) {
+      thumbnailUrl = fileStorageService.upload(thumbnail);
+    }
+
+    String uploadedThumbnailUrl = thumbnailUrl;
+    try {
+      return transactionTemplate.execute(
+          status -> applyUpdate(contentId, request, uploadedThumbnailUrl));
+    } catch (RuntimeException e) {
+      if (thumbnailUrl != null) {
+        fileStorageService.deleteByUrl(thumbnailUrl);
+      }
+      throw e;
+    }
+  }
+
+  private ContentDto applyUpdate(UUID contentId, ContentUpdateRequest request,
+      String thumbnailUrl) {
     Content content = contentRepository.findById(contentId)
         .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
 
     content.update(request.title(), request.description());
+    if (thumbnailUrl != null) {
+      content.updateThumbnail(thumbnailUrl);
+    }
 
     List<String> tags;
     if (request.tags() != null) {
@@ -109,7 +132,6 @@ public class ContentServiceImpl implements ContentService {
     } else {
       tags = contentTagRepository.findTagNamesByContentId(contentId);
     }
-
 
     ContentStats stats = contentStatsRepository.findById(contentId)
         .orElse(null);

@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -49,11 +48,12 @@ public class ContentController {
     return ResponseEntity.status(HttpStatus.CREATED).body(dto);
   }
 
-  @PatchMapping("/{contentId}")
+  @PatchMapping(value = "/{contentId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<ContentDto> update(@PathVariable UUID contentId,
-      @RequestBody ContentUpdateRequest request){
-    ContentDto dto = contentService.updateContent(contentId, request);
+      @RequestPart("request") ContentUpdateRequest request,
+      @RequestPart(value = "thumbnail", required = false) MultipartFile thumbnail){
+    ContentDto dto = contentService.updateContent(contentId, request, thumbnail);
     return ResponseEntity.ok(dto);
   }
 

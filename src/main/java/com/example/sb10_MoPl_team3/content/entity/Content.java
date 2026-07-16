@@ -96,6 +96,10 @@ public class Content extends BaseEntity {
     }
   }
 
+  public void updateThumbnail(String thumbnailUrl) {
+    this.thumbnailUrl = thumbnailUrl;
+  }
+
   public void syncFromExternal(String title, String description, String thumbnailUrl,
       Instant eventDate) {
     if (title == null || title.isBlank()) {
