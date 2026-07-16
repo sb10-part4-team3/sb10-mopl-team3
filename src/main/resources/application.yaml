@@ -95,6 +95,12 @@ auth:
     mode: ${PASSWORD_RESET_MAIL_MODE:log}
     from: ${MAIL_FROM:no-reply@mopl.local}
 
+oauth:
+  enabled: ${OAUTH_ENABLED:false}
+  redirect:
+    success-uri: ${OAUTH_SUCCESS_REDIRECT_URI:https://moduplaylist.site/}
+    failure-uri: ${OAUTH_FAILURE_REDIRECT_URI:https://moduplaylist.site/#/sign-in}
+
 sportsdb:
   base-url: https://www.thesportsdb.com/api/v1/json
   api-key: ${SPORTS_DB_API_KEY:}
