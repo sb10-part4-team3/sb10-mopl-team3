@@ -6,7 +6,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -31,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockPart;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -185,13 +185,12 @@ class ContentControllerTest {
             CONTENT_ID, ContentType.MOVIE, "수정된 제목", "수정된 설명",
             null, List.of("액션"), 4.5, 10, 100L
         );
-        given(contentService.updateContent(eq(CONTENT_ID), any())).willReturn(updated);
+        given(contentService.updateContent(eq(CONTENT_ID), any(), any())).willReturn(updated);
 
-        mockMvc.perform(patch("/api/contents/{id}", CONTENT_ID)
-                .contentType(APPLICATION_JSON)
-                .content("""
+        mockMvc.perform(multipart(HttpMethod.PATCH, "/api/contents/{id}", CONTENT_ID)
+                .part(jsonPart("request", """
                     {"title":"수정된 제목","description":"수정된 설명","tags":null}
-                    """)
+                    """))
                 .with(csrf())
                 .with(authentication(adminAuth())))
             .andExpect(status().isOk())
@@ -201,26 +200,28 @@ class ContentControllerTest {
 
     @Test
     void update_USER_권한으로_접근_시_403과_ACCESS_DENIED_반환() throws Exception {
-        mockMvc.perform(patch("/api/contents/{id}", CONTENT_ID)
-                .contentType(APPLICATION_JSON)
-                .content("{\"title\":\"수정\",\"description\":null,\"tags\":null}")
+        mockMvc.perform(multipart(HttpMethod.PATCH, "/api/contents/{id}", CONTENT_ID)
+                .part(jsonPart("request", """
+                    {"title":"수정","description":null,"tags":null}
+                    """))
                 .with(csrf())
                 .with(authentication(userAuth())))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
             .andExpect(jsonPath("$.status").value(403));
 
-        then(contentService).should(never()).updateContent(any(), any());
+        then(contentService).should(never()).updateContent(any(), any(), any());
     }
 
     @Test
     void update_존재하지_않는_ID_수정_시_404_반환() throws Exception {
-        given(contentService.updateContent(eq(CONTENT_ID), any()))
+        given(contentService.updateContent(eq(CONTENT_ID), any(), any()))
             .willThrow(new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
 
-        mockMvc.perform(patch("/api/contents/{id}", CONTENT_ID)
-                .contentType(APPLICATION_JSON)
-                .content("{\"title\":\"수정\",\"description\":null,\"tags\":null}")
+        mockMvc.perform(multipart(HttpMethod.PATCH, "/api/contents/{id}", CONTENT_ID)
+                .part(jsonPart("request", """
+                    {"title":"수정","description":null,"tags":null}
+                    """))
                 .with(csrf())
                 .with(authentication(adminAuth())))
             .andExpect(status().isNotFound())

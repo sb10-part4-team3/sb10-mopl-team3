@@ -1,3 +1,8 @@
 auth:
   refresh-token-cookie:
     secure: ${REFRESH_TOKEN_COOKIE_SECURE:false}
+
+logging:
+  level:
+    org.apache.kafka: ERROR
+    org.apache.kafka.clients.NetworkClient: OFF

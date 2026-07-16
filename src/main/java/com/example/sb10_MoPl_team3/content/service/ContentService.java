@@ -12,7 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 public interface ContentService {
   ContentDto create(ContentCreateRequest request, MultipartFile thumbnail);
   ContentDto getContent(UUID contentId);
-  ContentDto updateContent(UUID contentId, ContentUpdateRequest request);
+  ContentDto updateContent(UUID contentId, ContentUpdateRequest request, MultipartFile thumbnail);
   void deleteContent(UUID contentId);
   CursorResponse<ContentDto> getContents(
       CursorPageRequest pageRequest,

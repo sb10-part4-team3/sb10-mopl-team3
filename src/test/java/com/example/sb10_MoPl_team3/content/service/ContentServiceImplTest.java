@@ -172,10 +172,58 @@ class ContentServiceImplTest {
         given(contentRepository.findById(content.getId())).willReturn(Optional.of(content));
         given(contentTagRepository.findTagNamesByContentId(content.getId())).willReturn(List.of());
 
-        ContentDto result = contentService.updateContent(content.getId(), request);
+        ContentDto result = contentService.updateContent(content.getId(), request, null);
 
         assertThat(result.title()).isEqualTo("새 제목");
         assertThat(result.description()).isEqualTo("새 설명");
+    }
+
+    @Test
+    void updateContent_thumbnail이_제공되면_S3에_업로드하고_URL을_교체한다() {
+        Content content = buildContent(ContentType.MOVIE, "영화");
+        ContentUpdateRequest request = new ContentUpdateRequest(null, null, null);
+        MultipartFile thumbnail = mock(MultipartFile.class);
+        given(thumbnail.isEmpty()).willReturn(false);
+        given(fileStorageService.upload(thumbnail)).willReturn("https://s3/new-thumbnail.png");
+
+        given(contentRepository.findById(content.getId())).willReturn(Optional.of(content));
+        given(contentTagRepository.findTagNamesByContentId(content.getId())).willReturn(List.of());
+
+        ContentDto result = contentService.updateContent(content.getId(), request, thumbnail);
+
+        assertThat(result.thumbnailUrl()).isEqualTo("https://s3/new-thumbnail.png");
+        then(fileStorageService).should().upload(thumbnail);
+    }
+
+    @Test
+    void updateContent_thumbnail이_null이면_S3_업로드를_호출하지_않는다() {
+        Content content = buildContent(ContentType.MOVIE, "영화");
+        ContentUpdateRequest request = new ContentUpdateRequest(null, null, null);
+
+        given(contentRepository.findById(content.getId())).willReturn(Optional.of(content));
+        given(contentTagRepository.findTagNamesByContentId(content.getId())).willReturn(List.of());
+
+        contentService.updateContent(content.getId(), request, null);
+
+        then(fileStorageService).should(never()).upload(any());
+        then(fileStorageService).should(never()).deleteByUrl(any());
+    }
+
+    @Test
+    void updateContent_새_썸네일로_교체되면_기존_썸네일을_S3에서_삭제한다() {
+        Content content = buildContent(ContentType.MOVIE, "영화");
+        ReflectionTestUtils.setField(content, "thumbnailUrl", "https://s3/old-thumbnail.png");
+        ContentUpdateRequest request = new ContentUpdateRequest(null, null, null);
+        MultipartFile thumbnail = mock(MultipartFile.class);
+        given(thumbnail.isEmpty()).willReturn(false);
+        given(fileStorageService.upload(thumbnail)).willReturn("https://s3/new-thumbnail.png");
+
+        given(contentRepository.findById(content.getId())).willReturn(Optional.of(content));
+        given(contentTagRepository.findTagNamesByContentId(content.getId())).willReturn(List.of());
+
+        contentService.updateContent(content.getId(), request, thumbnail);
+
+        then(fileStorageService).should().deleteByUrl("https://s3/old-thumbnail.png");
     }
 
     @Test
@@ -187,7 +235,7 @@ class ContentServiceImplTest {
         given(contentTagService.syncTags(eq(content), eq(List.of("로맨스"))))
             .willReturn(List.of("로맨스"));
 
-        ContentDto result = contentService.updateContent(content.getId(), request);
+        ContentDto result = contentService.updateContent(content.getId(), request, null);
 
         assertThat(result.tags()).containsExactly("로맨스");
         then(contentTagService).should().syncTags(eq(content), eq(List.of("로맨스")));
@@ -202,7 +250,7 @@ class ContentServiceImplTest {
         given(contentTagRepository.findTagNamesByContentId(content.getId()))
             .willReturn(List.of("기존태그"));
 
-        ContentDto result = contentService.updateContent(content.getId(), request);
+        ContentDto result = contentService.updateContent(content.getId(), request, null);
 
         assertThat(result.tags()).containsExactly("기존태그");
         then(contentTagService).should(never()).syncTags(any(), any());
@@ -215,7 +263,7 @@ class ContentServiceImplTest {
 
         given(contentRepository.findById(unknownId)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> contentService.updateContent(unknownId, request))
+        assertThatThrownBy(() -> contentService.updateContent(unknownId, request, null))
             .isInstanceOf(BusinessException.class)
             .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
                 .isEqualTo(ErrorCode.CONTENT_NOT_FOUND));
