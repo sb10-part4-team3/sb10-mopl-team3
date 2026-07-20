@@ -130,7 +130,11 @@ public class ContentServiceImpl implements ContentService {
     String oldThumbnailUrl = previousThumbnailUrl.get();
     if (uploadedThumbnailUrl != null && oldThumbnailUrl != null
         && !oldThumbnailUrl.equals(uploadedThumbnailUrl)) {
-      fileStorageService.deleteByUrl(oldThumbnailUrl);
+      try {
+        fileStorageService.deleteByUrl(oldThumbnailUrl);
+      } catch (Exception e) {
+        log.error("기존 썸네일 삭제 실패: {}", oldThumbnailUrl, e);
+      }
     }
 
     return result;
