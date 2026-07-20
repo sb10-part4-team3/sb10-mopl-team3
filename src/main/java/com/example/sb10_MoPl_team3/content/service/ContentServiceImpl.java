@@ -23,6 +23,8 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +46,7 @@ public class ContentServiceImpl implements ContentService {
   private final ContentStatsRepository contentStatsRepository;
   private final ContentTagRepository contentTagRepository;
   private final ContentTagService contentTagService;
+  private final ContentCountCacheService contentCountCacheService;
 
   public ContentServiceImpl(
       ContentRepository contentRepository,
@@ -51,13 +54,15 @@ public class ContentServiceImpl implements ContentService {
       PlatformTransactionManager transactionManager,
       ContentStatsRepository contentStatsRepository,
       ContentTagRepository contentTagRepository,
-      ContentTagService contentTagService) {
+      ContentTagService contentTagService,
+      ContentCountCacheService contentCountCacheService) {
     this.contentRepository = contentRepository;
     this.fileStorageService = fileStorageService;
     this.transactionTemplate = new TransactionTemplate(transactionManager);
     this.contentStatsRepository = contentStatsRepository;
     this.contentTagRepository = contentTagRepository;
     this.contentTagService = contentTagService;
+    this.contentCountCacheService = contentCountCacheService;
   }
 
   @Override
@@ -86,6 +91,7 @@ public class ContentServiceImpl implements ContentService {
 
   @Override
   @Transactional(readOnly = true)
+  @Cacheable(cacheNames = "content-detail", key = "#contentId")
   public ContentDto getContent(UUID contentId) {
     Content content = contentRepository.findById(contentId)
         .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
@@ -97,6 +103,7 @@ public class ContentServiceImpl implements ContentService {
   }
 
   @Override
+  @CacheEvict(cacheNames = "content-detail", key = "#contentId")
   public ContentDto updateContent(UUID contentId, ContentUpdateRequest request,
       MultipartFile thumbnail) {
 
@@ -123,7 +130,11 @@ public class ContentServiceImpl implements ContentService {
     String oldThumbnailUrl = previousThumbnailUrl.get();
     if (uploadedThumbnailUrl != null && oldThumbnailUrl != null
         && !oldThumbnailUrl.equals(uploadedThumbnailUrl)) {
-      fileStorageService.deleteByUrl(oldThumbnailUrl);
+      try {
+        fileStorageService.deleteByUrl(oldThumbnailUrl);
+      } catch (Exception e) {
+        log.error("기존 썸네일 삭제 실패: {}", oldThumbnailUrl, e);
+      }
     }
 
     return result;
@@ -161,6 +172,7 @@ public class ContentServiceImpl implements ContentService {
   //   ContentStats가 API 응답에 노출될 일은 없음 (Content를 거쳐서만 접근 가능한 구조)
   @Override
   @Transactional
+  @CacheEvict(cacheNames = "content-detail", key = "#contentId")
   public void deleteContent(UUID contentId) {
     Content content = contentRepository.findById(contentId)
         .orElseThrow(() -> new BusinessException(ErrorCode.CONTENT_NOT_FOUND));
@@ -185,7 +197,7 @@ public class ContentServiceImpl implements ContentService {
     );
 
     // 2. 전체 개수 조회 (필터 조건만 적용)
-    long totalCount = contentRepository.countContents(type, keywordLike, tagsIn);
+    long totalCount = contentCountCacheService.countContents(type, keywordLike, tagsIn);
 
     // 3. ContentStats, Tag 배치 조회 (N+1 방지)
     List<UUID> contentIds = contents.stream().map(Content::getId).toList();

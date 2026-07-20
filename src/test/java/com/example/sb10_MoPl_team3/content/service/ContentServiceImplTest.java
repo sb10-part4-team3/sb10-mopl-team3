@@ -46,6 +46,7 @@ class ContentServiceImplTest {
     @Mock private ContentStatsRepository contentStatsRepository;
     @Mock private ContentTagRepository contentTagRepository;
     @Mock private ContentTagService contentTagService;
+    @Mock private ContentCountCacheService contentCountCacheService;
 
     @InjectMocks
     private ContentServiceImpl contentService;
@@ -304,7 +305,7 @@ class ContentServiceImplTest {
 
         given(contentRepository.findContentsByCursor(pageRequest, null, null, null))
             .willReturn(List.of(content));
-        given(contentRepository.countContents(null, null, null)).willReturn(1L);
+        given(contentCountCacheService.countContents(null, null, null)).willReturn(1L);
         given(contentStatsRepository.findAllById(any())).willReturn(List.of());
         given(contentTagRepository.findTagsByContentIds(any())).willReturn(List.of());
 
@@ -330,7 +331,7 @@ class ContentServiceImplTest {
 
         given(contentRepository.findContentsByCursor(pageRequest, null, null, null))
             .willReturn(List.of(c1, c2, c3));  // size+1개 반환
-        given(contentRepository.countContents(null, null, null)).willReturn(3L);
+        given(contentCountCacheService.countContents(null, null, null)).willReturn(3L);
         given(contentStatsRepository.findAllById(any())).willReturn(List.of());
         given(contentTagRepository.findTagsByContentIds(any())).willReturn(List.of());
 
