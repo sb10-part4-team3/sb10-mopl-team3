@@ -6,6 +6,7 @@ const USER_COUNT = Number(__ENV.USER_COUNT || 150);
 const PASSWORD = __ENV.TEST_USER_PASSWORD || 'LoadTest1!';
 
 export const options = {
+    setupTimeout: '5m',
     scenarios: {
         user_auth_realistic: {
             executor: 'ramping-vus',
@@ -75,6 +76,13 @@ function signUpUser(email, password, index) {
     check(res, {
         'signup created or already exists': (r) => r.status === 201 || r.status === 409,
     });
+
+    if (res.status !== 201 && res.status !== 409) {
+        console.log(`signup failed for ${email}: status=${res.status}, body=${res.body}`);
+        return false;
+    }
+
+    return true;
 }
 
 function signin(user) {
@@ -153,18 +161,26 @@ export function setup() {
     for (let i = 1; i <= USER_COUNT; i += 1) {
         const email = `realistic-user-${i}@mopl.test`;
 
-        signUpUser(email, PASSWORD, i);
+        if (signUpUser(email, PASSWORD, i)) {
+            users.push({
+                email,
+                password: PASSWORD,
+            });
+        }
+    }
 
-        users.push({
-            email,
-            password: PASSWORD,
-        });
+    if (users.length === 0) {
+        throw new Error('setup did not create or find any load test users');
     }
 
     return { users };
 }
 
 export default function (data) {
+    if (!data.users || data.users.length === 0) {
+        throw new Error('no load test users available');
+    }
+
     const user = data.users[(__VU - 1) % data.users.length];
 
     if (!globalThis.authState) {
@@ -193,6 +209,8 @@ export default function (data) {
         if (refreshed) {
             globalThis.authState.accessToken = refreshed.accessToken;
             globalThis.authState.refreshToken = refreshed.refreshToken;
+        } else {
+            globalThis.authState = signin(user);
         }
     }
 

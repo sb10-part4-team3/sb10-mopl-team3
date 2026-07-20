@@ -6,6 +6,7 @@ const USER_COUNT = Number(__ENV.USER_COUNT || 20);
 const PASSWORD = __ENV.TEST_USER_PASSWORD || 'LoadTest1!';
 
 export const options = {
+    setupTimeout: '2m',
     scenarios: {
         user_auth_smoke: {
             executor: 'ramping-vus',
@@ -71,13 +72,26 @@ export function setup() {
             'signup created or already exists': (r) => r.status === 201 || r.status === 409,
         });
 
+        if (res.status !== 201 && res.status !== 409) {
+            console.log(`signup failed for ${email}: status=${res.status}, body=${res.body}`);
+            continue;
+        }
+
         users.push({ email, password: PASSWORD });
+    }
+
+    if (users.length === 0) {
+        throw new Error('setup did not create or find any smoke test users');
     }
 
     return { users };
 }
 
 export default function (data) {
+    if (!data.users || data.users.length === 0) {
+        throw new Error('no smoke test users available');
+    }
+
     const user = data.users[(__VU - 1) % data.users.length];
 
     const signInCsrfToken = getCsrfToken();
