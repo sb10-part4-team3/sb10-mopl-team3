@@ -1,6 +1,6 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { BASE_URL, authForVu, csvEnv, loadOptions, requestParams, setupUsers, valueForVu } from '../lib/domain-test-common.js';
+import { BASE_URL, authForVu, clearAuthOnUnauthorized, csvEnv, loadOptions, requestParams, setupUsers, valueForVu } from '../lib/domain-test-common.js';
 
 const playlistIds = csvEnv('PLAYLIST_IDS', false);
 const mutations = __ENV.MUTATIONS === 'true';
@@ -15,6 +15,7 @@ export default function (data) {
         requestParams(auth, 'playlist_list')
     );
     check(list, { 'playlist list success': (response) => response.status === 200 });
+    if (clearAuthOnUnauthorized(list)) { sleep(1); return; }
 
     if (playlistIds.length > 0) {
         const detail = http.get(
@@ -22,6 +23,7 @@ export default function (data) {
             requestParams(auth, 'playlist_detail')
         );
         check(detail, { 'playlist detail success': (response) => response.status === 200 });
+        if (clearAuthOnUnauthorized(detail)) { sleep(1); return; }
     }
 
     if (mutations) {
@@ -30,6 +32,7 @@ export default function (data) {
             JSON.stringify({ title: `k6 playlist ${__VU}-${__ITER}`, description: 'k6 load test' }),
             requestParams(auth, 'playlist_create', true)
         );
+        if (clearAuthOnUnauthorized(created)) { sleep(1); return; }
         if (check(created, { 'playlist create success': (response) => response.status === 201 })) {
             const playlistId = created.json('id');
             const updated = http.patch(
@@ -37,11 +40,12 @@ export default function (data) {
                 JSON.stringify({ title: `k6 updated ${__VU}-${__ITER}`, description: 'k6 load test updated' }),
                 requestParams(auth, 'playlist_update', true)
             );
+            if (clearAuthOnUnauthorized(updated)) { sleep(1); return; }
             check(updated, { 'playlist update success': (response) => response.status === 200 });
             const removed = http.del(`${BASE_URL}/api/playlists/${playlistId}`, null, requestParams(auth, 'playlist_delete'));
+            clearAuthOnUnauthorized(removed);
             check(removed, { 'playlist delete success': (response) => response.status === 200 });
         }
     }
     sleep(Number(__ENV.THINK_TIME || 1));
 }
-

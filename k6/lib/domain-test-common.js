@@ -7,6 +7,12 @@ export const PASSWORD = __ENV.TEST_USER_PASSWORD || 'LoadTest1!';
 
 export function loadOptions(domain) {
     const vus = Number(__ENV.VUS || 30);
+    if (USER_COUNT < vus) {
+        throw new Error(
+            `USER_COUNT (${USER_COUNT}) must be greater than or equal to VUS (${vus}) `
+            + 'so that each VU has a dedicated test account'
+        );
+    }
     return {
         setupTimeout: __ENV.SETUP_TIMEOUT || '5m',
         scenarios: {
@@ -84,7 +90,13 @@ export function setupUsers(prefix) {
             users.push({ email, password: PASSWORD });
         }
     }
-    if (users.length === 0) fail('No load-test users are available');
+    const vus = Number(__ENV.VUS || 30);
+    if (users.length < vus) {
+        fail(
+            `Only ${users.length} load-test users are available for ${vus} VUs; `
+            + 'each VU requires a dedicated account'
+        );
+    }
     return { users };
 }
 
@@ -104,13 +116,30 @@ export function authForVu(data) {
             tags: { endpoint: 'signin' },
         }
     );
-    const valid = check(response, {
+    const signinSucceeded = check(response, {
         'signin success': (result) => result.status === 200,
-        'access token exists': (result) => Boolean(result.json('accessToken')),
     });
-    if (!valid) return null;
-    globalThis.domainAuth = { accessToken: response.json('accessToken'), csrfToken: token };
+    if (!signinSucceeded) return null;
+
+    let accessToken = null;
+    try {
+        accessToken = response.json('accessToken');
+    } catch (error) {
+        accessToken = null;
+    }
+    const tokenExists = check(response, {
+        'access token exists': () => Boolean(accessToken),
+    });
+    if (!tokenExists) return null;
+
+    globalThis.domainAuth = { accessToken, csrfToken: token };
     return globalThis.domainAuth;
+}
+
+export function clearAuthOnUnauthorized(response) {
+    if (response.status !== 401) return false;
+    globalThis.domainAuth = null;
+    return true;
 }
 
 export function requestParams(auth, endpoint, json = false) {

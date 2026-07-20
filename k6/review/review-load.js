@@ -1,6 +1,6 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { BASE_URL, authForVu, csvEnv, loadOptions, requestParams, setupUsers, valueForVu } from '../lib/domain-test-common.js';
+import { BASE_URL, authForVu, clearAuthOnUnauthorized, csvEnv, loadOptions, requestParams, setupUsers, valueForVu } from '../lib/domain-test-common.js';
 
 const contentIds = csvEnv('CONTENT_IDS');
 const mutations = __ENV.MUTATIONS === 'true';
@@ -16,6 +16,7 @@ export default function (data) {
         requestParams(auth, 'review_list')
     );
     check(list, { 'review list success': (response) => response.status === 200 });
+    if (clearAuthOnUnauthorized(list)) { sleep(1); return; }
 
     if (mutations) {
         const created = http.post(
@@ -23,15 +24,16 @@ export default function (data) {
             JSON.stringify({ contentId, text: `k6 review ${__VU}-${__ITER}`, rating: 4.0 }),
             requestParams(auth, 'review_create', true)
         );
+        if (clearAuthOnUnauthorized(created)) { sleep(1); return; }
         if (check(created, { 'review create success': (response) => response.status === 201 })) {
             const removed = http.del(
                 `${BASE_URL}/api/reviews/${created.json('id')}`,
                 null,
                 requestParams(auth, 'review_delete')
             );
+            clearAuthOnUnauthorized(removed);
             check(removed, { 'review delete success': (response) => response.status === 200 });
         }
     }
     sleep(Number(__ENV.THINK_TIME || 1));
 }
-
