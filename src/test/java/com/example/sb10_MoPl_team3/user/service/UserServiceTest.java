@@ -96,6 +96,8 @@ class UserServiceTest {
     void setUp() {
         lenient().when(userResponseMapper.toDto(any(User.class)))
                 .thenAnswer(invocation -> UserMapper.toDto(invocation.getArgument(0)));
+        lenient().when(userResponseMapper.toSummary(any(User.class)))
+                .thenAnswer(invocation -> UserMapper.toSummary(invocation.getArgument(0)));
     }
 
     private void givenAuthSessionLockExecutesRunnable() {

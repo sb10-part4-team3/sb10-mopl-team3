@@ -9,10 +9,13 @@ import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import com.example.sb10_MoPl_team3.watchingsession.entity.WatchingSession;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionFindAllRequest;
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,11 +32,13 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
-import static org.mockito.ArgumentMatchers.argThat;
 
 @ExtendWith(MockitoExtension.class)
 class WatchingSessionServiceImplTest {
@@ -53,8 +58,17 @@ class WatchingSessionServiceImplTest {
     @Mock
     private ContentRepository contentRepository;
 
+    @Mock
+    private UserResponseMapper userResponseMapper;
+
     @InjectMocks
     private WatchingSessionServiceImpl watchingSessionService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(userResponseMapper.toSummary(any(User.class)))
+                .thenAnswer(invocation -> UserMapper.toSummary(invocation.getArgument(0)));
+    }
 
     @Test
     @DisplayName("특정 사용자의 시청 세션을 WatchingSessionDto로 반환한다")

@@ -9,6 +9,9 @@ import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,7 +41,14 @@ class DirectMessageAsyncServiceTest {
     @Mock ConversationRepository conversationRepository;
     @Mock ApplicationEventPublisher eventPublisher;
     @Mock DirectMessageConversationPresence presence;
+    @Mock UserResponseMapper userResponseMapper;
     @InjectMocks DirectMessageAsyncService service;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(userResponseMapper.toSummary(any(User.class)))
+                .thenAnswer(invocation -> UserMapper.toSummary(invocation.getArgument(0)));
+    }
 
     @Test
     @DisplayName("대화 참여자가 보낸 쪽지를 저장하고 상대 참여자를 수신자로 지정한다")

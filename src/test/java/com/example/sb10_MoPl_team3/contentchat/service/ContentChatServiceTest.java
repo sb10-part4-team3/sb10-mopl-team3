@@ -5,7 +5,10 @@ import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +22,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ContentChatServiceTest {
@@ -30,8 +35,17 @@ class ContentChatServiceTest {
     @Mock
     private ContentRepository contentRepository;
 
+    @Mock
+    private UserResponseMapper userResponseMapper;
+
     @InjectMocks
     private ContentChatService contentChatService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(userResponseMapper.toSummary(any(User.class)))
+                .thenAnswer(invocation -> UserMapper.toSummary(invocation.getArgument(0)));
+    }
 
     @Test
     @DisplayName("발신자 정보가 포함된 휘발성 채팅 메시지를 생성한다")

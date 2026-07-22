@@ -12,11 +12,14 @@ import com.example.sb10_MoPl_team3.notification.event.NotificationAudienceType;
 import com.example.sb10_MoPl_team3.notification.event.NotificationFanoutEvent;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import com.example.sb10_MoPl_team3.watchingsession.entity.WatchingSession;
 import com.example.sb10_MoPl_team3.watchingsession.event.WatchingSessionJoinedEvent;
 import com.example.sb10_MoPl_team3.watchingsession.event.WatchingSessionLeftEvent;
 import com.example.sb10_MoPl_team3.watchingsession.repository.WatchingSessionRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -36,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,7 +51,14 @@ class WatchingSessionPersistenceServiceTest {
     @Mock ContentStatsRepository contentStatsRepository;
     @Mock ContentTagRepository contentTagRepository;
     @Mock ApplicationEventPublisher eventPublisher;
+    @Mock UserResponseMapper userResponseMapper;
     @InjectMocks WatchingSessionPersistenceService persistenceService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(userResponseMapper.toSummary(any(User.class)))
+                .thenAnswer(invocation -> UserMapper.toSummary(invocation.getArgument(0)));
+    }
 
     @Test
     void join_createsNewSession() {
