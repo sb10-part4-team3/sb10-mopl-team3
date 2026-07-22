@@ -159,6 +159,7 @@ class UserServiceTest {
     void findUser_success() {
         // given
         UUID userId = UUID.randomUUID();
+        String accessibleProfileImageUrl = "https://presigned.test/profile.png";
         User user = new User(
                 "user@test.com",
                 "홍길동",
@@ -168,6 +169,15 @@ class UserServiceTest {
         );
 
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(userResponseMapper.toDto(user)).willReturn(new UserDto(
+                userId,
+                null,
+                "user@test.com",
+                user.getName(),
+                accessibleProfileImageUrl,
+                UserRole.USER,
+                false
+        ));
 
         // when
         UserDto response = userService.findUser(userId);
@@ -175,9 +185,10 @@ class UserServiceTest {
         // then
         assertThat(response.email()).isEqualTo("user@test.com");
         assertThat(response.name()).isEqualTo("홍길동");
-        assertThat(response.profileImageUrl()).isEqualTo("https://image.test/profile.png");
+        assertThat(response.profileImageUrl()).isEqualTo(accessibleProfileImageUrl);
         assertThat(response.role()).isEqualTo(UserRole.USER);
         assertThat(response.locked()).isFalse();
+        then(userResponseMapper).should().toDto(user);
     }
 
     @Test
@@ -220,6 +231,7 @@ class UserServiceTest {
     void updateUser_nameOnly() {
         // given
         UUID userId = UUID.randomUUID();
+        String accessibleOldProfileImageUrl = "https://presigned.test/old.png";
         UserUpdateRequest request = new UserUpdateRequest("변경된이름");
         User user = new User(
                 "user@test.com",
@@ -230,6 +242,15 @@ class UserServiceTest {
         );
 
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(userResponseMapper.toDto(user)).willReturn(new UserDto(
+                userId,
+                null,
+                "user@test.com",
+                request.name(),
+                accessibleOldProfileImageUrl,
+                UserRole.USER,
+                false
+        ));
 
         // when
         UserDto response = userService.updateUser(userId, request, null);
@@ -239,7 +260,8 @@ class UserServiceTest {
         then(fileStorageService).should(never()).upload(any());
 
         assertThat(response.name()).isEqualTo("변경된이름");
-        assertThat(response.profileImageUrl()).isEqualTo("https://image.test/old.png");
+        assertThat(response.profileImageUrl()).isEqualTo(accessibleOldProfileImageUrl);
+        then(userResponseMapper).should().toDto(user);
         ArgumentCaptor<UserProfileUpdatedEvent> eventCaptor =
                 ArgumentCaptor.forClass(UserProfileUpdatedEvent.class);
         then(eventPublisher).should().publishEvent(eventCaptor.capture());
@@ -254,6 +276,8 @@ class UserServiceTest {
         // given
         UUID userId = UUID.randomUUID();
         UserUpdateRequest request = new UserUpdateRequest("변경된이름");
+        String uploadedProfileImageUrl = "https://image.test/new.png";
+        String accessibleProfileImageUrl = "https://presigned.test/new.png";
         MockMultipartFile image = new MockMultipartFile(
                 "image",
                 "profile.png",
@@ -270,7 +294,16 @@ class UserServiceTest {
         );
 
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
-        given(fileStorageService.upload(image)).willReturn("https://image.test/new.png");
+        given(fileStorageService.upload(image)).willReturn(uploadedProfileImageUrl);
+        given(userResponseMapper.toDto(user)).willReturn(new UserDto(
+                userId,
+                null,
+                "user@test.com",
+                request.name(),
+                accessibleProfileImageUrl,
+                UserRole.USER,
+                false
+        ));
 
         // when
         UserDto response = userService.updateUser(userId, request, image);
@@ -280,7 +313,8 @@ class UserServiceTest {
         then(fileStorageService).should().upload(image);
 
         assertThat(response.name()).isEqualTo("변경된이름");
-        assertThat(response.profileImageUrl()).isEqualTo("https://image.test/new.png");
+        assertThat(response.profileImageUrl()).isEqualTo(accessibleProfileImageUrl);
+        then(userResponseMapper).should().toDto(user);
     }
 
     @Test
@@ -330,6 +364,7 @@ class UserServiceTest {
         // given
         UUID userId = UUID.randomUUID();
         UserUpdateRequest request = new UserUpdateRequest("변경된이름");
+        String uploadedProfileImageUrl = "https://image.test/new.png";
         MockMultipartFile image = new MockMultipartFile(
                 "image",
                 "profile.png",
@@ -345,7 +380,7 @@ class UserServiceTest {
         );
 
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
-        given(fileStorageService.upload(image)).willReturn("https://image.test/new.png");
+        given(fileStorageService.upload(image)).willReturn(uploadedProfileImageUrl);
         willThrow(new RuntimeException("flush failed"))
                 .given(userRepository).flush();
 
@@ -363,6 +398,8 @@ class UserServiceTest {
         // given
         UUID userId = UUID.randomUUID();
         UserUpdateRequest request = new UserUpdateRequest("변경된이름");
+        String uploadedProfileImageUrl = "https://image.test/new.png";
+        String accessibleProfileImageUrl = "https://presigned.test/new.png";
         MockMultipartFile image = new MockMultipartFile(
                 "image",
                 "profile.png",
@@ -379,7 +416,16 @@ class UserServiceTest {
         );
 
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
-        given(fileStorageService.upload(image)).willReturn("https://image.test/new.png");
+        given(fileStorageService.upload(image)).willReturn(uploadedProfileImageUrl);
+        given(userResponseMapper.toDto(user)).willReturn(new UserDto(
+                userId,
+                null,
+                "user@test.com",
+                request.name(),
+                accessibleProfileImageUrl,
+                UserRole.USER,
+                false
+        ));
 
         TransactionSynchronizationManager.initSynchronization();
 
@@ -388,7 +434,8 @@ class UserServiceTest {
             UserDto response = userService.updateUser(userId, request, image);
 
             // then
-            assertThat(response.profileImageUrl()).isEqualTo("https://image.test/new.png");
+            assertThat(response.profileImageUrl()).isEqualTo(accessibleProfileImageUrl);
+            then(userResponseMapper).should().toDto(user);
 
             then(fileStorageService).should(never())
                     .deleteByUrl("https://image.test/old.png");

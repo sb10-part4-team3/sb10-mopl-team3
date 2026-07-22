@@ -9,6 +9,8 @@ const ADMIN_PASSWORD = __ENV.LOAD_TEST_ADMIN_PASSWORD || __ENV.ADMIN_PASSWORD;
 const MAX_VUS = Number(__ENV.MAX_VUS || 50);
 const WARM_VUS = Math.max(1, Math.floor(MAX_VUS * 0.4));
 
+http.setResponseCallback(http.expectedStatuses({ min: 200, max: 399 }, 409));
+
 export const options = {
     setupTimeout: '5m',
     scenarios: {
@@ -87,8 +89,10 @@ function signUpUser(index) {
     });
 
     if (!ok) {
-        console.log(`signup failed: email=${email}, status=${res.status}, body=${res.body}`);
+        console.log(`signup failed: email=${email}, status=${res.status}`);
     }
+
+    return { email, ok };
 }
 
 function signinAdmin() {
@@ -116,7 +120,7 @@ function signinAdmin() {
     });
 
     if (!ok) {
-        console.log(`admin signin failed: status=${res.status}, body=${res.body}`);
+        console.log(`admin signin failed: email=${ADMIN_EMAIL}, status=${res.status}`);
         return null;
     }
 
@@ -148,8 +152,19 @@ export function setup() {
         throw new Error('Set LOAD_TEST_ADMIN_PASSWORD or ADMIN_PASSWORD before running this script');
     }
 
+    const seedResults = [];
+
     for (let i = 1; i <= USER_COUNT; i += 1) {
-        signUpUser(i);
+        seedResults.push(signUpUser(i));
+    }
+
+    const failedSeedResults = seedResults.filter((result) => !result.ok);
+    if (failedSeedResults.length > 0) {
+        const failedEmails = failedSeedResults
+            .slice(0, 5)
+            .map((result) => result.email)
+            .join(', ');
+        throw new Error(`seed user setup failed: count=${failedSeedResults.length}, emails=${failedEmails}`);
     }
 
     const adminAccessToken = signinAdmin();

@@ -1,19 +1,20 @@
 package com.example.sb10_MoPl_team3.global.file;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetUrlRequest;
-import java.time.Duration;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
@@ -133,9 +134,14 @@ public class FileStorageService {
             .getObjectRequest(getObjectRequest)
             .build();
 
-    return s3Presigner.presignGetObject(presignRequest)
-            .url()
-            .toExternalForm();
+    try {
+      return s3Presigner.presignGetObject(presignRequest)
+              .url()
+              .toExternalForm();
+    } catch (SdkException exception) {
+      log.warn("S3 presigned URL creation failed. Returning original URL. url={}", fileUrl, exception);
+      return fileUrl;
+    }
   }
 
   private String extractBucketObjectKey(String fileUrl) {

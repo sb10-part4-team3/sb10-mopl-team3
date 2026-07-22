@@ -108,8 +108,16 @@ class AdminUserServiceTest {
         UUID user1Id = UUID.randomUUID();
         UUID user2Id = UUID.randomUUID();
         UUID user3Id = UUID.randomUUID();
+        String accessibleProfileImageUrl = "https://presigned.test/a.png";
 
-        User user1 = createUser(user1Id, "a@test.com", "A User", UserRole.USER, "2026-06-28T00:00:00Z");
+        User user1 = createUser(
+                user1Id,
+                "a@test.com",
+                "A User",
+                UserRole.USER,
+                "2026-06-28T00:00:00Z",
+                "https://image.test/a.png"
+        );
         User user2 = createUser(user2Id, "b@test.com", "B User", UserRole.USER, "2026-06-28T00:01:00Z");
         User user3 = createUser(user3Id, "c@test.com", "C User", UserRole.USER, "2026-06-28T00:02:00Z");
 
@@ -118,6 +126,15 @@ class AdminUserServiceTest {
 
         given(userRepository.countUsers(condition))
                 .willReturn(3L);
+        given(userResponseMapper.toDto(user1)).willReturn(new UserDto(
+                user1Id,
+                Instant.parse("2026-06-28T00:00:00Z"),
+                "a@test.com",
+                "A User",
+                accessibleProfileImageUrl,
+                UserRole.USER,
+                false
+        ));
 
         // when
         CursorResponse<UserDto> response = adminUserService.findUsers(condition);
@@ -126,6 +143,7 @@ class AdminUserServiceTest {
         assertThat(response.data()).hasSize(2);
         assertThat(response.data().get(0).email()).isEqualTo("a@test.com");
         assertThat(response.data().get(1).email()).isEqualTo("b@test.com");
+        assertThat(response.data().get(0).profileImageUrl()).isEqualTo(accessibleProfileImageUrl);
 
         assertThat(response.hasNext()).isTrue();
         assertThat(response.totalCount()).isEqualTo(3L);
@@ -136,6 +154,7 @@ class AdminUserServiceTest {
 
         then(userRepository).should().searchUsers(condition, 3);
         then(userRepository).should().countUsers(condition);
+        then(userResponseMapper).should().toDto(user1);
     }
 
     @Test
@@ -677,11 +696,22 @@ class AdminUserServiceTest {
             UserRole role,
             String createdAt
     ) {
+        return createUser(id, email, name, role, createdAt, null);
+    }
+
+    private User createUser(
+            UUID id,
+            String email,
+            String name,
+            UserRole role,
+            String createdAt,
+            String profileImageUrl
+    ) {
         User user = new User(
                 email,
                 name,
                 "encoded-password",
-                null,
+                profileImageUrl,
                 role
         );
 
