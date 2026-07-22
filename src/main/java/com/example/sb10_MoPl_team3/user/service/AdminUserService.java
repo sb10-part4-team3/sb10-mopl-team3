@@ -14,7 +14,7 @@ import com.example.sb10_MoPl_team3.user.dto.request.UserSearchCondition;
 import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
-import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
 import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
@@ -48,6 +48,7 @@ public class AdminUserService {
     private final Clock clock;
     private final ApplicationEventPublisher eventPublisher;
     private final AdminAccountProperties adminAccountProperties;
+    private final UserResponseMapper userResponseMapper;
 
     public CursorResponse<UserDto> findUsers(UserSearchCondition condition) {
         String sortBy = normalizeSortBy(condition.sortBy());
@@ -67,7 +68,7 @@ public class AdminUserService {
 
         List<UserDto> fetched = userRepository.searchUsers(normalizedCondition, limit + 1)
                 .stream()
-                .map(UserMapper::toDto)
+                .map(userResponseMapper::toDto)
                 .toList();
 
         long totalCount = userRepository.countUsers(normalizedCondition);
@@ -101,7 +102,7 @@ public class AdminUserService {
                 NotificationLevel.INFO
         ));
 
-        return UserMapper.toDto(user);
+        return userResponseMapper.toDto(user);
     }
 
     @Transactional
@@ -122,7 +123,7 @@ public class AdminUserService {
             revokeUserSessions(userId);
         }
 
-        return UserMapper.toDto(user);
+        return userResponseMapper.toDto(user);
     }
 
     private void validateWithdrawnUserNotTarget(User targetUser) {

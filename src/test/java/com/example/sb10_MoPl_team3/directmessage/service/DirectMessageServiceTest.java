@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 import com.example.sb10_MoPl_team3.conversation.entity.Conversation;
@@ -16,10 +17,13 @@ import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,8 +43,17 @@ class DirectMessageServiceTest {
     @Mock
     private ConversationRepository conversationRepository;
 
+    @Mock
+    private UserResponseMapper userResponseMapper;
+
     @InjectMocks
     private DirectMessageService directMessageService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(userResponseMapper.toSummary(any(User.class)))
+            .thenAnswer(invocation -> UserMapper.toSummary(invocation.getArgument(0)));
+    }
 
     @Test
     @DisplayName("대화방 참여자는 과거 쪽지 목록을 커서 응답으로 조회한다")

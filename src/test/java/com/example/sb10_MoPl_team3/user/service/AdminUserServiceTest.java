@@ -17,7 +17,10 @@ import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,6 +44,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -64,8 +68,19 @@ class AdminUserServiceTest {
     @Mock
     private AdminAccountProperties adminAccountProperties;
 
+    @Mock
+    private UserResponseMapper userResponseMapper;
+
     @InjectMocks
     private AdminUserService adminUserService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(userResponseMapper.toDto(any(User.class)))
+                .thenAnswer(invocation -> UserMapper.toDto(invocation.getArgument(0)));
+        lenient().when(userResponseMapper.toDto(any(UserDto.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+    }
 
     private void givenAuthSessionLockExecutesRunnable() {
         willAnswer(invocation -> {
@@ -93,8 +108,16 @@ class AdminUserServiceTest {
         UUID user1Id = UUID.randomUUID();
         UUID user2Id = UUID.randomUUID();
         UUID user3Id = UUID.randomUUID();
+        String accessibleProfileImageUrl = "https://presigned.test/a.png";
 
-        User user1 = createUser(user1Id, "a@test.com", "A User", UserRole.USER, "2026-06-28T00:00:00Z");
+        User user1 = createUser(
+                user1Id,
+                "a@test.com",
+                "A User",
+                UserRole.USER,
+                "2026-06-28T00:00:00Z",
+                "https://image.test/a.png"
+        );
         User user2 = createUser(user2Id, "b@test.com", "B User", UserRole.USER, "2026-06-28T00:01:00Z");
         User user3 = createUser(user3Id, "c@test.com", "C User", UserRole.USER, "2026-06-28T00:02:00Z");
 
@@ -103,6 +126,15 @@ class AdminUserServiceTest {
 
         given(userRepository.countUsers(condition))
                 .willReturn(3L);
+        given(userResponseMapper.toDto(user1)).willReturn(new UserDto(
+                user1Id,
+                Instant.parse("2026-06-28T00:00:00Z"),
+                "a@test.com",
+                "A User",
+                accessibleProfileImageUrl,
+                UserRole.USER,
+                false
+        ));
 
         // when
         CursorResponse<UserDto> response = adminUserService.findUsers(condition);
@@ -111,6 +143,7 @@ class AdminUserServiceTest {
         assertThat(response.data()).hasSize(2);
         assertThat(response.data().get(0).email()).isEqualTo("a@test.com");
         assertThat(response.data().get(1).email()).isEqualTo("b@test.com");
+        assertThat(response.data().get(0).profileImageUrl()).isEqualTo(accessibleProfileImageUrl);
 
         assertThat(response.hasNext()).isTrue();
         assertThat(response.totalCount()).isEqualTo(3L);
@@ -121,6 +154,7 @@ class AdminUserServiceTest {
 
         then(userRepository).should().searchUsers(condition, 3);
         then(userRepository).should().countUsers(condition);
+        then(userResponseMapper).should().toDto(user1);
     }
 
     @Test
@@ -662,11 +696,22 @@ class AdminUserServiceTest {
             UserRole role,
             String createdAt
     ) {
+        return createUser(id, email, name, role, createdAt, null);
+    }
+
+    private User createUser(
+            UUID id,
+            String email,
+            String name,
+            UserRole role,
+            String createdAt,
+            String profileImageUrl
+    ) {
         User user = new User(
                 email,
                 name,
                 "encoded-password",
-                null,
+                profileImageUrl,
                 role
         );
 

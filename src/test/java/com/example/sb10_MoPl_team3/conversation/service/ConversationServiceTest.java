@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 import com.example.sb10_MoPl_team3.conversation.dto.request.ConversationCreateRequest;
@@ -18,12 +19,15 @@ import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,8 +54,17 @@ class ConversationServiceTest {
     @Mock
     private PlatformTransactionManager transactionManager;
 
+    @Mock
+    private UserResponseMapper userResponseMapper;
+
     @InjectMocks
     private ConversationService conversationService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(userResponseMapper.toSummary(any(User.class)))
+            .thenAnswer(invocation -> UserMapper.toSummary(invocation.getArgument(0)));
+    }
 
     @Test
     @DisplayName("본인이 참여한 대화방 목록을 커서 응답으로 반환한다")

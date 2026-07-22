@@ -10,9 +10,13 @@ import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
@@ -67,6 +72,9 @@ class AuthServiceTest {
     @Mock
     private PasswordResetService passwordResetService;
 
+    @Mock
+    private UserResponseMapper userResponseMapper;
+
     @SuppressWarnings("unchecked")
     private void givenAuthSessionLockExecutesSupplier() {
         given(authSessionLockManager.executeWithLock(any(UUID.class), any(java.util.function.Supplier.class)))
@@ -79,14 +87,23 @@ class AuthServiceTest {
     @InjectMocks
     private AuthService authService;
 
+    @BeforeEach
+    void setUp() {
+        lenient().when(userResponseMapper.toDto(any(User.class)))
+                .thenAnswer(invocation -> UserMapper.toDto(invocation.getArgument(0)));
+        lenient().when(userResponseMapper.toDto(any(UserDto.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
     @Test
     @DisplayName("이메일과 비밀번호가 일치하면 로그인에 성공하고 토큰과 세션을 생성한다")
     void signIn_success() {
         UUID userId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-26T00:00:00Z");
         Duration refreshTokenExpiration = Duration.ofDays(7);
+        String accessibleProfileImageUrl = "https://presigned.test/profile.png";
         SignInRequest request = new SignInRequest("user@test.com", "password1!");
-        User user = new User("user@test.com", "홍길동", "encoded-password", null, UserRole.USER);
+        User user = new User("user@test.com", "홍길동", "encoded-password", "https://image.test/profile.png", UserRole.USER);
         ReflectionTestUtils.setField(user, "id", userId);
 
         given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
@@ -97,12 +114,22 @@ class AuthServiceTest {
         given(tokenService.hashRefreshToken("refresh-token")).willReturn("refresh-token-hash");
         given(tokenService.issueAccessToken(any(User.class), any(UUID.class))).willReturn("access-token");
         given(authSessionRepository.findAllByUserId(userId)).willReturn(List.of());
+        given(userResponseMapper.toDto(user)).willReturn(new UserDto(
+                userId,
+                null,
+                "user@test.com",
+                user.getName(),
+                accessibleProfileImageUrl,
+                UserRole.USER,
+                false
+        ));
 
         AuthTokenResult response = authService.signin(request);
 
         assertThat(response.jwtDto().accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
         assertThat(response.jwtDto().userDto().email()).isEqualTo("user@test.com");
+        assertThat(response.jwtDto().userDto().profileImageUrl()).isEqualTo(accessibleProfileImageUrl);
         assertThat(response.jwtDto().userDto().locked()).isFalse();
 
         ArgumentCaptor<AuthSession> authSessionCaptor = ArgumentCaptor.forClass(AuthSession.class);
@@ -122,6 +149,7 @@ class AuthServiceTest {
         then(tokenService).should().issueRefreshToken();
         then(tokenService).should().hashRefreshToken("refresh-token");
         then(tokenService).should().issueAccessToken(user, savedAuthSession.getId());
+        then(userResponseMapper).should().toDto(user);
         then(passwordResetService).shouldHaveNoInteractions();
     }
 
@@ -319,12 +347,13 @@ class AuthServiceTest {
         Instant now = Instant.parse("2026-06-28T00:00:00Z");
         String refreshToken = "refresh-token";
         Duration refreshTokenExpiration = Duration.ofDays(7);
+        String accessibleProfileImageUrl = "https://presigned.test/profile.png";
 
         User user = new User(
                 "user@test.com",
                 "테스트유저",
                 "encoded-password",
-                null,
+                "https://image.test/profile.png",
                 UserRole.USER
         );
         ReflectionTestUtils.setField(user, "id", userId);
@@ -347,12 +376,22 @@ class AuthServiceTest {
                 .willReturn(Optional.of(authSession));
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(tokenService.issueAccessToken(user, authSession.getId())).willReturn("new-access-token");
+        given(userResponseMapper.toDto(user)).willReturn(new UserDto(
+                userId,
+                null,
+                "user@test.com",
+                user.getName(),
+                accessibleProfileImageUrl,
+                UserRole.USER,
+                false
+        ));
         givenAuthSessionLockExecutesSupplier();
 
         AuthTokenResult response = authService.reissueToken(refreshToken);
 
         assertThat(response.jwtDto().accessToken()).isEqualTo("new-access-token");
         assertThat(response.jwtDto().userDto().email()).isEqualTo("user@test.com");
+        assertThat(response.jwtDto().userDto().profileImageUrl()).isEqualTo(accessibleProfileImageUrl);
         assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
         assertThat(authSession.getRefreshTokenHash()).isEqualTo("new-refresh-token-hash");
         assertThat(authSession.getExpiresAt()).isEqualTo(now.plus(refreshTokenExpiration));
@@ -365,6 +404,7 @@ class AuthServiceTest {
         then(userRepository).should().findById(userId);
         then(authSessionRepository).should().save(authSession);
         then(tokenService).should().issueAccessToken(user, authSession.getId());
+        then(userResponseMapper).should().toDto(user);
     }
 
     @Test

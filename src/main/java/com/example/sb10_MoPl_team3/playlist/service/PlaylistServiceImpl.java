@@ -30,7 +30,7 @@ import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import com.example.sb10_MoPl_team3.notification.event.NotificationAudienceType;
 import com.example.sb10_MoPl_team3.notification.event.NotificationFanoutEvent;
 import com.example.sb10_MoPl_team3.user.entity.User;
-import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -53,6 +53,7 @@ public class PlaylistServiceImpl implements PlaylistService{
     private final ContentTagRepository contentTagRepository;
     private final ContentStatsRepository contentStatsRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserResponseMapper userResponseMapper;
 
     // 플레이리스트 생성
     @Transactional
@@ -194,7 +195,7 @@ public class PlaylistServiceImpl implements PlaylistService{
     ) {
         return new PlaylistDto(
                 playlist.getId(),
-                UserMapper.toSummary(playlist.getOwner()),
+                userResponseMapper.toSummary(playlist.getOwner()),
                 playlist.getTitle(),
                 playlist.getDescription(),
                 playlist.getUpdatedAt(),

@@ -12,7 +12,7 @@ import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
-import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,6 +38,7 @@ public class AuthService {
     private final JwtProperties jwtProperties;
     private final Clock clock;
     private final PasswordResetService passwordResetService;
+    private final UserResponseMapper userResponseMapper;
 
     @Transactional
     public AuthTokenResult signin(SignInRequest request) {
@@ -79,7 +80,7 @@ public class AuthService {
         authSessionRepository.save(authSession);
 
         return new AuthTokenResult(
-                new JwtDto(UserMapper.toDto(user), accessToken),
+                new JwtDto(userResponseMapper.toDto(user), accessToken),
                 refreshToken
         );
     }
@@ -119,7 +120,7 @@ public class AuthService {
             authSessionRepository.save(currentSession);
 
             return new AuthTokenResult(
-                    new JwtDto(UserMapper.toDto(user), accessToken),
+                    new JwtDto(userResponseMapper.toDto(user), accessToken),
                     newRefreshToken
             );
         });

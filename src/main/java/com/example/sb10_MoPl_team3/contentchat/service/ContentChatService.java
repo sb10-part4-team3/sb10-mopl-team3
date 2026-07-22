@@ -5,7 +5,7 @@ import com.example.sb10_MoPl_team3.contentchat.dto.ContentChatDto;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
-import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +21,7 @@ public class ContentChatService {
 
     private final UserRepository userRepository;
     private final ContentRepository contentRepository;
+    private final UserResponseMapper userResponseMapper;
 
     public ContentChatDto createMessage(UUID contentId, UUID senderId, String content) {
         if (!contentRepository.existsById(contentId)) {
@@ -33,7 +34,7 @@ public class ContentChatService {
                 UUID.randomUUID(),
                 contentId,
                 Instant.now(),
-                UserMapper.toSummary(sender),
+                userResponseMapper.toSummary(sender),
                 content
         );
     }
