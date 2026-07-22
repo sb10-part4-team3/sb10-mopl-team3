@@ -6,7 +6,11 @@ import com.example.sb10_MoPl_team3.conversation.dto.response.CursorResponseConve
 import com.example.sb10_MoPl_team3.conversation.dto.response.ConversationDto;
 import com.example.sb10_MoPl_team3.conversation.service.ConversationService;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
+import com.example.sb10_MoPl_team3.global.openapi.ApiErrorResponses;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,11 +26,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/conversations")
+@Tag(name = "다이렉트 메시지", description = "대화 및 다이렉트 메시지 API")
+@SecurityRequirement(name = "BearerAuth")
 public class ConversationController {
 
     private final ConversationService conversationService;
 
     @GetMapping
+    @Operation(summary = "대화 목록 조회 (커서 페이지네이션)")
+    @ApiErrorResponses.Common
     public ResponseEntity<CursorResponseConversationDto<ConversationDto>> findConversations(
         @AuthenticationPrincipal AuthUser authUser,
         @RequestParam(required = false) String keywordLike,
@@ -52,6 +60,8 @@ public class ConversationController {
     }
 
     @GetMapping("/{conversationId}")
+    @Operation(summary = "대화 조회")
+    @ApiErrorResponses.NotFound
     public ResponseEntity<ConversationDto> findConversation(
         @AuthenticationPrincipal AuthUser authUser,
         @PathVariable UUID conversationId
@@ -61,6 +71,8 @@ public class ConversationController {
     }
 
     @GetMapping("/with")
+    @Operation(summary = "특정 사용자와의 대화 조회")
+    @ApiErrorResponses.NotFound
     public ResponseEntity<ConversationDto> findConversationWithUser(
         @AuthenticationPrincipal AuthUser authUser,
         @RequestParam UUID userId
@@ -70,6 +82,8 @@ public class ConversationController {
     }
 
     @PostMapping
+    @Operation(summary = "대화 생성")
+    @ApiErrorResponses.Common
     public ResponseEntity<ConversationDto> createConversation(
         @AuthenticationPrincipal AuthUser authUser,
         @Valid @RequestBody ConversationCreateRequest request

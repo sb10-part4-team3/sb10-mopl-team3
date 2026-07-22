@@ -4,9 +4,16 @@ import com.example.sb10_MoPl_team3.follow.dto.FollowDto;
 import com.example.sb10_MoPl_team3.follow.dto.FollowRequest;
 import com.example.sb10_MoPl_team3.follow.service.FollowCreateResult;
 import com.example.sb10_MoPl_team3.follow.service.FollowService;
+import com.example.sb10_MoPl_team3.global.openapi.ApiErrorResponses;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import jakarta.validation.Valid;
 import java.util.UUID;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,11 +30,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/follows")
+@Tag(name = "팔로우 관리", description = "사용자 팔로우 API")
+@SecurityRequirement(name = "BearerAuth")
 public class FollowController {
 
     private final FollowService followService;
 
     @PostMapping
+    @Operation(summary = "팔로우")
+    @ApiErrorResponses.Common
+    @ApiResponse(responseCode = "200", description = "기존 팔로우 조회 성공", content = @Content(schema = @Schema(implementation = FollowDto.class)))
+    @ApiResponse(responseCode = "201", description = "팔로우 생성 성공", content = @Content(schema = @Schema(implementation = FollowDto.class)))
     public ResponseEntity<FollowDto> createFollow(
             @AuthenticationPrincipal AuthUser authUser,
             @Valid @RequestBody FollowRequest request
@@ -38,11 +51,15 @@ public class FollowController {
     }
 
     @GetMapping("/count")
+    @Operation(summary = "특정 유저의 팔로워 수 조회")
+    @ApiErrorResponses.Common
     public ResponseEntity<Long> getFollowerCount(@RequestParam UUID followeeId) {
         return ResponseEntity.ok(followService.getFollowerCount(followeeId));
     }
 
     @GetMapping("/followed-by-me")
+    @Operation(summary = "특정 유저를 내가 팔로우하는지 여부 조회")
+    @ApiErrorResponses.NotFound
     public ResponseEntity<FollowDto> isFollowedByMe(
             @AuthenticationPrincipal AuthUser authUser,
             @RequestParam UUID followeeId
@@ -51,6 +68,9 @@ public class FollowController {
     }
 
     @DeleteMapping("/{followId}")
+    @Operation(summary = "팔로우 취소")
+    @ApiErrorResponses.Forbidden
+    @ApiResponse(responseCode = "204", description = "팔로우 취소 성공")
     public ResponseEntity<Void> cancelFollow(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable UUID followId
