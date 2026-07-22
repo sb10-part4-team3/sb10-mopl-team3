@@ -9,7 +9,9 @@ const ADMIN_PASSWORD = __ENV.LOAD_TEST_ADMIN_PASSWORD || __ENV.ADMIN_PASSWORD;
 const MAX_VUS = Number(__ENV.MAX_VUS || 50);
 const WARM_VUS = Math.max(1, Math.floor(MAX_VUS * 0.4));
 
-http.setResponseCallback(http.expectedStatuses({ min: 200, max: 399 }, 409));
+http.setResponseCallback(http.expectedStatuses({ min: 200, max: 399 }));
+
+const signupExpectedStatuses = http.expectedStatuses({ min: 200, max: 399 }, 409);
 
 export const options = {
     setupTimeout: '5m',
@@ -81,6 +83,7 @@ function signUpUser(index) {
                 Cookie: `XSRF-TOKEN=${csrfToken}`,
             },
             tags: { endpoint: 'signup_setup' },
+            responseCallback: signupExpectedStatuses,
         }
     );
 

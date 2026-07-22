@@ -19,6 +19,7 @@ import com.example.sb10_MoPl_team3.user.event.UserProfileUpdatedEvent;
 import com.example.sb10_MoPl_team3.user.event.UserWithdrawnEvent;
 import com.example.sb10_MoPl_team3.user.exception.DuplicatedEmailException;
 import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
 import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -105,7 +106,7 @@ public class UserService {
             user.updateProfile(request.name(), uploadedProfileImageUrl);
             userRepository.flush();
             eventPublisher.publishEvent(
-                    new UserProfileUpdatedEvent(userResponseMapper.toSummary(user))
+                    new UserProfileUpdatedEvent(UserMapper.toSummary(user))
             );
 
             return userResponseMapper.toDto(user);
