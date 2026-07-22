@@ -13,7 +13,7 @@ import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import com.example.sb10_MoPl_team3.watchingsession.entity.WatchingSession;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionDto;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionJoinResult;
-import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.watchingsession.event.WatchingSessionJoinedEvent;
 import com.example.sb10_MoPl_team3.watchingsession.event.WatchingSessionLeftEvent;
 import com.example.sb10_MoPl_team3.watchingsession.mapper.WatchingSessionMapper;
@@ -41,6 +41,7 @@ public class WatchingSessionPersistenceService {
     private final ContentStatsRepository contentStatsRepository;
     private final ContentTagRepository contentTagRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserResponseMapper userResponseMapper;
 
     @Transactional
     public WatchingSessionJoinResult join(UUID contentId, UUID watcherId) {
@@ -110,7 +111,7 @@ public class WatchingSessionPersistenceService {
         var tags = contentTagRepository.findTagNamesByContentId(content.getId());
         return WatchingSessionMapper.toDto(
                 watchingSession,
-                UserMapper.toSummary(watchingSession.getWatcher()),
+                userResponseMapper.toSummary(watchingSession.getWatcher()),
                 ContentMapper.toSummary(content, stats, tags)
         );
     }

@@ -12,6 +12,7 @@ import com.example.sb10_MoPl_team3.user.entity.User;
 import com.example.sb10_MoPl_team3.notification.enums.NotificationLevel;
 import com.example.sb10_MoPl_team3.notification.event.NotificationEvent;
 import lombok.RequiredArgsConstructor;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.context.ApplicationEventPublisher;
@@ -29,6 +30,7 @@ public class DirectMessageAsyncService {
     private final ConversationRepository conversationRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final DirectMessageConversationPresence presence;
+    private final UserResponseMapper userResponseMapper;
 
     @Async("directMessageExecutor")
     @Transactional
@@ -62,7 +64,7 @@ public class DirectMessageAsyncService {
                     NotificationLevel.INFO
             ));
         }
-        return CompletableFuture.completedFuture(DirectMessageMapper.toDto(saved));
+        return CompletableFuture.completedFuture(DirectMessageMapper.toDto(saved, userResponseMapper));
     }
 
     private MessageParticipants resolveParticipants(Conversation conversation, UUID senderId) {

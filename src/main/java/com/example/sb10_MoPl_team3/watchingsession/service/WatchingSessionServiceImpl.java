@@ -9,7 +9,7 @@ import com.example.sb10_MoPl_team3.content.repository.ContentTagRepository;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
-import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import com.example.sb10_MoPl_team3.watchingsession.dto.CursorResponseWatchingSessionDto;
 import com.example.sb10_MoPl_team3.watchingsession.dto.WatchingSessionDto;
@@ -38,6 +38,7 @@ public class WatchingSessionServiceImpl implements WatchingSessionService {
     private final ContentStatsRepository contentStatsRepository;
     private final ContentTagRepository contentTagRepository;
     private final ContentRepository contentRepository;
+    private final UserResponseMapper userResponseMapper;
 
     @Override
     @Nullable
@@ -111,7 +112,7 @@ public class WatchingSessionServiceImpl implements WatchingSessionService {
             data = sessions.stream()
                     .map(session -> WatchingSessionMapper.toDto(
                             session,
-                            UserMapper.toSummary(session.getWatcher()),
+                            userResponseMapper.toSummary(session.getWatcher()),
                             contentSummary
                     ))
                     .toList();
@@ -125,7 +126,7 @@ public class WatchingSessionServiceImpl implements WatchingSessionService {
     private WatchingSessionDto toDto(WatchingSession watchingSession) {
         return WatchingSessionMapper.toDto(
                 watchingSession,
-                UserMapper.toSummary(watchingSession.getWatcher()),
+                userResponseMapper.toSummary(watchingSession.getWatcher()),
                 toContentSummary(watchingSession.getContent())
         );
     }

@@ -9,6 +9,7 @@ import com.example.sb10_MoPl_team3.directmessage.mapper.DirectMessageMapper;
 import com.example.sb10_MoPl_team3.directmessage.repository.DirectMessageRepository;
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,7 @@ public class DirectMessageService {
 
     private final DirectMessageRepository directMessageRepository;
     private final ConversationRepository conversationRepository;
+    private final UserResponseMapper userResponseMapper;
 
     @Transactional
     public void read(
@@ -102,7 +104,7 @@ public class DirectMessageService {
         }
 
         List<DirectMessageDto> data = messages.stream()
-            .map(DirectMessageMapper::toDto)
+            .map(message -> DirectMessageMapper.toDto(message, userResponseMapper))
             .toList();
 
         long totalCount = directMessageRepository.countByConversationId(conversationId);

@@ -13,6 +13,7 @@ import com.example.sb10_MoPl_team3.directmessage.repository.DirectMessageReposit
 import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
 import com.example.sb10_MoPl_team3.global.exception.BusinessException;
 import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ public class ConversationService {
     private final DirectMessageRepository directMessageRepository;
     private final UserRepository userRepository;
     private final PlatformTransactionManager transactionManager;
+    private final UserResponseMapper userResponseMapper;
 
     @Transactional(readOnly = true)
     public CursorResponseConversationDto<ConversationDto> findAll(
@@ -99,7 +101,8 @@ public class ConversationService {
                 conversation,
                 requestUserId,
                 latestMessageByConversationId.get(conversation.getId()),
-                unreadConversationIds.contains(conversation.getId())
+                unreadConversationIds.contains(conversation.getId()),
+                userResponseMapper
             ))
             .toList();
 
@@ -248,12 +251,13 @@ public class ConversationService {
             requestUserId,
             directMessageRepository
                 .findFirstByConversationIdOrderByCreatedAtDescIdDesc(conversation.getId())
-                .map(DirectMessageMapper::toDto)
+                .map(message -> DirectMessageMapper.toDto(message, userResponseMapper))
                 .orElse(null),
             directMessageRepository.existsByConversationIdAndReceiverIdAndReadFalse(
                 conversation.getId(),
                 requestUserId
-            )
+            ),
+            userResponseMapper
         );
     }
 
@@ -267,7 +271,7 @@ public class ConversationService {
         return directMessageRepository.findLatestMessagesByConversationIds(conversationIds).stream()
             .collect(Collectors.toMap(
                 message -> message.getConversation().getId(),
-                DirectMessageMapper::toDto,
+                message -> DirectMessageMapper.toDto(message, userResponseMapper),
                 keepFirst(),
                 java.util.LinkedHashMap::new
             ));
