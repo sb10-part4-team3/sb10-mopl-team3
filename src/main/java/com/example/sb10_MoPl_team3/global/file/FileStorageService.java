@@ -12,19 +12,30 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetUrlRequest;
+import java.time.Duration;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 @Slf4j
 @Service
 @ConditionalOnProperty(prefix = "aws.s3", name = {"bucket", "region"})
 public class FileStorageService {
 
+  private static final Duration PRESIGNED_URL_EXPIRATION = Duration.ofMinutes(10);
+
   private final S3Client s3Client;
+  private final S3Presigner s3Presigner;
 
   @Value("${aws.s3.bucket}")
   private String bucket;
 
-  public FileStorageService(S3Client s3Client) {
+  @Value("${aws.s3.region}")
+  private String region;
+
+  public FileStorageService(S3Client s3Client, S3Presigner s3Presigner) {
     this.s3Client = s3Client;
+    this.s3Presigner = s3Presigner;
   }
 
   public String upload(MultipartFile file) {
@@ -86,14 +97,71 @@ public class FileStorageService {
     if (fileUrl == null || fileUrl.isBlank()) {
       return;
     }
+
     try {
-      String key = URI.create(fileUrl).getPath();
-      if (key.startsWith("/")) {
-        key = key.substring(1);
+      String key = extractBucketObjectKey(fileUrl);
+      if (key == null) {
+        return;
       }
-      s3Client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
+
+      s3Client.deleteObject(DeleteObjectRequest.builder()
+              .bucket(bucket)
+              .key(key)
+              .build());
     } catch (Exception e) {
-      log.warn("S3 보상 삭제 실패. 수동 정리가 필요합니다. url={}", fileUrl, e);
+      log.warn("S3 파일 삭제 실패. 수동 정리가 필요합니다. url={}", fileUrl, e);
+    }
+  }
+
+  public String toAccessibleUrl(String fileUrl) {
+    if (fileUrl == null || fileUrl.isBlank()) {
+      return fileUrl;
+    }
+
+    String key = extractBucketObjectKey(fileUrl);
+    if (key == null) {
+      return fileUrl;
+    }
+
+    GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+            .bucket(bucket)
+            .key(key)
+            .build();
+
+    GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+            .signatureDuration(PRESIGNED_URL_EXPIRATION)
+            .getObjectRequest(getObjectRequest)
+            .build();
+
+    return s3Presigner.presignGetObject(presignRequest)
+            .url()
+            .toExternalForm();
+  }
+
+  private String extractBucketObjectKey(String fileUrl) {
+    try {
+      URI uri = URI.create(fileUrl);
+      String host = uri.getHost();
+
+      if (host == null) {
+        return null;
+      }
+
+      String regionalHost = bucket + ".s3." + region + ".amazonaws.com";
+      String globalHost = bucket + ".s3.amazonaws.com";
+
+      if (!host.equals(regionalHost) && !host.equals(globalHost)) {
+        return null;
+      }
+
+      String path = uri.getPath();
+      if (path == null || path.isBlank() || path.equals("/")) {
+        return null;
+      }
+
+      return path.startsWith("/") ? path.substring(1) : path;
+    } catch (IllegalArgumentException exception) {
+      return null;
     }
   }
 
