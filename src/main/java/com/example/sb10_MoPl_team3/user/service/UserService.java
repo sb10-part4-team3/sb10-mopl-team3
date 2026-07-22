@@ -20,6 +20,7 @@ import com.example.sb10_MoPl_team3.user.event.UserWithdrawnEvent;
 import com.example.sb10_MoPl_team3.user.exception.DuplicatedEmailException;
 import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
 import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -52,6 +53,7 @@ public class UserService {
     private final ApplicationEventPublisher eventPublisher;
     private final PasswordResetService passwordResetService;
     private final AdminAccountProperties adminAccountProperties;
+    private final UserResponseMapper userResponseMapper;
 
     @Transactional
     public UserDto createUser(UserCreateRequest request) {
@@ -68,7 +70,7 @@ public class UserService {
         );
 
         try {
-            return UserMapper.toDto(userRepository.save(user));
+            return userResponseMapper.toDto(userRepository.save(user));
         } catch (DataIntegrityViolationException exception) {
             throw new DuplicatedEmailException();
         }
@@ -82,7 +84,7 @@ public class UserService {
             throw new UserNotFoundException(userId);
         }
 
-        return UserMapper.toDto(user);
+        return userResponseMapper.toDto(user);
     }
 
     @Transactional
@@ -107,7 +109,7 @@ public class UserService {
                     new UserProfileUpdatedEvent(UserMapper.toSummary(user))
             );
 
-            return UserMapper.toDto(user);
+            return userResponseMapper.toDto(user);
         } catch (RuntimeException exception) {
             if (uploadedProfileImageUrl != null
                     && !TransactionSynchronizationManager.isSynchronizationActive()) {

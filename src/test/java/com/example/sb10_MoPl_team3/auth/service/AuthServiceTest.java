@@ -10,9 +10,13 @@ import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
 import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
@@ -67,6 +72,9 @@ class AuthServiceTest {
     @Mock
     private PasswordResetService passwordResetService;
 
+    @Mock
+    private UserResponseMapper userResponseMapper;
+
     @SuppressWarnings("unchecked")
     private void givenAuthSessionLockExecutesSupplier() {
         given(authSessionLockManager.executeWithLock(any(UUID.class), any(java.util.function.Supplier.class)))
@@ -78,6 +86,14 @@ class AuthServiceTest {
 
     @InjectMocks
     private AuthService authService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(userResponseMapper.toDto(any(User.class)))
+                .thenAnswer(invocation -> UserMapper.toDto(invocation.getArgument(0)));
+        lenient().when(userResponseMapper.toDto(any(UserDto.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+    }
 
     @Test
     @DisplayName("이메일과 비밀번호가 일치하면 로그인에 성공하고 토큰과 세션을 생성한다")

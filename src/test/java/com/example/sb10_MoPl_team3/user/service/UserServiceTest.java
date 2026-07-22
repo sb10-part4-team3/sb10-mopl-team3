@@ -11,7 +11,10 @@ import com.example.sb10_MoPl_team3.user.enums.UserRole;
 import com.example.sb10_MoPl_team3.user.enums.UserStatus;
 import com.example.sb10_MoPl_team3.user.event.UserProfileUpdatedEvent;
 import com.example.sb10_MoPl_team3.user.event.UserWithdrawnEvent;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
 import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +45,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import java.util.Optional;
 import java.util.UUID;
@@ -82,8 +86,17 @@ class UserServiceTest {
     @Mock
     private AdminAccountProperties adminAccountProperties;
 
+    @Mock
+    private UserResponseMapper userResponseMapper;
+
     @InjectMocks
     private UserService userService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(userResponseMapper.toDto(any(User.class)))
+                .thenAnswer(invocation -> UserMapper.toDto(invocation.getArgument(0)));
+    }
 
     private void givenAuthSessionLockExecutesRunnable() {
         willAnswer(invocation -> {
