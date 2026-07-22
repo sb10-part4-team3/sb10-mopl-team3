@@ -66,7 +66,7 @@ public class AuthController {
 
     @PostMapping("/sign-out")
     @Operation(summary = "로그아웃", description = "인증 세션을 종료하고 리프레시 토큰 쿠키를 만료시킵니다.")
-    @ApiErrorResponses.Public
+    @ApiErrorResponses.Common
     @ApiResponse(responseCode = "204", description = "로그아웃 성공")
     public ResponseEntity<Void> signout(
             @AuthenticationPrincipal AuthUser authUser

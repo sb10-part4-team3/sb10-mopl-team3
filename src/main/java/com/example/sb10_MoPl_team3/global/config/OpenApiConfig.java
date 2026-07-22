@@ -4,8 +4,6 @@ import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityScheme;
-import io.swagger.v3.oas.models.servers.Server;
-import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -19,12 +17,6 @@ public class OpenApiConfig {
                         .title("모두의 플리 API 문서")
                         .description("모두의 플리 프로젝트의 Swagger API 문서입니다.")
                         .version("1.0"))
-                .servers(List.of(
-                        new Server().url("http://localhost:8080").description("로컬 서버"),
-                        new Server()
-                                .url("https://project.sb.sprint.learn.codeit.kr/sb/mopl")
-                                .description("프로토타입 서버")
-                ))
                 .components(new Components()
                         .addSecuritySchemes("BearerAuth", new SecurityScheme()
                                 .type(SecurityScheme.Type.HTTP)

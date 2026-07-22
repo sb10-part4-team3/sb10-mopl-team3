@@ -39,6 +39,7 @@ public class FollowController {
     @PostMapping
     @Operation(summary = "팔로우")
     @ApiErrorResponses.Common
+    @ApiResponse(responseCode = "200", description = "기존 팔로우 조회 성공", content = @Content(schema = @Schema(implementation = FollowDto.class)))
     @ApiResponse(responseCode = "201", description = "팔로우 생성 성공", content = @Content(schema = @Schema(implementation = FollowDto.class)))
     public ResponseEntity<FollowDto> createFollow(
             @AuthenticationPrincipal AuthUser authUser,

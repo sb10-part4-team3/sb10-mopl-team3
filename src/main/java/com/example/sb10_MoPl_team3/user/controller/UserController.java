@@ -33,7 +33,7 @@ public class UserController {
 
     @PostMapping
     @Operation(summary = "사용자 등록 (회원가입)", security = {})
-    @ApiErrorResponses.Common
+    @ApiErrorResponses.Public
     @ApiResponse(responseCode = "201", description = "회원가입 성공", content = @Content(schema = @Schema(implementation = UserDto.class)))
     public ResponseEntity<UserDto> createUser(
             @Valid @RequestBody UserCreateRequest request
