@@ -13,10 +13,15 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
+@Tag(name = "알림", description = "알림 API")
+@SecurityRequirement(name = "BearerAuth")
 public class SseSubscriptionController {
 
     private static final long SSE_TIMEOUT_MILLIS = 30 * 60 * 1000L;
@@ -25,6 +30,7 @@ public class SseSubscriptionController {
     private final SseConnectionRepository sseConnectionRepository;
 
     @GetMapping(value = "/api/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "실시간 알림 구독", description = "SSE 연결을 생성하고 누락된 알림 이벤트를 재전송합니다.")
     public SseEmitter subscribe(
             @AuthenticationPrincipal AuthUser authUser,
             @RequestHeader(value = LAST_EVENT_ID_HEADER, required = false) String lastEventIdHeader,

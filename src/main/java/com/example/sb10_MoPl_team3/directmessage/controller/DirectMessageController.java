@@ -4,7 +4,11 @@ import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageDto;
 import com.example.sb10_MoPl_team3.directmessage.dto.response.CursorResponseDirectMessageDto;
 import com.example.sb10_MoPl_team3.directmessage.service.DirectMessageService;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
+import com.example.sb10_MoPl_team3.global.openapi.ApiErrorResponses;
 import java.util.UUID;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,11 +22,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/conversations/{conversationId}/direct-messages")
+@Tag(name = "다이렉트 메시지", description = "대화 및 다이렉트 메시지 API")
+@SecurityRequirement(name = "BearerAuth")
 public class DirectMessageController {
 
     private final DirectMessageService directMessageService;
 
     @PostMapping("/{directMessageId}/read")
+    @Operation(summary = "DM 읽음 처리")
+    @ApiErrorResponses.Common
     public ResponseEntity<Void> read(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable UUID conversationId,
@@ -33,6 +41,8 @@ public class DirectMessageController {
     }
 
     @GetMapping
+    @Operation(summary = "DM 목록 조회 (커서 페이지네이션)")
+    @ApiErrorResponses.Common
     public ResponseEntity<CursorResponseDirectMessageDto<DirectMessageDto>> findDirectMessages(
         @AuthenticationPrincipal AuthUser authUser,
         @PathVariable UUID conversationId,

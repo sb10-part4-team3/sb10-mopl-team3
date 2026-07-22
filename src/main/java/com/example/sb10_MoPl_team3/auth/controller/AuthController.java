@@ -6,8 +6,12 @@ import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
 import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
 import com.example.sb10_MoPl_team3.auth.service.AuthService;
 import com.example.sb10_MoPl_team3.global.security.AuthUser;
+import com.example.sb10_MoPl_team3.global.openapi.ApiErrorResponses;
 import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
 import jakarta.validation.constraints.NotBlank;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
@@ -21,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/auth")
+@Tag(name = "인증 관리", description = "로그인, 토큰 재발급 및 로그아웃 API")
 public class AuthController {
 
     private static final String REFRESH_TOKEN_COOKIE_NAME = "REFRESH_TOKEN";
@@ -33,6 +38,8 @@ public class AuthController {
     private boolean refreshTokenCookieSecure;
 
     @PostMapping(value = "/sign-in", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    @Operation(summary = "로그인", description = "이메일과 비밀번호로 로그인하고 JWT 액세스 토큰을 발급합니다.")
+    @ApiErrorResponses.Common
     public ResponseEntity<JwtDto> signin(
             @NotBlank @RequestParam("username") String username,
             @NotBlank @RequestParam("password") String password
@@ -41,6 +48,8 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
+    @Operation(summary = "토큰 재발급", description = "HttpOnly 쿠키의 리프레시 토큰으로 액세스 토큰을 재발급합니다.")
+    @ApiErrorResponses.Common
     public ResponseEntity<JwtDto> refresh(
             @CookieValue(value = REFRESH_TOKEN_COOKIE_NAME, required = false) String refreshToken
     ) {
@@ -56,6 +65,9 @@ public class AuthController {
     }
 
     @PostMapping("/sign-out")
+    @Operation(summary = "로그아웃", description = "인증 세션을 종료하고 리프레시 토큰 쿠키를 만료시킵니다.")
+    @ApiErrorResponses.Public
+    @ApiResponse(responseCode = "204", description = "로그아웃 성공")
     public ResponseEntity<Void> signout(
             @AuthenticationPrincipal AuthUser authUser
     ) {
