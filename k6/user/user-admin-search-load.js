@@ -11,7 +11,7 @@ const WARM_VUS = Math.max(1, Math.floor(MAX_VUS * 0.4));
 
 http.setResponseCallback(http.expectedStatuses({ min: 200, max: 399 }));
 
-const signupExpectedStatuses = http.expectedStatuses({ min: 200, max: 399 }, 409);
+const signupExpectedStatuses = http.expectedStatuses(201, 409);
 
 export const options = {
     setupTimeout: '5m',
