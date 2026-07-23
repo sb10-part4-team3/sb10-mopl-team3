@@ -47,13 +47,13 @@ export function valueForVu(values) {
     return values[(__VU - 1) % values.length];
 }
 
-function formEncode(data) {
+export function formEncode(data) {
     return Object.entries(data)
         .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
         .join('&');
 }
 
-function csrfToken() {
+export function csrfToken() {
     const response = http.get(`${BASE_URL}/api/auth/csrf-token`, {
         tags: { endpoint: 'csrf' },
     });

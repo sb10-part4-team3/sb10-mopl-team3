@@ -1,28 +1,22 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
-import { BASE_URL, authForVu, clearAuthOnUnauthorized, loadOptions, requestParams } from '../lib/domain-test-common.js';
+import { check, fail, sleep } from 'k6';
+import {
+    BASE_URL,
+    USER_COUNT,
+    authForVu,
+    clearAuthOnUnauthorized,
+    csrfToken,
+    formEncode,
+    loadOptions,
+    requestParams,
+} from '../lib/domain-test-common.js';
 
 const PASSWORD = __ENV.TEST_USER_PASSWORD || 'LoadTest1!';
-const USER_COUNT = Number(__ENV.USER_COUNT || 10);
-const VUS = Number(__ENV.VUS || 10);
+const VUS = Number(__ENV.VUS || 30);
 const ADMIN_EMAIL = __ENV.ADMIN_EMAIL;
 const ADMIN_PASSWORD = __ENV.ADMIN_PASSWORD;
 
 export const options = loadOptions('content_admin_crud');
-
-function formEncode(data) {
-    return Object.entries(data)
-        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-        .join('&');
-}
-
-function csrfToken() {
-    const response = http.get(`${BASE_URL}/api/auth/csrf-token`, { tags: { endpoint: 'csrf' } });
-    const cookies = response.cookies['XSRF-TOKEN'];
-    const token = cookies && cookies[0] && cookies[0].value;
-    check(response, { 'csrf token issued': (result) => result.status === 204 && Boolean(token) });
-    return token;
-}
 
 // Each test VU needs its own dedicated ADMIN account (not the shared bootstrap admin):
 // signing in revokes any other active session for that user, so N concurrent VUs
@@ -48,10 +42,22 @@ export function setup() {
             tags: { endpoint: 'bootstrap_admin_signin' },
         }
     );
-    check(bootstrapSignin, { 'bootstrap admin signin success': (r) => r.status === 200 });
-    const bootstrapAccessToken = bootstrapSignin.json('accessToken');
+    const bootstrapSigninOk = check(bootstrapSignin, { 'bootstrap admin signin success': (r) => r.status === 200 });
+    if (!bootstrapSigninOk) {
+        fail(`bootstrap admin signin failed with status ${bootstrapSignin.status}`);
+    }
+    let bootstrapAccessToken = null;
+    try {
+        bootstrapAccessToken = bootstrapSignin.json('accessToken');
+    } catch (error) {
+        bootstrapAccessToken = null;
+    }
+    if (!bootstrapAccessToken) {
+        fail('bootstrap admin signin response did not include accessToken');
+    }
 
     const users = [];
+    let adminReadyCount = 0;
     for (let i = 1; i <= USER_COUNT; i += 1) {
         const email = `content-admin-load-user-${i}@mopl.test`;
         const signupToken = csrfToken();
@@ -70,8 +76,30 @@ export function setup() {
         );
         check(signupRes, { 'test user ready': (r) => r.status === 201 || r.status === 409 });
 
+        let userId = null;
         if (signupRes.status === 201) {
-            const userId = signupRes.json('id');
+            userId = signupRes.json('id');
+        } else {
+            // Account already exists from a previous run: look it up so we can
+            // (re-)confirm its ADMIN role instead of silently skipping it.
+            const lookupToken = csrfToken();
+            const lookup = http.get(
+                `${BASE_URL}/api/users?emailLike=${encodeURIComponent(email)}&limit=1`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${bootstrapAccessToken}`,
+                        'X-XSRF-TOKEN': lookupToken,
+                        Cookie: `XSRF-TOKEN=${lookupToken}`,
+                    },
+                    tags: { endpoint: 'lookup_user_setup' },
+                }
+            );
+            check(lookup, { 'existing user looked up': (r) => r.status === 200 });
+            const found = lookup.json('data');
+            userId = found && found[0] && found[0].id;
+        }
+
+        if (userId) {
             const roleToken = csrfToken();
             const roleRes = http.patch(
                 `${BASE_URL}/api/users/${userId}/role`,
@@ -86,13 +114,14 @@ export function setup() {
                     tags: { endpoint: 'grant_admin_setup' },
                 }
             );
-            check(roleRes, { 'granted admin role': (r) => r.status === 200 });
+            const roleGranted = check(roleRes, { 'granted admin role': (r) => r.status === 200 });
+            if (roleGranted) adminReadyCount += 1;
         }
         users.push({ email, password: PASSWORD });
     }
 
-    if (users.length < VUS) {
-        throw new Error(`Only ${users.length} admin load-test accounts are ready for ${VUS} VUs`);
+    if (adminReadyCount < VUS) {
+        throw new Error(`Only ${adminReadyCount} admin load-test accounts have a confirmed ADMIN role for ${VUS} VUs`);
     }
     return { users };
 }
@@ -127,15 +156,15 @@ export default function (data) {
         { request: http.file(updateBody, 'request.json', 'application/json') },
         requestParams(auth, 'content_update')
     );
-    clearAuthOnUnauthorized(updated);
-    check(updated, { 'content update success': (response) => response.status === 200 });
+    if (clearAuthOnUnauthorized(updated)) { sleep(1); return; }
+    if (!check(updated, { 'content update success': (response) => response.status === 200 })) { sleep(1); return; }
 
     const removed = http.del(
         `${BASE_URL}/api/contents/${contentId}`,
         null,
         requestParams(auth, 'content_delete')
     );
-    clearAuthOnUnauthorized(removed);
+    if (clearAuthOnUnauthorized(removed)) { sleep(1); return; }
     check(removed, { 'content delete success': (response) => response.status === 200 });
 
     sleep(Number(__ENV.THINK_TIME || 1));

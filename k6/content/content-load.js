@@ -12,6 +12,11 @@ const scenarios = [
     { typeEqual: '', keywordLike: '', tagsIn: [] },
 ];
 
+const configuredVus = Number(__ENV.VUS || 30);
+if (configuredVus < scenarios.length) {
+    throw new Error(`VUS must be at least ${scenarios.length} for content scenarios`);
+}
+
 export const options = loadOptions('content');
 export function setup() { return setupUsers('content-load-user'); }
 
