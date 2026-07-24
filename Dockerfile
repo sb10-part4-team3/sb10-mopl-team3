@@ -1,5 +1,7 @@
 FROM amazoncorretto:17 AS builder
 
+RUN yum install -y findutils && yum clean all
+
 WORKDIR /app
 
 COPY gradlew .
