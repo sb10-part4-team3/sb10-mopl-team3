@@ -39,6 +39,7 @@ public class WatchingSessionServiceImpl implements WatchingSessionService {
     private final ContentTagRepository contentTagRepository;
     private final ContentRepository contentRepository;
     private final UserResponseMapper userResponseMapper;
+    private final ContentMapper contentMapper;
 
     @Override
     @Nullable
@@ -134,6 +135,6 @@ public class WatchingSessionServiceImpl implements WatchingSessionService {
     private ContentSummary toContentSummary(Content content) {
         ContentStats stats = contentStatsRepository.findById(content.getId()).orElse(null);
         List<String> tags = contentTagRepository.findTagNamesByContentId(content.getId());
-        return ContentMapper.toSummary(content, stats, tags);
+        return contentMapper.toSummary(content, stats, tags);
     }
 }
