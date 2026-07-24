@@ -1,7 +1,10 @@
 package com.example.sb10_MoPl_team3.watchingsession.service;
 
 import com.example.sb10_MoPl_team3.content.ContentType;
+import com.example.sb10_MoPl_team3.content.dto.ContentSummary;
 import com.example.sb10_MoPl_team3.content.entity.Content;
+import com.example.sb10_MoPl_team3.content.entity.ContentStats;
+import com.example.sb10_MoPl_team3.content.mapper.ContentMapper;
 import com.example.sb10_MoPl_team3.content.repository.ContentStatsRepository;
 import com.example.sb10_MoPl_team3.content.repository.ContentTagRepository;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
@@ -61,6 +64,9 @@ class WatchingSessionServiceImplTest {
     @Mock
     private UserResponseMapper userResponseMapper;
 
+    @Mock
+    private ContentMapper contentMapper;
+
     @InjectMocks
     private WatchingSessionServiceImpl watchingSessionService;
 
@@ -68,6 +74,12 @@ class WatchingSessionServiceImplTest {
     void setUp() {
         lenient().when(userResponseMapper.toSummary(any(User.class)))
                 .thenAnswer(invocation -> UserMapper.toSummary(invocation.getArgument(0)));
+        lenient().when(contentMapper.toSummary(any(Content.class), any(), any()))
+                .thenAnswer(invocation -> contentSummary(
+                        invocation.getArgument(0),
+                        invocation.getArgument(1),
+                        invocation.getArgument(2)
+                ));
     }
 
     @Test
@@ -361,6 +373,19 @@ class WatchingSessionServiceImplTest {
         );
         ReflectionTestUtils.setField(user, "id", id);
         return user;
+    }
+
+    private ContentSummary contentSummary(Content content, ContentStats stats, List<String> tags) {
+        return new ContentSummary(
+                content.getId(),
+                content.getType(),
+                content.getTitle(),
+                content.getDescription(),
+                content.getThumbnailUrl(),
+                tags,
+                stats != null ? stats.getAverageRating().doubleValue() : 0.0,
+                stats != null ? stats.getReviewCount() : 0
+        );
     }
 
     private Content content(UUID id) {

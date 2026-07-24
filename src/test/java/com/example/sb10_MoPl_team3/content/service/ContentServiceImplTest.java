@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
@@ -15,6 +16,7 @@ import com.example.sb10_MoPl_team3.content.dto.ContentDto;
 import com.example.sb10_MoPl_team3.content.dto.ContentUpdateRequest;
 import com.example.sb10_MoPl_team3.content.entity.Content;
 import com.example.sb10_MoPl_team3.content.entity.ContentStats;
+import com.example.sb10_MoPl_team3.content.mapper.ContentMapper;
 import com.example.sb10_MoPl_team3.content.repository.ContentRepository;
 import com.example.sb10_MoPl_team3.content.repository.ContentStatsRepository;
 import com.example.sb10_MoPl_team3.content.repository.ContentTagRepository;
@@ -28,9 +30,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -48,8 +50,25 @@ class ContentServiceImplTest {
     @Mock private ContentTagService contentTagService;
     @Mock private ContentCountCacheService contentCountCacheService;
 
-    @InjectMocks
     private ContentServiceImpl contentService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(fileStorageService.toAccessibleUrl(any()))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ContentMapper contentMapper = new ContentMapper(fileStorageService);
+        contentService = new ContentServiceImpl(
+            contentRepository,
+            fileStorageService,
+            transactionManager,
+            contentStatsRepository,
+            contentTagRepository,
+            contentTagService,
+            contentCountCacheService,
+            contentMapper
+        );
+    }
 
     // --- create ---
 
