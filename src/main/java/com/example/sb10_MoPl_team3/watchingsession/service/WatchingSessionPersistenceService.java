@@ -42,6 +42,7 @@ public class WatchingSessionPersistenceService {
     private final ContentTagRepository contentTagRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final UserResponseMapper userResponseMapper;
+    private final ContentMapper contentMapper;
 
     @Transactional
     public WatchingSessionJoinResult join(UUID contentId, UUID watcherId) {
@@ -112,7 +113,7 @@ public class WatchingSessionPersistenceService {
         return WatchingSessionMapper.toDto(
                 watchingSession,
                 userResponseMapper.toSummary(watchingSession.getWatcher()),
-                ContentMapper.toSummary(content, stats, tags)
+                contentMapper.toSummary(content, stats, tags)
         );
     }
 }

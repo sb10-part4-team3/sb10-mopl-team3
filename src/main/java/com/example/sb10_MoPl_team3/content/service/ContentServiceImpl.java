@@ -47,6 +47,7 @@ public class ContentServiceImpl implements ContentService {
   private final ContentTagRepository contentTagRepository;
   private final ContentTagService contentTagService;
   private final ContentCountCacheService contentCountCacheService;
+  private final ContentMapper contentMapper;
 
   public ContentServiceImpl(
       ContentRepository contentRepository,
@@ -55,7 +56,8 @@ public class ContentServiceImpl implements ContentService {
       ContentStatsRepository contentStatsRepository,
       ContentTagRepository contentTagRepository,
       ContentTagService contentTagService,
-      ContentCountCacheService contentCountCacheService) {
+      ContentCountCacheService contentCountCacheService,
+      ContentMapper contentMapper) {
     this.contentRepository = contentRepository;
     this.fileStorageService = fileStorageService;
     this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -63,6 +65,7 @@ public class ContentServiceImpl implements ContentService {
     this.contentTagRepository = contentTagRepository;
     this.contentTagService = contentTagService;
     this.contentCountCacheService = contentCountCacheService;
+    this.contentMapper = contentMapper;
   }
 
   @Override
@@ -99,7 +102,7 @@ public class ContentServiceImpl implements ContentService {
     ContentStats stats = contentStatsRepository.findById(contentId).orElse(null);
     List<String> tags = contentTagRepository.findTagNamesByContentId(contentId);
 
-    return ContentMapper.toDto(content, stats, tags);
+    return contentMapper.toDto(content, stats, tags);
   }
 
   @Override
@@ -162,7 +165,7 @@ public class ContentServiceImpl implements ContentService {
     ContentStats stats = contentStatsRepository.findById(contentId)
         .orElse(null);
 
-    return ContentMapper.toDto(content, stats, tags);
+    return contentMapper.toDto(content, stats, tags);
   }
 
 
@@ -224,7 +227,11 @@ public class ContentServiceImpl implements ContentService {
 
     // 5. 잘라낸 data(size개)만 DTO로 변환
     List<ContentDto> dtos = cursorInfo.data().stream()
-        .map(c -> ContentMapper.toDto(c, statsMap.get(c.getId()), tagsMap.getOrDefault(c.getId(), List.of())))
+            .map(c -> contentMapper.toDto(
+                    c,
+                    statsMap.get(c.getId()),
+                    tagsMap.getOrDefault(c.getId(), List.of())
+            ))
         .toList();
 
     // 6. DTO로 교체한 최종 CursorResponse 반환
@@ -275,16 +282,6 @@ public class ContentServiceImpl implements ContentService {
         .build();
     contentStatsRepository.save(stats);
 
-    return new ContentDto(
-        savedContent.getId(),
-        savedContent.getType(),
-        savedContent.getTitle(),
-        savedContent.getDescription(),
-        savedContent.getThumbnailUrl(),
-        tags,
-        stats.getAverageRating().doubleValue(),
-        stats.getReviewCount(),
-        (long) stats.getViewerCount()
-    );
+    return contentMapper.toDto(savedContent, stats, tags);
   }
 }
