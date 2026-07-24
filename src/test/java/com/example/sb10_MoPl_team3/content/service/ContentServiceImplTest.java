@@ -314,6 +314,25 @@ class ContentServiceImplTest {
         then(contentRepository).should(never()).delete(any());
     }
 
+    @Test
+    void getContent_convertsThumbnailUrlToAccessibleUrl() {
+        String storedThumbnailUrl = "https://s3.ap-northeast-2.amazonaws.com/bucket/content.webp";
+        String accessibleThumbnailUrl = "https://s3.ap-northeast-2.amazonaws.com/bucket/content.webp?X-Amz-Signature=test";
+        Content content = buildContent(ContentType.MOVIE, "movie");
+        ReflectionTestUtils.setField(content, "thumbnailUrl", storedThumbnailUrl);
+        ContentStats stats = buildStats(content, new BigDecimal("4.50"), 10, 200);
+
+        given(contentRepository.findById(content.getId())).willReturn(Optional.of(content));
+        given(contentStatsRepository.findById(content.getId())).willReturn(Optional.of(stats));
+        given(contentTagRepository.findTagNamesByContentId(content.getId())).willReturn(List.of("action"));
+        given(fileStorageService.toAccessibleUrl(storedThumbnailUrl)).willReturn(accessibleThumbnailUrl);
+
+        ContentDto result = contentService.getContent(content.getId());
+
+        assertThat(result.thumbnailUrl()).isEqualTo(accessibleThumbnailUrl);
+        then(fileStorageService).should().toAccessibleUrl(storedThumbnailUrl);
+    }
+
     // --- getContents ---
 
     @Test
