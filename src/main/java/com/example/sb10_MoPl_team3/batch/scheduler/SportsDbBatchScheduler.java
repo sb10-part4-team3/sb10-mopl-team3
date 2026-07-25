@@ -25,12 +25,12 @@ public class SportsDbBatchScheduler {
   @Qualifier("sportsDbPastEventsSyncJob")
   private final Job sportsDbPastEventsSyncJob;
 
-  @Scheduled(cron = "${batch.schedule.sportsdb-next:0 30 3 * * *}")
+  @Scheduled(cron = "${batch.schedule.sportsdb-next:0 30 3 * * *}", zone = "Asia/Seoul")
   public void runSportsDbNextEventsSyncJob() {
     run(sportsDbNextEventsSyncJob);
   }
 
-  @Scheduled(cron = "${batch.schedule.sportsdb-past:0 45 3 * * *}")
+  @Scheduled(cron = "${batch.schedule.sportsdb-past:0 45 3 * * *}", zone = "Asia/Seoul")
   public void runSportsDbPastEventsSyncJob() {
     run(sportsDbPastEventsSyncJob);
   }
