@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.tmdb.batch.tv;
 
+import com.example.sb10_MoPl_team3.tmdb.TmdbConstants;
 import com.example.sb10_MoPl_team3.tmdb.client.TmdbApiClient;
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbTvPopularResponse;
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbTvPopularResponse.TmdbTvResult;
@@ -33,12 +34,12 @@ public class TmdbTvItemReader implements ItemReader<TmdbTvResult> {
       return currentIterator.next();
     }
 
-    int pageLimit = (maxPages > 0) ? Math.min(maxPages, totalPages) : totalPages;
+    int pageLimit = resolvePageLimit();
 
     while (currentPage <= pageLimit) {
       TmdbTvPopularResponse response = tmdbApiClient.getPopularTvs(currentPage);
       totalPages = response.totalPages();
-      pageLimit = (maxPages > 0) ? Math.min(maxPages, totalPages) : totalPages;
+      pageLimit = resolvePageLimit();
 
       List<TmdbTvResult> results = response.results();
       if (results == null || results.isEmpty()) {
@@ -55,5 +56,10 @@ public class TmdbTvItemReader implements ItemReader<TmdbTvResult> {
 
     log.info("TMDB TV 수집 완료. 총 {} 페이지 처리", currentPage - 1);
     return null;
+  }
+
+  private int resolvePageLimit() {
+    int limit = Math.min(totalPages, TmdbConstants.MAX_PAGE);
+    return (maxPages > 0) ? Math.min(maxPages, limit) : limit;
   }
 }

@@ -51,6 +51,21 @@ class TmdbMovieItemReaderTest {
     then(tmdbApiClient).should(never()).getPopularMovies(2);
   }
 
+  @Test
+  void read_TMDB_최대_페이지인_500을_초과하면_totalPages와_무관하게_더_이상_요청하지_않는다() {
+    TmdbMovieItemReader reader = new TmdbMovieItemReader(tmdbApiClient);
+    ReflectionTestUtils.setField(reader, "currentPage", 500);
+    ReflectionTestUtils.setField(reader, "totalPages", 100000);
+
+    given(tmdbApiClient.getPopularMovies(500)).willReturn(pageResponse(500, 100000, movie(1)));
+
+    assertThat(reader.read().id()).isEqualTo(1L);
+    assertThat(reader.read()).isNull();
+
+    then(tmdbApiClient).should().getPopularMovies(500);
+    then(tmdbApiClient).should(never()).getPopularMovies(501);
+  }
+
   private TmdbMoviePopularResponse pageResponse(int page, int totalPages, TmdbMovieResult... results) {
     return new TmdbMoviePopularResponse(page, List.of(results), totalPages, results.length);
   }

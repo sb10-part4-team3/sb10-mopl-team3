@@ -67,6 +67,21 @@ class TmdbTvItemReaderTest {
     then(tmdbApiClient).should(never()).getPopularTvs(2);
   }
 
+  @Test
+  void read_TMDB_최대_페이지인_500을_초과하면_totalPages와_무관하게_더_이상_요청하지_않는다() {
+    TmdbTvItemReader reader = new TmdbTvItemReader(tmdbApiClient);
+    ReflectionTestUtils.setField(reader, "currentPage", 500);
+    ReflectionTestUtils.setField(reader, "totalPages", 100000);
+
+    given(tmdbApiClient.getPopularTvs(500)).willReturn(pageResponse(500, 100000, tv(1)));
+
+    assertThat(reader.read().id()).isEqualTo(1L);
+    assertThat(reader.read()).isNull();
+
+    then(tmdbApiClient).should().getPopularTvs(500);
+    then(tmdbApiClient).should(never()).getPopularTvs(501);
+  }
+
   private TmdbTvPopularResponse pageResponse(int page, int totalPages, TmdbTvResult... results) {
     return new TmdbTvPopularResponse(page, List.of(results), totalPages, results.length);
   }
