@@ -25,12 +25,12 @@ public class TmdbBatchScheduler {
   @Qualifier("tmdbTvSyncJob")
   private final Job tmdbTvSyncJob;
 
-  @Scheduled(cron = "${batch.schedule.tmdb-movie:0 0 3 * * *}")
+  @Scheduled(cron = "${batch.schedule.tmdb-movie:0 0 3 * * *}", zone = "Asia/Seoul")
   public void runTmdbMovieSyncJob() {
     run(tmdbMovieSyncJob);
   }
 
-  @Scheduled(cron = "${batch.schedule.tmdb-tv:0 15 3 * * *}")
+  @Scheduled(cron = "${batch.schedule.tmdb-tv:0 15 3 * * *}", zone = "Asia/Seoul")
   public void runTmdbTvSyncJob() {
     run(tmdbTvSyncJob);
   }
