@@ -1,5 +1,6 @@
 package com.example.sb10_MoPl_team3.tmdb.batch.movie;
 
+import com.example.sb10_MoPl_team3.tmdb.TmdbConstants;
 import com.example.sb10_MoPl_team3.tmdb.client.TmdbApiClient;
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbMoviePopularResponse;
 import com.example.sb10_MoPl_team3.tmdb.dto.TmdbMoviePopularResponse.TmdbMovieResult;
@@ -33,12 +34,12 @@ public class TmdbMovieItemReader implements ItemReader<TmdbMovieResult> {
       return currentIterator.next();
     }
 
-    int pageLimit = (maxPages > 0) ? Math.min(maxPages, totalPages) : totalPages;
+    int pageLimit = resolvePageLimit();
 
     while (currentPage <= pageLimit) {
       TmdbMoviePopularResponse response = tmdbApiClient.getPopularMovies(currentPage);
       totalPages = response.totalPages();
-      pageLimit = (maxPages > 0) ? Math.min(maxPages, totalPages) : totalPages;
+      pageLimit = resolvePageLimit();
 
       List<TmdbMovieResult> results = response.results();
       currentIterator = results.iterator();
@@ -51,5 +52,10 @@ public class TmdbMovieItemReader implements ItemReader<TmdbMovieResult> {
 
     log.info("TMDB 영화 수집 완료. 총 {} 페이지 처리", currentPage - 1);
     return null;
+  }
+
+  private int resolvePageLimit() {
+    int limit = Math.min(totalPages, TmdbConstants.MAX_PAGE);
+    return (maxPages > 0) ? Math.min(maxPages, limit) : limit;
   }
 }
