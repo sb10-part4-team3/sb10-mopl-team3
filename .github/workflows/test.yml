@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - dev
+      - 'release/**'
 permissions:
   contents: read
 
@@ -65,9 +66,9 @@ jobs:
           files: build/reports/jacoco/test/jacocoTestReport.xml
           fail_ci_if_error: true
 
-  deploy-dev:
-    name: Deploy dev to Amazon ECS
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+  deploy-release:
+    name: Deploy release to Amazon ECS
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')
     needs: test
     runs-on: ubuntu-latest
     environment: dev
