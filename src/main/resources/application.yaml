@@ -1,3 +1,137 @@
 spring:
+  config:
+    import: optional:file:.env[.properties]
+
   application:
     name: sb10-MoPl-team3
+
+  datasource:
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:mopl}
+    username: ${POSTGRES_USER:mopl}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:mopl-notification}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.example.sb10_MoPl_team3.notification.*,com.example.sb10_MoPl_team3.notification.kafka.*
+
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
+
+batch:
+  schedule:
+    enabled: ${BATCH_SCHEDULE_ENABLED:true}
+    tmdb-movie: ${BATCH_SCHEDULE_TMDB_MOVIE:0 0 3 * * *}
+    tmdb-tv: ${BATCH_SCHEDULE_TMDB_TV:0 15 3 * * *}
+    sportsdb-next: ${BATCH_SCHEDULE_SPORTSDB_NEXT:0 30 3 * * *}
+    sportsdb-past: ${BATCH_SCHEDULE_SPORTSDB_PAST:0 45 3 * * *}
+
+tmdb:
+  base-url: https://api.themoviedb.org/3
+  access-token: ${TMDB_ACCESS_TOKEN:}
+
+
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET}
+    region: ${AWS_REGION}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY_ID}
+      secret-key: ${AWS_SECRET_ACCESS_KEY}
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:1h}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:7d}
+  issuer: ${JWT_ISSUER:mopl}
+
+admin:
+  account:
+    email: ${ADMIN_EMAIL}
+    password: ${ADMIN_PASSWORD}
+    name: ${ADMIN_NAME:Admin}
+
+auth:
+  refresh-token-cookie:
+    secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
+
+  password-reset-mail:
+    mode: ${PASSWORD_RESET_MAIL_MODE:log}
+    from: ${MAIL_FROM:no-reply@mopl.local}
+
+oauth:
+  enabled: ${OAUTH_ENABLED:false}
+  redirect:
+    success-uri: ${OAUTH_SUCCESS_REDIRECT_URI:https://moduplaylist.site/}
+    failure-uri: ${OAUTH_FAILURE_REDIRECT_URI:https://moduplaylist.site/#/sign-in}
+
+sportsdb:
+  base-url: https://www.thesportsdb.com/api/v1/json
+  api-key: ${SPORTS_DB_API_KEY:}
+  target-league-ids:
+    - 4328  # English Premier League
+    - 4335  # Spanish La Liga
+    - 4331  # German Bundesliga
+    - 4332  # Italian Serie A
+    - 4334  # French Ligue 1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,caches,metrics
+
+notification:
+  kafka:
+    fanout:
+      consumer-group: ${NOTIFICATION_FANOUT_CONSUMER_GROUP:mopl-notification-fanout}
+      retry:
+        max-attempts: ${NOTIFICATION_FANOUT_RETRY_MAX_ATTEMPTS:3}
+        interval-ms: ${NOTIFICATION_FANOUT_RETRY_INTERVAL_MS:1000}
+
+watching-session:
+  redis:
+    pubsub:
+      enabled: ${WATCHING_SESSION_REDIS_PUBSUB_ENABLED:true}
+  presence:
+    ttl: ${WATCHING_SESSION_PRESENCE_TTL:30s}
+    heartbeat-interval-ms: ${WATCHING_SESSION_PRESENCE_HEARTBEAT_INTERVAL_MS:10000}
+    cleanup:
+      enabled: ${WATCHING_SESSION_PRESENCE_CLEANUP_ENABLED:true}
+      interval-ms: ${WATCHING_SESSION_PRESENCE_CLEANUP_INTERVAL_MS:30000}

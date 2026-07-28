@@ -1,0 +1,96 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Application HTTP requests / sec",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(http_server_requests_seconds_count{job=\"mopl-app\"}[1m]))", "legendFormat": "requests/s", "refId": "A" }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Application HTTP p95",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"mopl-app\"}[5m])))", "legendFormat": "p95", "refId": "A" }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "JVM heap usage",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
+      "targets": [
+        { "expr": "sum(jvm_memory_used_bytes{job=\"mopl-app\",area=\"heap\"}) / sum(jvm_memory_max_bytes{job=\"mopl-app\",area=\"heap\"})", "legendFormat": "heap", "refId": "A" }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Process CPU usage",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
+      "targets": [
+        { "expr": "process_cpu_usage{job=\"mopl-app\"}", "legendFormat": "process", "refId": "A" }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Hikari connections",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "hikaricp_connections_active{job=\"mopl-app\"}", "legendFormat": "active", "refId": "A" },
+        { "expr": "hikaricp_connections_pending{job=\"mopl-app\"}", "legendFormat": "pending", "refId": "B" },
+        { "expr": "hikaricp_connections_idle{job=\"mopl-app\"}", "legendFormat": "idle", "refId": "C" }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "k6 request duration",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "targets": [
+        { "expr": "k6_http_req_duration_p95", "legendFormat": "p95 {{testid}}", "refId": "A" },
+        { "expr": "k6_http_req_duration_p99", "legendFormat": "p99 {{testid}}", "refId": "B" }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "k6 virtual users",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "k6_vus", "legendFormat": "VUs {{testid}}", "refId": "A" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+    },
+    {
+      "type": "timeseries",
+      "title": "k6 failed request rate",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0 }, "overrides": [] },
+      "targets": [
+        { "expr": "k6_http_req_failed_rate", "legendFormat": "failed {{testid}}", "refId": "A" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 41,
+  "tags": ["mopl", "k6", "spring-boot"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "browser",
+  "title": "MoPl Load Test Overview",
+  "uid": "mopl-load-test",
+  "version": 1
+}

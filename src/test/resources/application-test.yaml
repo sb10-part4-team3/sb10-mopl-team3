@@ -1,0 +1,54 @@
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:mopl-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
+
+aws:
+  s3:
+    bucket: test-bucket
+    region: us-east-1
+
+jwt:
+  secret: dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtcHJvdmlkZXItdGVzdC1tdXN0LWJlLWxvbmc=
+  access-token-expiration: 1h
+  refresh-token-expiration: 7d
+  issuer: mopl-test
+
+admin:
+  account:
+    email: admin@test.com
+    password: adminPassword1!
+    name: Admin
+
+auth:
+  refresh-token-cookie:
+    secure: false
+
+  password-reset-mail:
+    from: no-reply@mopl.test
+
+batch:
+  schedule:
+    enabled: false
+
+sse:
+  redis:
+    pubsub:
+      enabled: false
+
+watching-session:
+  redis:
+    pubsub:
+      enabled: false
+  presence:
+    cleanup:
+      enabled: false

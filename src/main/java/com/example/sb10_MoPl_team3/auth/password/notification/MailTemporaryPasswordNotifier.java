@@ -1,0 +1,56 @@
+package com.example.sb10_MoPl_team3.auth.password.notification;
+
+import com.example.sb10_MoPl_team3.auth.password.config.PasswordResetMailProperties;
+import com.example.sb10_MoPl_team3.auth.password.exception.TemporaryPasswordSendFailedException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.mail.MailException;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.stereotype.Component;
+
+@Component
+@ConditionalOnProperty(
+        prefix = "auth.password-reset-mail",
+        name = "mode",
+        havingValue = "smtp"
+)
+@RequiredArgsConstructor
+public class MailTemporaryPasswordNotifier implements TemporaryPasswordNotifier {
+
+    private static final String SUBJECT = "[모두의 플리] 임시 비밀번호 안내";
+
+    private final JavaMailSender mailSender;
+    private final PasswordResetMailProperties properties;
+
+    @Override
+    public void send(String email, String temporaryPassword) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(properties.from());
+        message.setTo(email);
+        message.setSubject(SUBJECT);
+        message.setText(createBody(temporaryPassword));
+
+        try {
+            mailSender.send(message);
+        } catch (MailException exception) {
+            throw new TemporaryPasswordSendFailedException(exception);
+        }
+    }
+
+    private String createBody(String temporaryPassword) {
+        return """
+                안녕하세요. 모두의 플리입니다.
+
+                임시 비밀번호가 발급되었습니다.
+
+                임시 비밀번호: %s
+
+                임시 비밀번호는 발급 후 3분 동안만 사용할 수 있습니다.
+                비밀번호를 재설정하면 임시 비밀번호는 더 이상 사용할 수 없습니다.
+                로그인 후 새 비밀번호로 변경해 주세요.
+
+                감사합니다.
+                """.formatted(temporaryPassword);
+    }
+}

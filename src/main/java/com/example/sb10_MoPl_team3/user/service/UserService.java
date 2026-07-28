@@ -1,0 +1,216 @@
+package com.example.sb10_MoPl_team3.user.service;
+
+import com.example.sb10_MoPl_team3.auth.entity.AuthSession;
+import com.example.sb10_MoPl_team3.auth.password.service.PasswordResetService;
+import com.example.sb10_MoPl_team3.auth.repository.AuthSessionRepository;
+import com.example.sb10_MoPl_team3.auth.service.AuthSessionLockManager;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.global.file.FileStorageService;
+import com.example.sb10_MoPl_team3.global.security.UserAuthorizationService;
+import com.example.sb10_MoPl_team3.user.config.AdminAccountProperties;
+import com.example.sb10_MoPl_team3.user.dto.request.UserCreateRequest;
+import com.example.sb10_MoPl_team3.user.dto.request.UserUpdateRequest;
+import com.example.sb10_MoPl_team3.user.dto.response.UserDto;
+import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
+import com.example.sb10_MoPl_team3.user.event.UserProfileUpdatedEvent;
+import com.example.sb10_MoPl_team3.user.event.UserWithdrawnEvent;
+import com.example.sb10_MoPl_team3.user.exception.DuplicatedEmailException;
+import com.example.sb10_MoPl_team3.user.exception.UserNotFoundException;
+import com.example.sb10_MoPl_team3.user.mapper.UserMapper;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
+import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
+import com.example.sb10_MoPl_team3.user.dto.request.UserPasswordUpdateRequest;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.UUID;
+
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class UserService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final FileStorageService fileStorageService;
+    private final UserAuthorizationService userAuthorizationService;
+    private final AuthSessionRepository authSessionRepository;
+    private final AuthSessionLockManager authSessionLockManager;
+    private final Clock clock;
+    private final ApplicationEventPublisher eventPublisher;
+    private final PasswordResetService passwordResetService;
+    private final AdminAccountProperties adminAccountProperties;
+    private final UserResponseMapper userResponseMapper;
+
+    @Transactional
+    public UserDto createUser(UserCreateRequest request) {
+        if (userRepository.existsByEmail(request.email())) {
+            throw new DuplicatedEmailException();
+        }
+
+        User user = new User(
+                request.email(),
+                request.name(),
+                passwordEncoder.encode(request.password()),
+                null,
+                UserRole.USER
+        );
+
+        try {
+            return userResponseMapper.toDto(userRepository.save(user));
+        } catch (DataIntegrityViolationException exception) {
+            throw new DuplicatedEmailException();
+        }
+    }
+
+    public UserDto findUser(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        if (user.getStatus() == UserStatus.WITHDRAWN) {
+            throw new UserNotFoundException(userId);
+        }
+
+        return userResponseMapper.toDto(user);
+    }
+
+    @Transactional
+    public UserDto updateUser(UUID userId, UserUpdateRequest request, MultipartFile image) {
+        userAuthorizationService.validateSelf(userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        String previousProfileImageUrl = user.getProfileImageUrl();
+        String uploadedProfileImageUrl = null;
+
+        try {
+            if (image != null && !image.isEmpty()) {
+                uploadedProfileImageUrl = fileStorageService.upload(image);
+                registerProfileImageCleanup(previousProfileImageUrl, uploadedProfileImageUrl);
+            }
+
+            user.updateProfile(request.name(), uploadedProfileImageUrl);
+            userRepository.flush();
+            eventPublisher.publishEvent(
+                    new UserProfileUpdatedEvent(UserMapper.toSummary(user))
+            );
+
+            return userResponseMapper.toDto(user);
+        } catch (RuntimeException exception) {
+            if (uploadedProfileImageUrl != null
+                    && !TransactionSynchronizationManager.isSynchronizationActive()) {
+                fileStorageService.deleteByUrl(uploadedProfileImageUrl);
+            }
+
+            throw exception;
+        }
+    }
+
+    @Transactional
+    public void changePassword(UUID userId, UserPasswordUpdateRequest request) {
+        userAuthorizationService.validateSelf(userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        user.changePassword(passwordEncoder.encode(request.password()));
+        passwordResetService.discardTemporaryPasswords(user);
+    }
+
+    @Transactional
+    public void withdrawUser(UUID userId) {
+        userAuthorizationService.validateSelf(userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        if (isSystemAdmin(user)) {
+            throw new BusinessException(ErrorCode.SYSTEM_ADMIN_WITHDRAW_NOT_ALLOWED);
+        }
+
+        user.changeStatus(UserStatus.WITHDRAWN);
+
+        revokeUserSessions(userId);
+        eventPublisher.publishEvent(new UserWithdrawnEvent(userId));
+    }
+
+    private boolean isSystemAdmin(User user) {
+        return user.getEmail().equalsIgnoreCase(adminAccountProperties.email());
+    }
+
+    private void registerProfileImageCleanup(
+            String previousProfileImageUrl,
+            String uploadedProfileImageUrl
+    ) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                deletePreviousProfileImage(previousProfileImageUrl, uploadedProfileImageUrl);
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status == STATUS_ROLLED_BACK) {
+                    fileStorageService.deleteByUrl(uploadedProfileImageUrl);
+                }
+            }
+        });
+    }
+
+    private void revokeUserSessions(UUID userId) {
+        Instant now = Instant.now(clock);
+
+        Iterable<AuthSession> sessions = authSessionRepository.findAllByUserId(userId);
+
+        for (AuthSession session : sessions) {
+            revokeSessionIfOwnedBy(session.getId(), userId, now);
+        }
+    }
+
+    private void revokeSessionIfOwnedBy(UUID sessionId, UUID userId, Instant now) {
+        authSessionLockManager.executeWithLock(sessionId, () -> {
+            AuthSession currentSession = authSessionRepository.findById(sessionId)
+                    .orElse(null);
+
+            if (currentSession == null || !currentSession.getUserId().equals(userId)) {
+                return;
+            }
+
+            currentSession.revoke(now);
+            authSessionRepository.save(currentSession);
+        });
+    }
+
+    private void deletePreviousProfileImage(
+            String previousProfileImageUrl,
+            String uploadedProfileImageUrl
+    ) {
+        if (previousProfileImageUrl == null || previousProfileImageUrl.isBlank()) {
+            return;
+        }
+
+        if (previousProfileImageUrl.equals(uploadedProfileImageUrl)) {
+            return;
+        }
+
+        fileStorageService.deleteByUrl(previousProfileImageUrl);
+    }
+}

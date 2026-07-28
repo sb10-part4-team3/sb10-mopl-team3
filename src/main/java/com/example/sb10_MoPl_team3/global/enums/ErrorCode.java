@@ -8,13 +8,44 @@ public enum ErrorCode {
 
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "입력값이 올바르지 않습니다."),
     INVALID_PARAMETER_TYPE(HttpStatus.BAD_REQUEST, "요청 파라미터 타입이 올바르지 않습니다."),
+    INVALID_CURSOR(HttpStatus.BAD_REQUEST, "커서 값이 올바르지 않습니다."),
+    INVALID_SORT_DIRECTION(HttpStatus.BAD_REQUEST, "정렬값이 올바르지 않습니다."),
 
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다."),
+
+    // 사용자 & 인증
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 사용 중인 이메일입니다."),
     INVALID_CREDENTIAL(HttpStatus.UNAUTHORIZED, "인증 정보가 올바르지 않습니다."),
+    TEMPORARY_PASSWORD_SEND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "임시 비밀번호 발송에 실패했습니다."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
 
-    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다.");
+    SELF_ROLE_CHANGE_NOT_ALLOWED(HttpStatus.FORBIDDEN, "자기 자신의 권한은 변경할 수 없습니다."),
+    SYSTEM_ADMIN_ROLE_CHANGE_NOT_ALLOWED(HttpStatus.FORBIDDEN, "시스템 관리자 계정의 권한은 변경할 수 없습니다."),
+    SYSTEM_ADMIN_LOCK_NOT_ALLOWED(HttpStatus.FORBIDDEN, "시스템 관리자 계정은 잠글 수 없습니다."),
+    SYSTEM_ADMIN_WITHDRAW_NOT_ALLOWED(HttpStatus.FORBIDDEN, "시스템 관리자 계정은 탈퇴할 수 없습니다."),
+
+    // 알림
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림을 찾을 수 없습니다."),
+
+    // 리뷰
+    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "리뷰를 찾을 수 없습니다."),
+    DUPLICATE_REVIEW(HttpStatus.CONFLICT, "이미 해당 콘텐츠에 활성 리뷰를 작성했습니다."),
+
+    // 콘텐츠
+    CONTENT_NOT_FOUND(HttpStatus.NOT_FOUND, "콘텐츠를 찾을 수 없습니다."),
+    INVALID_CONTENT_TYPE(HttpStatus.BAD_REQUEST, "콘텐츠 타입이 올바르지 않습니다."),
+
+    // 대화
+    CONVERSATION_NOT_FOUND(HttpStatus.NOT_FOUND, "대화방을 찾을 수 없습니다."),
+    DIRECT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "쪽지를 찾을 수 없습니다."),
+
+    // 플레이리스트
+    PLAYLIST_NOT_FOUND(HttpStatus.NOT_FOUND, "플레이리스트를 찾을 수 없습니다."),
+
+    // 팔로우
+    FOLLOW_NOT_FOUND(HttpStatus.NOT_FOUND, "팔로우를 찾을 수 없습니다."),;
+
 
     private final HttpStatus status;
     private final String message;

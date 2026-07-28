@@ -13,11 +13,23 @@ public class BusinessException extends RuntimeException {
     private final Map<String, Object> details;
 
     public BusinessException(ErrorCode errorCode) {
-        this(errorCode, Map.of());
+        this(errorCode, Map.of(), null);
     }
 
     public BusinessException(ErrorCode errorCode, Map<String, Object> details) {
-        super(Objects.requireNonNull(errorCode, "errorCode must not be null").getMessage());
+        this(errorCode, details, null);
+    }
+
+    public BusinessException(ErrorCode errorCode, Throwable cause) {
+        this(errorCode, Map.of(), cause);
+    }
+
+    public BusinessException(
+            ErrorCode errorCode,
+            Map<String, Object> details,
+            Throwable cause
+    ) {
+        super(Objects.requireNonNull(errorCode, "errorCode must not be null").getMessage(), cause);
         this.errorCode = errorCode;
         this.details = details == null ? Map.of() : Map.copyOf(details);
     }

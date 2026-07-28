@@ -1,0 +1,108 @@
+package com.example.sb10_MoPl_team3.auth.controller;
+
+import com.example.sb10_MoPl_team3.auth.dto.AuthTokenResult;
+import com.example.sb10_MoPl_team3.auth.dto.request.SignInRequest;
+import com.example.sb10_MoPl_team3.auth.dto.response.JwtDto;
+import com.example.sb10_MoPl_team3.auth.exception.InvalidRefreshTokenException;
+import com.example.sb10_MoPl_team3.auth.service.AuthService;
+import com.example.sb10_MoPl_team3.global.security.AuthUser;
+import com.example.sb10_MoPl_team3.global.openapi.ApiErrorResponses;
+import com.example.sb10_MoPl_team3.global.security.jwt.JwtProperties;
+import jakarta.validation.constraints.NotBlank;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/auth")
+@Tag(name = "인증 관리", description = "로그인, 토큰 재발급 및 로그아웃 API")
+public class AuthController {
+
+    private static final String REFRESH_TOKEN_COOKIE_NAME = "REFRESH_TOKEN";
+    private static final String AUTH_COOKIE_PATH = "/api/auth";
+
+    private final AuthService authService;
+    private final JwtProperties jwtProperties;
+
+    @Value("${auth.refresh-token-cookie.secure:true}")
+    private boolean refreshTokenCookieSecure;
+
+    @PostMapping(value = "/sign-in", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    @Operation(summary = "로그인", description = "이메일과 비밀번호로 로그인하고 JWT 액세스 토큰을 발급합니다.")
+    @ApiErrorResponses.Common
+    public ResponseEntity<JwtDto> signin(
+            @NotBlank @RequestParam("username") String username,
+            @NotBlank @RequestParam("password") String password
+    ) {
+        return issueToken(new SignInRequest(username, password));
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "토큰 재발급", description = "HttpOnly 쿠키의 리프레시 토큰으로 액세스 토큰을 재발급합니다.")
+    @ApiErrorResponses.Common
+    public ResponseEntity<JwtDto> refresh(
+            @CookieValue(value = REFRESH_TOKEN_COOKIE_NAME, required = false) String refreshToken
+    ) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new InvalidRefreshTokenException();
+        }
+
+        AuthTokenResult result = authService.reissueToken(refreshToken);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.SET_COOKIE, createRefreshTokenCookie(result.refreshToken()).toString())
+                .body(result.jwtDto());
+    }
+
+    @PostMapping("/sign-out")
+    @Operation(summary = "로그아웃", description = "인증 세션을 종료하고 리프레시 토큰 쿠키를 만료시킵니다.")
+    @ApiErrorResponses.Common
+    @ApiResponse(responseCode = "204", description = "로그아웃 성공")
+    public ResponseEntity<Void> signout(
+            @AuthenticationPrincipal AuthUser authUser
+    ) {
+        authService.signout(authUser);
+
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, expireRefreshTokenCookie().toString())
+                .build();
+    }
+
+    private ResponseEntity<JwtDto> issueToken(SignInRequest request) {
+        AuthTokenResult result = authService.signin(request);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.SET_COOKIE, createRefreshTokenCookie(result.refreshToken()).toString())
+                .body(result.jwtDto());
+    }
+
+    private ResponseCookie createRefreshTokenCookie(String refreshToken) {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
+                .httpOnly(true)
+                .secure(refreshTokenCookieSecure)
+                .path(AUTH_COOKIE_PATH)
+                .maxAge(jwtProperties.refreshTokenExpiration())
+                .sameSite("Lax")
+                .build();
+    }
+
+    private ResponseCookie expireRefreshTokenCookie() {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(refreshTokenCookieSecure)
+                .path(AUTH_COOKIE_PATH)
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+    }
+}

@@ -1,0 +1,143 @@
+package com.example.sb10_MoPl_team3.user.bootstrap;
+
+import com.example.sb10_MoPl_team3.user.config.AdminAccountProperties;
+import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.user.enums.UserRole;
+import com.example.sb10_MoPl_team3.user.enums.UserStatus;
+import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.DefaultApplicationArguments;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
+
+@ExtendWith(MockitoExtension.class)
+class AdminAccountInitializerTest {
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Test
+    @DisplayName("시스템 관리자 계정이 없으면 기본 관리자 계정을 생성한다")
+    void run_createSystemAdmin() throws Exception {
+        // given
+        AdminAccountProperties properties = new AdminAccountProperties(
+                "admin@mopl.com",
+                "adminPassword1!",
+                "Admin"
+        );
+
+        AdminAccountInitializer initializer = new AdminAccountInitializer(
+                userRepository,
+                passwordEncoder,
+                properties
+        );
+
+        given(userRepository.findByEmail(properties.email())).willReturn(Optional.empty());
+        given(passwordEncoder.encode(properties.password())).willReturn("encoded-admin-password");
+
+        // when
+        initializer.run(new DefaultApplicationArguments());
+
+        // then
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        then(userRepository).should().save(userCaptor.capture());
+
+        User savedUser = userCaptor.getValue();
+
+        assertThat(savedUser.getEmail()).isEqualTo("admin@mopl.com");
+        assertThat(savedUser.getName()).isEqualTo("Admin");
+        assertThat(savedUser.getPassword()).isEqualTo("encoded-admin-password");
+        assertThat(savedUser.getRole()).isEqualTo(UserRole.ADMIN);
+        assertThat(savedUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("시스템 관리자 계정이 이미 있으면 새로 생성하지 않는다")
+    void run_systemAdminAlreadyExists() throws Exception {
+        // given
+        AdminAccountProperties properties = new AdminAccountProperties(
+                "admin@mopl.com",
+                "adminPassword1!",
+                "Admin"
+        );
+
+        User admin = new User(
+                properties.email(),
+                properties.name(),
+                "encoded-admin-password",
+                null,
+                UserRole.ADMIN
+        );
+
+        AdminAccountInitializer initializer = new AdminAccountInitializer(
+                userRepository,
+                passwordEncoder,
+                properties
+        );
+
+        given(userRepository.findByEmail(properties.email())).willReturn(Optional.of(admin));
+
+        // when
+        initializer.run(new DefaultApplicationArguments());
+
+        // then
+        assertThat(admin.getRole()).isEqualTo(UserRole.ADMIN);
+        assertThat(admin.getStatus()).isEqualTo(UserStatus.ACTIVE);
+
+        then(passwordEncoder).should(never()).encode(properties.password());
+        then(userRepository).should(never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("시스템 관리자 계정이 비활성 상태이면 ADMIN ACTIVE 상태로 복구한다")
+    void run_restoreSystemAdmin() throws Exception {
+        // given
+        AdminAccountProperties properties = new AdminAccountProperties(
+                "admin@mopl.com",
+                "adminPassword1!",
+                "Admin"
+        );
+
+        User admin = new User(
+                properties.email(),
+                properties.name(),
+                "encoded-admin-password",
+                null,
+                UserRole.USER
+        );
+        admin.changeStatus(UserStatus.WITHDRAWN);
+
+        AdminAccountInitializer initializer = new AdminAccountInitializer(
+                userRepository,
+                passwordEncoder,
+                properties
+        );
+
+        given(userRepository.findByEmail(properties.email())).willReturn(Optional.of(admin));
+
+        // when
+        initializer.run(new DefaultApplicationArguments());
+
+        // then
+        assertThat(admin.getRole()).isEqualTo(UserRole.ADMIN);
+        assertThat(admin.getStatus()).isEqualTo(UserStatus.ACTIVE);
+
+        then(passwordEncoder).should(never()).encode(properties.password());
+        then(userRepository).should(never()).save(any(User.class));
+    }
+}

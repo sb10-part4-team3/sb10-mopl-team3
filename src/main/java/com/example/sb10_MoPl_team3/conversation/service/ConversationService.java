@@ -1,0 +1,288 @@
+package com.example.sb10_MoPl_team3.conversation.service;
+
+import com.example.sb10_MoPl_team3.conversation.dto.request.ConversationCreateRequest;
+import com.example.sb10_MoPl_team3.conversation.dto.request.ConversationFindAllRequest;
+import com.example.sb10_MoPl_team3.conversation.dto.response.CursorResponseConversationDto;
+import com.example.sb10_MoPl_team3.conversation.dto.response.ConversationDto;
+import com.example.sb10_MoPl_team3.conversation.entity.Conversation;
+import com.example.sb10_MoPl_team3.conversation.mapper.ConversationMapper;
+import com.example.sb10_MoPl_team3.conversation.repository.ConversationRepository;
+import com.example.sb10_MoPl_team3.directmessage.dto.DirectMessageDto;
+import com.example.sb10_MoPl_team3.directmessage.mapper.DirectMessageMapper;
+import com.example.sb10_MoPl_team3.directmessage.repository.DirectMessageRepository;
+import com.example.sb10_MoPl_team3.global.enums.ErrorCode;
+import com.example.sb10_MoPl_team3.global.exception.BusinessException;
+import com.example.sb10_MoPl_team3.user.entity.User;
+import com.example.sb10_MoPl_team3.user.mapper.UserResponseMapper;
+import com.example.sb10_MoPl_team3.user.repository.UserRepository;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+
+@Service
+@RequiredArgsConstructor
+public class ConversationService {
+
+    private final ConversationRepository conversationRepository;
+    private final DirectMessageRepository directMessageRepository;
+    private final UserRepository userRepository;
+    private final PlatformTransactionManager transactionManager;
+    private final UserResponseMapper userResponseMapper;
+
+    @Transactional(readOnly = true)
+    public CursorResponseConversationDto<ConversationDto> findAll(
+        UUID requestUserId,
+        ConversationFindAllRequest request
+    ) {
+        String sortBy = normalizeSortBy(request.sortBy());
+        String sortDirection = normalizeSortDirection(request.sortDirection());
+        boolean ascending = sortDirection.equals("ASCENDING");
+        int limit = normalizeLimit(request.limit());
+        Instant cursor = parseCursor(request.cursor(), request.idAfter());
+        String keyword = normalizeKeyword(request.keywordLike());
+
+        List<Conversation> fetchedConversations = new ArrayList<>(
+            ascending
+                ? conversationRepository.findParticipatingConversationsAsc(
+                    requestUserId,
+                    keyword,
+                    cursor,
+                    request.idAfter(),
+                    PageRequest.of(0, limit + 1)
+                )
+                : conversationRepository.findParticipatingConversationsDesc(
+                    requestUserId,
+                    keyword,
+                    cursor,
+                    request.idAfter(),
+                    PageRequest.of(0, limit + 1)
+                )
+        );
+
+        boolean hasNext = fetchedConversations.size() > limit;
+        List<Conversation> conversations = hasNext
+            ? fetchedConversations.subList(0, limit)
+            : fetchedConversations;
+
+        String nextCursor = null;
+        UUID nextIdAfter = null;
+
+        if (hasNext && !conversations.isEmpty()) {
+            Conversation lastConversation = conversations.get(conversations.size() - 1);
+            nextCursor = lastConversation.getCreatedAt().toString();
+            nextIdAfter = lastConversation.getId();
+        }
+
+        List<UUID> conversationIds = conversations.stream()
+            .map(Conversation::getId)
+            .toList();
+        Map<UUID, DirectMessageDto> latestMessageByConversationId =
+            findLatestMessageByConversationId(conversationIds);
+        Set<UUID> unreadConversationIds =
+            conversationIds.isEmpty()
+                ? Set.of()
+                : directMessageRepository.findUnreadConversationIds(conversationIds, requestUserId);
+
+        List<ConversationDto> data = conversations.stream()
+            .map(conversation -> ConversationMapper.toDto(
+                conversation,
+                requestUserId,
+                latestMessageByConversationId.get(conversation.getId()),
+                unreadConversationIds.contains(conversation.getId()),
+                userResponseMapper
+            ))
+            .toList();
+
+        long totalCount = conversationRepository.countParticipatingConversations(
+            requestUserId,
+            keyword
+        );
+
+        return new CursorResponseConversationDto<>(
+            data,
+            nextCursor,
+            nextIdAfter,
+            hasNext,
+            totalCount,
+            sortBy,
+            sortDirection
+        );
+    }
+
+    public ConversationDto create(UUID requestUserId, ConversationCreateRequest request) {
+        UUID withUserId = request.withUserId();
+
+        if (requestUserId.equals(withUserId)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        return findConversation(requestUserId, withUserId)
+            .orElseGet(() -> createOrFindConversation(requestUserId, withUserId));
+    }
+
+    public ConversationDto findWithUser(UUID requestUserId, UUID userId) {
+        if (requestUserId.equals(userId)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        return findConversation(requestUserId, userId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND));
+    }
+
+    public ConversationDto find(UUID requestUserId, UUID conversationId) {
+        Conversation conversation = conversationRepository.findWithUsersById(conversationId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!isParticipant(conversation, requestUserId)) {
+            throw new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND);
+        }
+
+        return toDto(conversation, requestUserId);
+    }
+
+    private ConversationDto createOrFindConversation(UUID requestUserId, UUID withUserId) {
+        try {
+            return createNewConversation(requestUserId, withUserId);
+        } catch (DataIntegrityViolationException exception) {
+            return findConversation(requestUserId, withUserId)
+                .orElseThrow(() -> exception);
+        }
+    }
+
+    private Optional<ConversationDto> findConversation(
+        UUID requestUserId,
+        UUID withUserId
+    ) {
+        return conversationRepository.findByUserIds(requestUserId, withUserId)
+            .map(conversation -> toDto(conversation, requestUserId));
+    }
+
+    private boolean isParticipant(Conversation conversation, UUID userId) {
+        return conversation.getUser1().getId().equals(userId)
+            || conversation.getUser2().getId().equals(userId);
+    }
+
+    private String normalizeSortBy(String sortBy) {
+        if (sortBy == null || sortBy.isBlank() || "createdAt".equalsIgnoreCase(sortBy)) {
+            return "createdAt";
+        }
+
+        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    private String normalizeSortDirection(String sortDirection) {
+        if (sortDirection == null || sortDirection.isBlank()) {
+            return "DESCENDING";
+        }
+
+        String normalized = sortDirection.toUpperCase(Locale.ROOT);
+        if (!normalized.equals("ASCENDING") && !normalized.equals("DESCENDING")) {
+            throw new BusinessException(ErrorCode.INVALID_SORT_DIRECTION);
+        }
+
+        return normalized;
+    }
+
+    private int normalizeLimit(int limit) {
+        if (limit <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        return Math.min(limit, 100);
+    }
+
+    private Instant parseCursor(String cursor, UUID idAfter) {
+        boolean hasCursor = cursor != null && !cursor.isBlank();
+        boolean hasIdAfter = idAfter != null;
+
+        if (hasCursor != hasIdAfter) {
+            throw new BusinessException(ErrorCode.INVALID_CURSOR);
+        }
+
+        if (!hasCursor) {
+            return null;
+        }
+
+        try {
+            return Instant.parse(cursor);
+        } catch (RuntimeException exception) {
+            throw new BusinessException(ErrorCode.INVALID_CURSOR);
+        }
+    }
+
+    private String normalizeKeyword(String keywordLike) {
+        if (keywordLike == null || keywordLike.isBlank()) {
+            return null;
+        }
+
+        return keywordLike.trim();
+    }
+
+    private ConversationDto createNewConversation(UUID requestUserId, UUID withUserId) {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+
+        return transactionTemplate.execute(status -> {
+            User requestUser = findUser(requestUserId);
+            User withUser = findUser(withUserId);
+
+            Conversation conversation = conversationRepository.saveAndFlush(
+                new Conversation(requestUser, withUser)
+            );
+            return toDto(conversation, requestUserId);
+        });
+    }
+
+    private ConversationDto toDto(Conversation conversation, UUID requestUserId) {
+        return ConversationMapper.toDto(
+            conversation,
+            requestUserId,
+            directMessageRepository
+                .findFirstByConversationIdOrderByCreatedAtDescIdDesc(conversation.getId())
+                .map(message -> DirectMessageMapper.toDto(message, userResponseMapper))
+                .orElse(null),
+            directMessageRepository.existsByConversationIdAndReceiverIdAndReadFalse(
+                conversation.getId(),
+                requestUserId
+            ),
+            userResponseMapper
+        );
+    }
+
+    private Map<UUID, DirectMessageDto> findLatestMessageByConversationId(
+        List<UUID> conversationIds
+    ) {
+        if (conversationIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return directMessageRepository.findLatestMessagesByConversationIds(conversationIds).stream()
+            .collect(Collectors.toMap(
+                message -> message.getConversation().getId(),
+                message -> DirectMessageMapper.toDto(message, userResponseMapper),
+                keepFirst(),
+                java.util.LinkedHashMap::new
+            ));
+    }
+
+    private static <T> java.util.function.BinaryOperator<T> keepFirst() {
+        return (first, ignored) -> first;
+    }
+
+    private User findUser(UUID userId) {
+        return userRepository.findById(userId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+}
